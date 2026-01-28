@@ -51,6 +51,17 @@ export const LAWYER_ROLES = [
 
 export type LawyerRole = (typeof LAWYER_ROLES)[number]["value"];
 
+// Source types for scraping
+export const SOURCE_TYPES = [
+  { value: "court_record", label: "Court Record", confidence: 1.0 },
+  { value: "bar_council", label: "Bar Council", confidence: 0.95 },
+  { value: "law_firm", label: "Law Firm Website", confidence: 0.85 },
+  { value: "news", label: "News Article", confidence: 0.7 },
+  { value: "manual", label: "Manual Entry", confidence: 1.0 },
+] as const;
+
+export type SourceType = (typeof SOURCE_TYPES)[number]["value"];
+
 // Card data for listings (serializable for Server -> Client transfer)
 export interface CaseCardData {
   id: string;
@@ -65,6 +76,20 @@ export interface CaseCardData {
   verdictDate: string | null; // ISO string for serialization
   tags: string[];
   ogImage: string | null;
+}
+
+// Lawyer preview for case cards (minimal data for listings)
+export interface CaseLawyerPreview {
+  lawyerId: string;
+  slug: string;
+  name: string;
+  photo: string | null;
+  role: LawyerRole;
+}
+
+// Case card data extended with lawyers for listing pages
+export interface CaseCardDataWithLawyers extends CaseCardData {
+  lawyers: CaseLawyerPreview[];
 }
 
 // Timeline event with optional image

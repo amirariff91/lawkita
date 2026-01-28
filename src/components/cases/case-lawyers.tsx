@@ -30,6 +30,14 @@ const roleLabels: Record<LawyerRole, string> = {
   other: "Other",
 };
 
+// SEO-friendly anchor text patterns for different roles
+const roleAnchorText: Record<LawyerRole, (name: string) => string> = {
+  prosecution: (name) => `${name}, representing the prosecution`,
+  defense: (name) => `${name}, defense attorney`,
+  judge: (name) => `presided by ${name}`,
+  other: (name) => `${name}, legal counsel`,
+};
+
 function LawyerCard({ lawyer }: { lawyer: CaseLawyerWithDetails }) {
   const initials = lawyer.lawyer.name
     .split(" ")
@@ -38,8 +46,15 @@ function LawyerCard({ lawyer }: { lawyer: CaseLawyerWithDetails }) {
     .toUpperCase()
     .slice(0, 2);
 
+  // Generate SEO-friendly anchor text based on role
+  const anchorTitle = roleAnchorText[lawyer.role](lawyer.lawyer.name);
+
   return (
-    <Link href={`/lawyers/${lawyer.lawyer.slug}`}>
+    <Link
+      href={`/lawyers/${lawyer.lawyer.slug}`}
+      title={anchorTitle}
+      aria-label={anchorTitle}
+    >
       <div className="flex items-start gap-3 p-3 rounded-lg border hover:border-primary/20 hover:bg-muted/50 transition-all">
         <div className="relative shrink-0">
           <Avatar className="size-12">

@@ -95,6 +95,10 @@ export const lawyers = pgTable(
     responseRate: decimal("response_rate", { precision: 5, scale: 2 }),
     avgResponseTimeHours: decimal("avg_response_time_hours", { precision: 5, scale: 2 }),
 
+    // Case association opt-out
+    caseAssociationOptOut: boolean("case_association_opt_out").default(false).notNull(),
+    optOutRequestedAt: timestamp("opt_out_requested_at", { mode: "date" }),
+
     // Data Source Tracking
     scrapedData: jsonb("scraped_data"), // Original scraped data for conflict resolution
     lastScrapedAt: timestamp("last_scraped_at", { mode: "date" }),
@@ -220,6 +224,12 @@ export const cases = pgTable(
       enum: ["corruption", "political", "corporate", "criminal", "constitutional", "other"],
     }).notNull(),
 
+    // Case Identifiers (for scraping/matching)
+    caseNumber: text("case_number"), // e.g., "WA-22NCC-233-07/2018"
+    citation: text("citation"), // e.g., "[2020] MLJU 1234"
+    court: text("court"), // e.g., "High Court Kuala Lumpur"
+    alternativeNames: jsonb("alternative_names").$type<string[]>().default([]), // For matching variations
+
     // Status
     status: text("status", { enum: ["ongoing", "concluded", "appeal"] })
       .default("ongoing")
@@ -254,6 +264,7 @@ export const cases = pgTable(
     index("cases_category_idx").on(table.category),
     index("cases_status_idx").on(table.status),
     index("cases_is_published_idx").on(table.isPublished),
+    index("cases_case_number_idx").on(table.caseNumber),
   ]
 );
 
@@ -289,9 +300,21 @@ export const caseLawyers = pgTable(
     }).notNull(),
     roleDescription: text("role_description"), // e.g., "Lead defense counsel"
     isVerified: boolean("is_verified").default(false).notNull(),
+
+    // Scraping metadata
+    confidenceScore: decimal("confidence_score", { precision: 3, scale: 2 }), // 0.00-1.00
+    sourceType: text("source_type", {
+      enum: ["court_record", "news", "bar_council", "law_firm", "manual"],
+    }),
+    sourceUrl: text("source_url"),
+    scrapedAt: timestamp("scraped_at", { mode: "date" }),
+
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
-  (table) => [primaryKey({ columns: [table.caseId, table.lawyerId] })]
+  (table) => [
+    primaryKey({ columns: [table.caseId, table.lawyerId] }),
+    index("case_lawyers_lawyer_id_idx").on(table.lawyerId),
+  ]
 );
 
 export const caseMediaReferences = pgTable("case_media_references", {
@@ -326,6 +349,54 @@ export const caseSuggestions = pgTable("case_suggestions", {
   reviewedBy: text("reviewed_by").references(() => user.id),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
+
+// ============================================================================
+// SCRAPING LOGS
+// ============================================================================
+
+export const scrapingLogs = pgTable(
+  "scraping_logs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    // Job identification
+    jobType: text("job_type", {
+      enum: ["case_lawyer", "lawyer_profile", "case_details", "news_extraction"],
+    }).notNull(),
+    sourceType: text("source_type", {
+      enum: ["court_record", "news", "bar_council", "law_firm", "wikipedia"],
+    }).notNull(),
+    sourceUrl: text("source_url"),
+
+    // Status
+    status: text("status", {
+      enum: ["running", "completed", "failed", "partial"],
+    })
+      .default("running")
+      .notNull(),
+
+    // Results
+    recordsProcessed: integer("records_processed").default(0),
+    recordsCreated: integer("records_created").default(0),
+    recordsUpdated: integer("records_updated").default(0),
+    recordsSkipped: integer("records_skipped").default(0),
+    errorCount: integer("error_count").default(0),
+    errors: jsonb("errors").$type<{ message: string; context?: Record<string, unknown> }[]>(),
+
+    // Metadata
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+
+    // Timing
+    startedAt: timestamp("started_at", { mode: "date" }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { mode: "date" }),
+    durationMs: integer("duration_ms"),
+  },
+  (table) => [
+    index("scraping_logs_job_type_idx").on(table.jobType),
+    index("scraping_logs_status_idx").on(table.status),
+    index("scraping_logs_started_at_idx").on(table.startedAt),
+  ]
+);
 
 // ============================================================================
 // REVIEWS & ENDORSEMENTS

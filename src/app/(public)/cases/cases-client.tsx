@@ -8,10 +8,11 @@ import { SearchInput } from "@/components/search/search-input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import type { CaseSearchResult, CaseCategory, CaseStatus } from "@/types/case";
+import type { CaseCategory, CaseStatus, CaseCardDataWithLawyers } from "@/types/case";
+import type { CaseSearchResultWithLawyers } from "@/lib/db/queries/cases";
 
 interface CasesClientProps {
-  initialData: CaseSearchResult;
+  initialData: CaseSearchResultWithLawyers;
   allTags: string[];
 }
 

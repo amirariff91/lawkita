@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Gavel, Calendar, Scale, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { Calendar, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 import { format } from "date-fns";
-import type { CaseCardData } from "@/types/case";
+import type { CaseCardData, CaseLawyerPreview } from "@/types/case";
+import { CaseLawyersPreview } from "./case-lawyers-preview";
 
 interface CaseCardProps {
   caseData: CaseCardData;
+  lawyers?: CaseLawyerPreview[];
+  showLawyers?: boolean;
 }
 
 const categoryColors: Record<string, string> = {
@@ -30,7 +33,7 @@ const statusLabels: Record<string, string> = {
   appeal: "Under Appeal",
 };
 
-export function CaseCard({ caseData }: CaseCardProps) {
+export function CaseCard({ caseData, lawyers = [], showLawyers = true }: CaseCardProps) {
   return (
     <Link href={`/cases/${caseData.slug}`}>
       <Card className="group h-full transition-all hover:shadow-md hover:border-primary/20 flex flex-col">
@@ -81,6 +84,13 @@ export function CaseCard({ caseData }: CaseCardProps) {
             </div>
           )}
         </CardContent>
+
+        {/* Lawyers Preview */}
+        {showLawyers && lawyers.length > 0 && (
+          <div className="px-4 pb-3">
+            <CaseLawyersPreview lawyers={lawyers} maxDisplay={3} />
+          </div>
+        )}
 
         <CardFooter className="pt-3 border-t flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center gap-1">

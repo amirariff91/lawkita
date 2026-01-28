@@ -7,16 +7,29 @@ import {
   lawyers,
 } from "@/lib/db/schema";
 import { eq, and, ilike, or, desc, asc, count, sql } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import type {
   CaseCardData,
+  CaseCardDataWithLawyers,
+  CaseLawyerPreview,
   CaseSearchParams,
   CaseSearchResult,
   CaseWithRelations,
   CaseCategory,
   CaseStatus,
+  LawyerRole,
   TimelineEvent,
   CaseLawyerWithDetails,
 } from "@/types/case";
+
+// Search result type with lawyers
+export interface CaseSearchResultWithLawyers {
+  cases: CaseCardDataWithLawyers[];
+  total: number;
+  page: number;
+  totalPages: number;
+  hasMore: boolean;
+}
 
 // Search cases with filters and pagination
 export async function searchCases(
@@ -248,4 +261,99 @@ export async function getCaseCountsByStatus(): Promise<
     status: r.status as CaseStatus,
     count: r.count,
   }));
+}
+
+// Role priority for sorting lawyers (prosecution, defense, judge, other)
+const ROLE_PRIORITY: Record<LawyerRole, number> = {
+  prosecution: 1,
+  defense: 2,
+  judge: 3,
+  other: 4,
+};
+
+// Search cases with filters, pagination, and lawyers (batch loaded)
+export async function searchCasesWithLawyers(
+  params: CaseSearchParams
+): Promise<CaseSearchResultWithLawyers> {
+  // First, get the base case results using existing function
+  const baseResult = await searchCases(params);
+
+  if (baseResult.cases.length === 0) {
+    return {
+      ...baseResult,
+      cases: [],
+    };
+  }
+
+  // Get all case IDs for batch lawyer lookup
+  const caseIds = baseResult.cases.map((c) => c.id);
+
+  // Batch fetch lawyers for all cases, respecting opt-out
+  const lawyersResult = await db
+    .select({
+      caseId: caseLawyers.caseId,
+      lawyerId: caseLawyers.lawyerId,
+      role: caseLawyers.role,
+      lawyer: {
+        slug: lawyers.slug,
+        name: lawyers.name,
+        photo: lawyers.photo,
+      },
+    })
+    .from(caseLawyers)
+    .innerJoin(lawyers, eq(caseLawyers.lawyerId, lawyers.id))
+    .where(
+      and(
+        inArray(caseLawyers.caseId, caseIds),
+        eq(lawyers.caseAssociationOptOut, false) // Respect opt-out
+      )
+    );
+
+  // Group lawyers by case ID
+  const lawyersByCaseId = new Map<string, CaseLawyerPreview[]>();
+
+  for (const row of lawyersResult) {
+    const preview: CaseLawyerPreview = {
+      lawyerId: row.lawyerId,
+      slug: row.lawyer.slug,
+      name: row.lawyer.name,
+      photo: row.lawyer.photo,
+      role: row.role as LawyerRole,
+    };
+
+    const existing = lawyersByCaseId.get(row.caseId) || [];
+    existing.push(preview);
+    lawyersByCaseId.set(row.caseId, existing);
+  }
+
+  // Sort lawyers by role priority and attach to cases
+  const casesWithLawyers: CaseCardDataWithLawyers[] = baseResult.cases.map((c) => {
+    const caseLawyerList = lawyersByCaseId.get(c.id) || [];
+    // Sort by role priority
+    caseLawyerList.sort((a, b) => ROLE_PRIORITY[a.role] - ROLE_PRIORITY[b.role]);
+
+    return {
+      ...c,
+      lawyers: caseLawyerList,
+    };
+  });
+
+  return {
+    cases: casesWithLawyers,
+    total: baseResult.total,
+    page: baseResult.page,
+    totalPages: baseResult.totalPages,
+    hasMore: baseResult.hasMore,
+  };
+}
+
+// Get featured cases with lawyers for homepage
+export async function getFeaturedCasesWithLawyers(
+  limit = 6
+): Promise<CaseCardDataWithLawyers[]> {
+  const result = await searchCasesWithLawyers({
+    featured: true,
+    limit,
+  });
+  return result.cases;
 }

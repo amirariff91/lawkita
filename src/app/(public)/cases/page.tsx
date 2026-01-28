@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { searchCases, getAllCaseTags } from "@/lib/db/queries/cases";
+import { searchCasesWithLawyers, getAllCaseTags } from "@/lib/db/queries/cases";
 import { CasesClient } from "./cases-client";
 import { CaseGridSkeleton } from "@/components/cases";
 import type { SearchParams } from "nuqs/server";
@@ -36,7 +36,7 @@ async function CasesContent({ searchParams }: { searchParams: SearchParams }) {
       await searchParamsCache.parse(searchParams);
 
     const [result, allTags] = await Promise.all([
-      searchCases({
+      searchCasesWithLawyers({
         query: query || undefined,
         category: (category as CaseCategory) || undefined,
         status: (status as CaseStatus) || undefined,

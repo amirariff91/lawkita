@@ -310,6 +310,8 @@ export async function getLawyerBySlug(
     averageRating: lawyer.average_rating,
     responseRate: lawyer.response_rate,
     avgResponseTimeHours: lawyer.avg_response_time_hours,
+    caseAssociationOptOut: lawyer.case_association_opt_out ?? false,
+    optOutRequestedAt: lawyer.opt_out_requested_at ? new Date(lawyer.opt_out_requested_at) : null,
     scrapedData: lawyer.scraped_data,
     lastScrapedAt: lawyer.last_scraped_at ? new Date(lawyer.last_scraped_at) : null,
     createdAt: new Date(lawyer.created_at),
