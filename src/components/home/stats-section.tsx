@@ -1,7 +1,12 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { Users, Gavel, Star, MapPin } from "lucide-react";
+import {
+  UsersVerified,
+  GavelCases,
+  StarRating,
+  MapMalaysia,
+} from "@/components/icons";
 import {
   AnimatedCounter,
   StatCard,
@@ -13,24 +18,24 @@ const stats = [
     value: 5000,
     suffix: "+",
     label: "Verified Lawyers",
-    icon: <Users className="size-6" />,
+    icon: <UsersVerified className="size-6" />,
   },
   {
     value: 15,
     suffix: "+",
     label: "Famous Cases",
-    icon: <Gavel className="size-6" />,
+    icon: <GavelCases className="size-6" />,
   },
   {
     value: 4.8,
     decimals: 1,
     label: "Average Rating",
-    icon: <Star className="size-6" />,
+    icon: <StarRating className="size-6" />,
   },
   {
     value: 14,
     label: "States Covered",
-    icon: <MapPin className="size-6" />,
+    icon: <MapMalaysia className="size-6" />,
   },
 ];
 

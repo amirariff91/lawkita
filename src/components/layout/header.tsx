@@ -13,7 +13,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MobileNav } from "./mobile-nav";
-import { Scale, User, LogOut, LayoutDashboard } from "lucide-react";
+import {
+  ScalesJustice,
+  UserProfile,
+  Logout,
+  DashboardGrid,
+} from "@/components/icons";
 
 const navigation = [
   { name: "Find a Lawyer", href: "/lawyers" },
@@ -29,7 +34,7 @@ export function Header() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <Scale className="size-6 text-primary" aria-hidden="true" />
+          <ScalesJustice className="size-6 text-primary" />
           <span className="text-xl font-bold">LawKita</span>
         </Link>
 
@@ -84,20 +89,20 @@ export function Header() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard">
-                    <LayoutDashboard className="mr-2 size-4" aria-hidden="true" />
+                    <DashboardGrid className="mr-2 size-4" />
                     Dashboard
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard/profile">
-                    <User className="mr-2 size-4" aria-hidden="true" />
+                    <UserProfile className="mr-2 size-4" />
                     Profile
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/api/auth/signout">
-                    <LogOut className="mr-2 size-4" aria-hidden="true" />
+                    <Logout className="mr-2 size-4" />
                     Sign out
                   </Link>
                 </DropdownMenuItem>

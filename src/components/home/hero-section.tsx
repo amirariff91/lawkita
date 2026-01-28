@@ -5,7 +5,7 @@ import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, ArrowRight, Sparkles } from "lucide-react";
+import { SearchLegal, ArrowForward, SparklePremium } from "@/components/icons";
 import { transitions, variants, viewportConfig } from "@/lib/motion";
 import dynamic from "next/dynamic";
 
@@ -75,7 +75,7 @@ export function HeroSection() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ ...transitions.normal, delay: 0.1 }}
             >
-              <Sparkles className="size-4" aria-hidden="true" />
+              <SparklePremium className="size-4" />
               <span>5,000+ Verified Lawyers in Malaysia</span>
             </motion.div>
 
@@ -101,9 +101,8 @@ export function HeroSection() {
               transition={{ ...transitions.normal, delay: 0.2 }}
             >
               <div className="relative flex-1">
-                <Search
+                <SearchLegal
                   className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground"
-                  aria-hidden="true"
                 />
                 <Input
                   type="search"
@@ -119,7 +118,7 @@ export function HeroSection() {
                 className="h-14 px-8 rounded-xl shadow-lg shadow-primary/20"
               >
                 Search
-                <ArrowRight className="ml-2 size-5" aria-hidden="true" />
+                <ArrowForward className="ml-2 size-5" />
               </Button>
             </motion.form>
 

@@ -12,17 +12,17 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import {
-  Menu,
-  Scale,
-  Search,
-  Gavel,
-  Briefcase,
+  MenuNav,
+  ScalesJustice,
+  SearchLegal,
+  GavelCases,
+  BriefcaseLegal,
   LogIn,
   UserPlus,
-  LayoutDashboard,
-  User,
-  LogOut,
-} from "lucide-react";
+  DashboardGrid,
+  UserProfile,
+  Logout,
+} from "@/components/icons";
 
 interface MobileNavProps {
   session: {
@@ -36,9 +36,9 @@ interface MobileNavProps {
 }
 
 const navigation = [
-  { name: "Find a Lawyer", href: "/lawyers", icon: Search },
-  { name: "Famous Cases", href: "/cases", icon: Gavel },
-  { name: "Practice Areas", href: "/lawyers/practice-area", icon: Briefcase },
+  { name: "Find a Lawyer", href: "/lawyers", icon: SearchLegal },
+  { name: "Famous Cases", href: "/cases", icon: GavelCases },
+  { name: "Practice Areas", href: "/lawyers/practice-area", icon: BriefcaseLegal },
 ];
 
 export function MobileNav({ session }: MobileNavProps) {
@@ -48,14 +48,14 @@ export function MobileNav({ session }: MobileNavProps) {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="md:hidden size-11">
-          <Menu className="size-5" aria-hidden="true" />
+          <MenuNav className="size-5" />
           <span className="sr-only">Toggle menu</span>
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-[300px] sm:w-[350px]">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
-            <Scale className="size-5 text-primary" aria-hidden="true" />
+            <ScalesJustice className="size-5 text-primary" />
             <span>LawKita</span>
           </SheetTitle>
         </SheetHeader>
@@ -90,7 +90,7 @@ export function MobileNav({ session }: MobileNavProps) {
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
-              <LayoutDashboard className="size-4" aria-hidden="true" />
+              <DashboardGrid className="size-4" />
               Dashboard
             </Link>
             <Link
@@ -98,7 +98,7 @@ export function MobileNav({ session }: MobileNavProps) {
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
-              <User className="size-4" aria-hidden="true" />
+              <UserProfile className="size-4" />
               Profile
             </Link>
             <Separator className="my-2" />
@@ -107,7 +107,7 @@ export function MobileNav({ session }: MobileNavProps) {
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
-              <LogOut className="size-4" aria-hidden="true" />
+              <Logout className="size-4" />
               Sign out
             </Link>
           </div>
@@ -115,13 +115,13 @@ export function MobileNav({ session }: MobileNavProps) {
           <div className="flex flex-col gap-2">
             <Button variant="outline" asChild className="justify-start">
               <Link href="/auth/signin" onClick={() => setOpen(false)}>
-                <LogIn className="mr-2 size-4" aria-hidden="true" />
+                <LogIn className="mr-2 size-4" />
                 Sign in
               </Link>
             </Button>
             <Button asChild className="justify-start">
               <Link href="/auth/signup" onClick={() => setOpen(false)}>
-                <UserPlus className="mr-2 size-4" aria-hidden="true" />
+                <UserPlus className="mr-2 size-4" />
                 Get Started
               </Link>
             </Button>
