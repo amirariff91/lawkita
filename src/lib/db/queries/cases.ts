@@ -1,13 +1,4 @@
-import { db } from "@/lib/db";
-import {
-  cases,
-  caseTimeline,
-  caseLawyers,
-  caseMediaReferences,
-  lawyers,
-} from "@/lib/db/schema";
-import { eq, and, ilike, or, desc, asc, count, sql } from "drizzle-orm";
-import { inArray } from "drizzle-orm";
+import { createServerSupabaseClient } from "@/lib/supabase/client";
 import type {
   CaseCardData,
   CaseCardDataWithLawyers,
@@ -46,73 +37,86 @@ export async function searchCases(
   } = params;
 
   const offset = (page - 1) * limit;
+  const supabase = createServerSupabaseClient();
 
-  // Build where conditions
-  const conditions = [eq(cases.isPublished, true)];
+  // Start building the query
+  let queryBuilder = supabase
+    .from("cases")
+    .select(`
+      id,
+      slug,
+      title,
+      subtitle,
+      description,
+      category,
+      status,
+      is_featured,
+      outcome,
+      verdict_date,
+      tags,
+      og_image
+    `, { count: "exact" })
+    .eq("is_published", true);
 
+  // Apply filters
   if (query) {
-    conditions.push(
-      or(
-        ilike(cases.title, `%${query}%`),
-        ilike(cases.subtitle, `%${query}%`),
-        ilike(cases.description, `%${query}%`)
-      )!
-    );
+    queryBuilder = queryBuilder.or(`title.ilike.%${query}%,subtitle.ilike.%${query}%,description.ilike.%${query}%`);
   }
 
   if (category) {
-    conditions.push(eq(cases.category, category));
+    queryBuilder = queryBuilder.eq("category", category);
   }
 
   if (status) {
-    conditions.push(eq(cases.status, status));
+    queryBuilder = queryBuilder.eq("status", status);
   }
 
   if (featured) {
-    conditions.push(eq(cases.isFeatured, true));
+    queryBuilder = queryBuilder.eq("is_featured", true);
   }
 
   if (tag) {
-    // PostgreSQL array contains operator with NULL safety
-    conditions.push(sql`COALESCE(${cases.tags}, '[]'::jsonb) @> ${JSON.stringify([tag])}`);
+    // PostgreSQL array contains - tags is a jsonb array
+    queryBuilder = queryBuilder.contains("tags", [tag]);
   }
 
-  // Get total count
-  const totalResult = await db
-    .select({ count: count() })
-    .from(cases)
-    .where(and(...conditions));
+  // Apply sorting: featured first, then by verdict date, then by created_at
+  queryBuilder = queryBuilder
+    .order("is_featured", { ascending: false })
+    .order("verdict_date", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
 
-  const total = totalResult[0]?.count ?? 0;
+  // Apply pagination
+  queryBuilder = queryBuilder.range(offset, offset + limit - 1);
 
-  // Get cases, ordered by featured first then by verdict date
-  const caseResults = await db
-    .select({
-      id: cases.id,
-      slug: cases.slug,
-      title: cases.title,
-      subtitle: cases.subtitle,
-      description: cases.description,
-      category: cases.category,
-      status: cases.status,
-      isFeatured: cases.isFeatured,
-      outcome: cases.outcome,
-      verdictDate: cases.verdictDate,
-      tags: cases.tags,
-      ogImage: cases.ogImage,
-    })
-    .from(cases)
-    .where(and(...conditions))
-    .orderBy(desc(cases.isFeatured), desc(cases.verdictDate), desc(cases.createdAt))
-    .limit(limit)
-    .offset(offset);
+  const { data: caseResults, error, count } = await queryBuilder;
 
-  const caseCards: CaseCardData[] = caseResults.map((c) => ({
-    ...c,
+  if (error) {
+    console.error("Error fetching cases:", error);
+    return {
+      cases: [],
+      total: 0,
+      page,
+      totalPages: 0,
+      hasMore: false,
+    };
+  }
+
+  const total = count ?? 0;
+
+  const caseCards: CaseCardData[] = (caseResults ?? []).map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    title: c.title,
+    subtitle: c.subtitle,
+    description: c.description,
     category: c.category as CaseCategory,
     status: c.status as CaseStatus,
+    isFeatured: c.is_featured,
+    outcome: c.outcome,
+    verdictDate: c.verdict_date ?? null,
     tags: (c.tags as string[]) || [],
-    verdictDate: c.verdictDate?.toISOString() ?? null, // Convert Date to ISO string for serialization
+    ogImage: c.og_image,
   }));
 
   const totalPages = Math.ceil(total / limit);
@@ -139,83 +143,128 @@ export async function getFeaturedCases(limit = 6): Promise<CaseCardData[]> {
 export async function getCaseBySlug(
   slug: string
 ): Promise<CaseWithRelations | null> {
-  const caseResult = await db
-    .select()
-    .from(cases)
-    .where(and(eq(cases.slug, slug), eq(cases.isPublished, true)))
-    .limit(1);
+  const supabase = createServerSupabaseClient();
 
-  if (caseResult.length === 0) {
+  // Fetch the case
+  const { data: caseData, error } = await supabase
+    .from("cases")
+    .select("*")
+    .eq("slug", slug)
+    .eq("is_published", true)
+    .single();
+
+  if (error || !caseData) {
     return null;
   }
 
-  const caseData = caseResult[0];
-
   // Get timeline events
-  const timelineResult = await db
-    .select({
-      id: caseTimeline.id,
-      date: caseTimeline.date,
-      title: caseTimeline.title,
-      description: caseTimeline.description,
-      court: caseTimeline.court,
-      image: caseTimeline.image,
-      sortOrder: caseTimeline.sortOrder,
-    })
-    .from(caseTimeline)
-    .where(eq(caseTimeline.caseId, caseData.id))
-    .orderBy(asc(caseTimeline.date), asc(caseTimeline.sortOrder));
+  const { data: timelineData } = await supabase
+    .from("case_timeline")
+    .select("id, date, title, description, court, image, sort_order")
+    .eq("case_id", caseData.id)
+    .order("date", { ascending: true })
+    .order("sort_order", { ascending: true });
 
-  const timeline: TimelineEvent[] = timelineResult;
+  const timeline: TimelineEvent[] = (timelineData ?? []).map((t) => ({
+    id: t.id,
+    date: t.date,
+    title: t.title,
+    description: t.description,
+    court: t.court,
+    image: t.image,
+    sortOrder: t.sort_order,
+  }));
 
   // Get lawyers with their details
-  const lawyersResult = await db
-    .select({
-      lawyerId: caseLawyers.lawyerId,
-      role: caseLawyers.role,
-      roleDescription: caseLawyers.roleDescription,
-      isVerified: caseLawyers.isVerified,
-      lawyer: {
-        slug: lawyers.slug,
-        name: lawyers.name,
-        photo: lawyers.photo,
-        firmName: lawyers.firmName,
-        isVerified: lawyers.isVerified,
-      },
-    })
-    .from(caseLawyers)
-    .innerJoin(lawyers, eq(caseLawyers.lawyerId, lawyers.id))
-    .where(eq(caseLawyers.caseId, caseData.id));
+  const { data: lawyersData } = await supabase
+    .from("case_lawyers")
+    .select(`
+      lawyer_id,
+      role,
+      role_description,
+      is_verified,
+      lawyers!inner(slug, name, photo, firm_name, is_verified)
+    `)
+    .eq("case_id", caseData.id);
 
-  const caseLawyersList: CaseLawyerWithDetails[] = lawyersResult.map((l) => ({
-    ...l,
+  const caseLawyersList: CaseLawyerWithDetails[] = (lawyersData ?? []).map((l) => ({
+    lawyerId: l.lawyer_id,
     role: l.role as CaseLawyerWithDetails["role"],
+    roleDescription: l.role_description,
+    isVerified: l.is_verified,
+    lawyer: {
+      // @ts-expect-error - Supabase types don't handle nested selects well
+      slug: l.lawyers.slug,
+      // @ts-expect-error - Supabase types don't handle nested selects well
+      name: l.lawyers.name,
+      // @ts-expect-error - Supabase types don't handle nested selects well
+      photo: l.lawyers.photo,
+      // @ts-expect-error - Supabase types don't handle nested selects well
+      firmName: l.lawyers.firm_name,
+      // @ts-expect-error - Supabase types don't handle nested selects well
+      isVerified: l.lawyers.is_verified,
+    },
   }));
 
   // Get media references
-  const mediaResult = await db
-    .select()
-    .from(caseMediaReferences)
-    .where(eq(caseMediaReferences.caseId, caseData.id))
-    .orderBy(desc(caseMediaReferences.publishedAt));
+  const { data: mediaData } = await supabase
+    .from("case_media_references")
+    .select("*")
+    .eq("case_id", caseData.id)
+    .order("published_at", { ascending: false });
 
   return {
-    ...caseData,
+    id: caseData.id,
+    slug: caseData.slug,
+    title: caseData.title,
+    subtitle: caseData.subtitle,
+    description: caseData.description,
+    category: caseData.category,
+    caseNumber: caseData.case_number,
+    citation: caseData.citation,
+    court: caseData.court,
+    alternativeNames: caseData.alternative_names,
+    status: caseData.status,
+    isPublished: caseData.is_published,
+    isFeatured: caseData.is_featured,
+    verdictSummary: caseData.verdict_summary,
+    verdictDate: caseData.verdict_date ? new Date(caseData.verdict_date) : null,
+    outcome: caseData.outcome,
+    durationDays: caseData.duration_days,
+    witnessCount: caseData.witness_count,
+    hearingCount: caseData.hearing_count,
+    chargeCount: caseData.charge_count,
+    ogImage: caseData.og_image,
+    metaDescription: caseData.meta_description,
+    tags: caseData.tags,
+    createdAt: new Date(caseData.created_at),
+    updatedAt: new Date(caseData.updated_at),
     timeline,
     lawyers: caseLawyersList,
-    mediaReferences: mediaResult,
+    mediaReferences: (mediaData ?? []).map((m) => ({
+      id: m.id,
+      caseId: m.case_id,
+      source: m.source,
+      title: m.title,
+      url: m.url,
+      publishedAt: m.published_at ? new Date(m.published_at) : null,
+      excerpt: m.excerpt,
+      createdAt: new Date(m.created_at),
+    })),
   };
 }
 
 // Get all unique tags from published cases
 export async function getAllCaseTags(): Promise<string[]> {
-  const result = await db
-    .selectDistinct({ tags: cases.tags })
-    .from(cases)
-    .where(eq(cases.isPublished, true));
+  const supabase = createServerSupabaseClient();
+
+  const { data } = await supabase
+    .from("cases")
+    .select("tags")
+    .eq("is_published", true);
 
   const allTags = new Set<string>();
-  for (const row of result) {
+  for (const row of data ?? []) {
     const tags = (row.tags as string[]) || [];
     for (const tag of tags) {
       allTags.add(tag);
@@ -229,18 +278,26 @@ export async function getAllCaseTags(): Promise<string[]> {
 export async function getCaseCountsByCategory(): Promise<
   { category: CaseCategory; count: number }[]
 > {
-  const results = await db
-    .select({
-      category: cases.category,
-      count: count(),
-    })
-    .from(cases)
-    .where(eq(cases.isPublished, true))
-    .groupBy(cases.category);
+  const supabase = createServerSupabaseClient();
 
-  return results.map((r) => ({
-    category: r.category as CaseCategory,
-    count: r.count,
+  const { data } = await supabase
+    .from("cases")
+    .select("category")
+    .eq("is_published", true);
+
+  if (!data) return [];
+
+  // Count by category manually
+  const counts: Record<string, number> = {};
+  for (const row of data) {
+    if (row.category) {
+      counts[row.category] = (counts[row.category] || 0) + 1;
+    }
+  }
+
+  return Object.entries(counts).map(([category, count]) => ({
+    category: category as CaseCategory,
+    count,
   }));
 }
 
@@ -248,18 +305,26 @@ export async function getCaseCountsByCategory(): Promise<
 export async function getCaseCountsByStatus(): Promise<
   { status: CaseStatus; count: number }[]
 > {
-  const results = await db
-    .select({
-      status: cases.status,
-      count: count(),
-    })
-    .from(cases)
-    .where(eq(cases.isPublished, true))
-    .groupBy(cases.status);
+  const supabase = createServerSupabaseClient();
 
-  return results.map((r) => ({
-    status: r.status as CaseStatus,
-    count: r.count,
+  const { data } = await supabase
+    .from("cases")
+    .select("status")
+    .eq("is_published", true);
+
+  if (!data) return [];
+
+  // Count by status manually
+  const counts: Record<string, number> = {};
+  for (const row of data) {
+    if (row.status) {
+      counts[row.status] = (counts[row.status] || 0) + 1;
+    }
+  }
+
+  return Object.entries(counts).map(([status, count]) => ({
+    status: status as CaseStatus,
+    count,
   }));
 }
 
@@ -288,42 +353,38 @@ export async function searchCasesWithLawyers(
   // Get all case IDs for batch lawyer lookup
   const caseIds = baseResult.cases.map((c) => c.id);
 
+  const supabase = createServerSupabaseClient();
+
   // Batch fetch lawyers for all cases, respecting opt-out
-  const lawyersResult = await db
-    .select({
-      caseId: caseLawyers.caseId,
-      lawyerId: caseLawyers.lawyerId,
-      role: caseLawyers.role,
-      lawyer: {
-        slug: lawyers.slug,
-        name: lawyers.name,
-        photo: lawyers.photo,
-      },
-    })
-    .from(caseLawyers)
-    .innerJoin(lawyers, eq(caseLawyers.lawyerId, lawyers.id))
-    .where(
-      and(
-        inArray(caseLawyers.caseId, caseIds),
-        eq(lawyers.caseAssociationOptOut, false) // Respect opt-out
-      )
-    );
+  const { data: lawyersResult } = await supabase
+    .from("case_lawyers")
+    .select(`
+      case_id,
+      lawyer_id,
+      role,
+      lawyers!inner(slug, name, photo, case_association_opt_out)
+    `)
+    .in("case_id", caseIds)
+    .eq("lawyers.case_association_opt_out", false);
 
   // Group lawyers by case ID
   const lawyersByCaseId = new Map<string, CaseLawyerPreview[]>();
 
-  for (const row of lawyersResult) {
+  for (const row of lawyersResult ?? []) {
     const preview: CaseLawyerPreview = {
-      lawyerId: row.lawyerId,
-      slug: row.lawyer.slug,
-      name: row.lawyer.name,
-      photo: row.lawyer.photo,
+      lawyerId: row.lawyer_id,
+      // @ts-expect-error - Supabase types don't handle nested selects well
+      slug: row.lawyers.slug,
+      // @ts-expect-error - Supabase types don't handle nested selects well
+      name: row.lawyers.name,
+      // @ts-expect-error - Supabase types don't handle nested selects well
+      photo: row.lawyers.photo,
       role: row.role as LawyerRole,
     };
 
-    const existing = lawyersByCaseId.get(row.caseId) || [];
+    const existing = lawyersByCaseId.get(row.case_id) || [];
     existing.push(preview);
-    lawyersByCaseId.set(row.caseId, existing);
+    lawyersByCaseId.set(row.case_id, existing);
   }
 
   // Sort lawyers by role priority and attach to cases
