@@ -3,14 +3,10 @@ import postgres from "postgres";
 import * as schema from "./schema";
 
 let _db: PostgresJsDatabase<typeof schema> | null = null;
-let _connectionError: Error | null = null;
 
 function getDb(): PostgresJsDatabase<typeof schema> {
   // Return cached connection
   if (_db) return _db;
-
-  // Throw cached error (prevents repeated connection attempts)
-  if (_connectionError) throw _connectionError;
 
   const connectionString = process.env.DATABASE_URL;
 
@@ -28,34 +24,33 @@ function getDb(): PostgresJsDatabase<typeof schema> {
       });
     }
 
-    // At runtime, throw immediately
-    _connectionError = new Error(
+    // At runtime, throw but DON'T cache - allow retry on next request
+    throw new Error(
       "DATABASE_URL environment variable is not set. " +
         "Configure DATABASE_URL in your deployment environment."
     );
-    throw _connectionError;
   }
 
-  try {
-    // Disable prefetch as it is not supported for "Transaction" pool mode
-    const client = postgres(connectionString, {
-      prepare: false,
-      connect_timeout: 10,
-      idle_timeout: 20,
-      max_lifetime: 60 * 30,
-    });
+  // Disable prefetch as it is not supported for "Transaction" pool mode
+  const client = postgres(connectionString, {
+    prepare: false,
+    connect_timeout: 10,
+    idle_timeout: 20,
+    max_lifetime: 60 * 30,
+  });
 
-    _db = drizzle(client, { schema });
-    return _db;
-  } catch (error) {
-    _connectionError = error as Error;
-    throw _connectionError;
-  }
+  _db = drizzle(client, { schema });
+  return _db;
 }
 
 // Export a proxy that lazily initializes the connection
 export const db = new Proxy({} as PostgresJsDatabase<typeof schema>, {
   get(_, prop) {
+    // Handle Symbol properties (used for serialization, type checking)
+    if (typeof prop === "symbol") {
+      return undefined;
+    }
+
     const instance = getDb();
     const value = instance[prop as keyof PostgresJsDatabase<typeof schema>];
     // Bind methods to the instance to preserve 'this' context
