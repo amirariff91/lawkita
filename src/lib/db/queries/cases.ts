@@ -99,6 +99,7 @@ export async function searchCases(
     category: c.category as CaseCategory,
     status: c.status as CaseStatus,
     tags: (c.tags as string[]) || [],
+    verdictDate: c.verdictDate?.toISOString() ?? null, // Convert Date to ISO string for serialization
   }));
 
   const totalPages = Math.ceil(total / limit);

@@ -51,7 +51,7 @@ export const LAWYER_ROLES = [
 
 export type LawyerRole = (typeof LAWYER_ROLES)[number]["value"];
 
-// Card data for listings
+// Card data for listings (serializable for Server -> Client transfer)
 export interface CaseCardData {
   id: string;
   slug: string;
@@ -62,7 +62,7 @@ export interface CaseCardData {
   status: CaseStatus;
   isFeatured: boolean;
   outcome: CaseOutcome | null;
-  verdictDate: Date | null;
+  verdictDate: string | null; // ISO string for serialization
   tags: string[];
   ogImage: string | null;
 }
