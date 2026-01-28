@@ -1,0 +1,60 @@
+[
+  {
+    "slug": "muhammad-shafee-abdullah",
+    "name": "Tan Sri Muhammad Shafee Abdullah",
+    "bio": "Senior defense counsel specializing in criminal and constitutional law. Prominent figure in Malaysian legal circles with extensive experience in high-profile cases.",
+    "firmName": "Shafee & Co",
+    "state": "Kuala Lumpur",
+    "city": "Kuala Lumpur City Centre",
+    "barStatus": "active",
+    "isVerified": false,
+    "isClaimed": false,
+    "subscriptionTier": "free",
+    "yearsAtBar": 45,
+    "courtAppearances": 500,
+    "practiceAreas": ["criminal-law", "constitutional-law", "white-collar-crime"]
+  },
+  {
+    "slug": "hisyam-teh-poh-teik",
+    "name": "Hisyam Teh Poh Teik",
+    "bio": "Criminal defense lawyer with expertise in financial crimes and corporate defense matters. Member of the defense legal team in several 1MDB-related cases.",
+    "firmName": "Teh Poh Teik & Associates",
+    "state": "Kuala Lumpur",
+    "city": "Kuala Lumpur City Centre",
+    "barStatus": "active",
+    "isVerified": false,
+    "isClaimed": false,
+    "subscriptionTier": "free",
+    "yearsAtBar": 30,
+    "courtAppearances": 300,
+    "practiceAreas": ["criminal-law", "white-collar-crime"]
+  },
+  {
+    "slug": "harvinderjit-singh",
+    "name": "Harvinderjit Singh",
+    "bio": "Criminal defense advocate with practice focused on serious crimes and complex financial matters. Known for meticulous case preparation.",
+    "state": "Kuala Lumpur",
+    "city": "Kuala Lumpur City Centre",
+    "barStatus": "active",
+    "isVerified": false,
+    "isClaimed": false,
+    "subscriptionTier": "free",
+    "yearsAtBar": 25,
+    "courtAppearances": 200,
+    "practiceAreas": ["criminal-law", "white-collar-crime"]
+  },
+  {
+    "slug": "jagjit-singh-sidhu",
+    "name": "Datuk Jagjit Singh Sidhu",
+    "bio": "Senior criminal defense counsel with extensive High Court experience. Lead defense counsel in several high-profile corruption cases.",
+    "state": "Kuala Lumpur",
+    "city": "Kuala Lumpur City Centre",
+    "barStatus": "active",
+    "isVerified": false,
+    "isClaimed": false,
+    "subscriptionTier": "free",
+    "yearsAtBar": 35,
+    "courtAppearances": 350,
+    "practiceAreas": ["criminal-law", "white-collar-crime", "corruption-cases"]
+  }
+]

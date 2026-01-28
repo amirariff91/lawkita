@@ -1,0 +1,151 @@
+{
+  "case": {
+    "slug": "rosmah-solar-project-corruption",
+    "title": "Rosmah Solar Project Corruption Trial",
+    "subtitle": "Former First Lady Convicted of Bribery",
+    "description": "Datin Seri Rosmah Mansor, wife of former Prime Minister Najib Razak, was charged with soliciting and receiving bribes totaling RM6.5 million in connection with a RM1.25 billion solar energy project for rural schools in Sarawak. The project was awarded to Jepak Holdings Sdn Bhd. Rosmah faced 3 charges: 1 count of soliciting RM187.5 million and 2 counts of receiving RM6.5 million in bribes between 2016 and 2017. The case highlighted corruption in government procurement involving education projects for underserved communities.",
+    "category": "corruption",
+    "status": "appeal",
+    "isPublished": true,
+    "isFeatured": true,
+    "verdictSummary": "Rosmah Mansor was found guilty on all 3 charges. She was sentenced to 10 years imprisonment on each charge (to run concurrently) and fined RM970 million (in default, an additional 23 years imprisonment). She is currently appealing the conviction.",
+    "verdictDate": "2022-09-01",
+    "outcome": "guilty",
+    "durationDays": 912,
+    "witnessCount": 23,
+    "hearingCount": 54,
+    "chargeCount": 3,
+    "metaDescription": "Complete coverage of Rosmah Mansor's solar project corruption trial. Former First Lady convicted of RM6.5 million bribery. Timeline, verdict, and appeal status.",
+    "tags": ["malaysian-corruption", "high-profile", "political", "rosmah-mansor", "solar-project", "bribery", "sarawak", "jepak-holdings"]
+  },
+  "timeline": [
+    {
+      "date": "2018-10-04",
+      "title": "MACC Questioning",
+      "description": "Rosmah Mansor was called in for questioning by the Malaysian Anti-Corruption Commission (MACC) regarding the solar hybrid project in Sarawak.",
+      "court": "MACC",
+      "sortOrder": 1
+    },
+    {
+      "date": "2018-11-15",
+      "title": "Charged with 17 Counts of Money Laundering",
+      "description": "Rosmah was initially charged with 17 counts of money laundering involving RM7.1 million. These charges were later amended.",
+      "court": "Kuala Lumpur Sessions Court",
+      "sortOrder": 2
+    },
+    {
+      "date": "2019-04-10",
+      "title": "Bribery Charges Filed",
+      "description": "Rosmah was charged with 3 counts of bribery: 1 count of soliciting RM187.5 million and 2 counts of receiving RM6.5 million as gratification for helping Jepak Holdings secure the solar project contract.",
+      "court": "Kuala Lumpur Sessions Court",
+      "sortOrder": 3
+    },
+    {
+      "date": "2020-02-05",
+      "title": "Trial Commences",
+      "description": "The trial began at the Kuala Lumpur High Court before Justice Mohamed Zaini Mazlan. The prosecution outlined how the bribes were allegedly facilitated.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 4
+    },
+    {
+      "date": "2020-07-07",
+      "title": "Jepak Holdings MD Testifies",
+      "description": "Saidi Abang Samsudin, managing director of Jepak Holdings, testified about meetings with Rosmah and payments made through intermediaries.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 5
+    },
+    {
+      "date": "2021-02-18",
+      "title": "Key Witness: Rizal Mansor",
+      "description": "Rosmah's former aide Rizal Mansor testified about his role in facilitating meetings and payments between Jepak Holdings and Rosmah.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 6
+    },
+    {
+      "date": "2021-06-14",
+      "title": "Prosecution Closes Case",
+      "description": "The prosecution rested its case after calling 23 witnesses including contractors, former aides, and banking officials.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 7
+    },
+    {
+      "date": "2021-09-09",
+      "title": "Prima Facie Case Established",
+      "description": "Justice Zaini ruled that the prosecution established a prima facie case on all 3 charges. Rosmah was called to enter her defence.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 8
+    },
+    {
+      "date": "2022-04-07",
+      "title": "Rosmah Takes the Stand",
+      "description": "Rosmah testified in her own defence, denying any involvement in soliciting or receiving bribes. She claimed to be a victim of a conspiracy.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 9
+    },
+    {
+      "date": "2022-09-01",
+      "title": "Verdict: Guilty on All 3 Charges",
+      "description": "Justice Zaini found Rosmah guilty on all 3 counts. She was sentenced to 10 years imprisonment (concurrent) and fined RM970 million. Execution of sentence was stayed pending appeal.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 10
+    },
+    {
+      "date": "2022-09-08",
+      "title": "Appeal Filed",
+      "description": "Rosmah's defence team, led by Jagjit Singh, filed an appeal against the conviction and sentence at the Court of Appeal.",
+      "court": "Court of Appeal",
+      "sortOrder": 11
+    },
+    {
+      "date": "2024-01-15",
+      "title": "Appeal Hearing Begins",
+      "description": "The Court of Appeal began hearing Rosmah's appeal. Her defence raised issues about the reliability of key witnesses and procedural matters.",
+      "court": "Court of Appeal",
+      "sortOrder": 12
+    }
+  ],
+  "mediaReferences": [
+    {
+      "source": "Malaysiakini",
+      "title": "Rosmah found guilty of all three solar graft charges",
+      "url": "https://www.malaysiakini.com/news/635432",
+      "publishedAt": "2022-09-01",
+      "type": "news"
+    },
+    {
+      "source": "The Edge Markets",
+      "title": "Rosmah guilty, sentenced to 10 years' jail, RM970 million fine",
+      "url": "https://www.theedgemarkets.com/article/rosmah-guilty-sentenced-10-years-jail-rm970-million-fine",
+      "publishedAt": "2022-09-01",
+      "type": "news"
+    },
+    {
+      "source": "Free Malaysia Today",
+      "title": "Rosmah's trial: Jepak Holdings MD details meetings with Datin Seri",
+      "url": "https://www.freemalaysiatoday.com/category/nation/2020/07/07/rosmahs-trial-jepak-holdings-md-details-meetings-with-datin-seri/",
+      "publishedAt": "2020-07-07",
+      "type": "news"
+    },
+    {
+      "source": "Malay Mail",
+      "title": "Rosmah's ex-aide Rizal tells court he was 'conduit' for payments",
+      "url": "https://www.malaymail.com/news/malaysia/2021/02/18/rosmahs-ex-aide-rizal-tells-court-he-was-conduit-for-payments/1950567",
+      "publishedAt": "2021-02-18",
+      "type": "news"
+    },
+    {
+      "source": "The Star",
+      "title": "Rosmah testifies, claims she is victim of conspiracy",
+      "url": "https://www.thestar.com.my/news/nation/2022/04/07/rosmah-testifies-claims-she-is-victim-of-conspiracy",
+      "publishedAt": "2022-04-07",
+      "type": "news"
+    },
+    {
+      "source": "Reuters",
+      "title": "Malaysia ex-PM Najib's wife Rosmah sentenced to 10 years for graft",
+      "url": "https://www.reuters.com/world/asia-pacific/malaysias-ex-pm-najibs-wife-rosmah-sentenced-10-years-graft-2022-09-01/",
+      "publishedAt": "2022-09-01",
+      "type": "news"
+    }
+  ]
+}

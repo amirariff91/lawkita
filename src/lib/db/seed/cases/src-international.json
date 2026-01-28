@@ -1,0 +1,158 @@
+{
+  "case": {
+    "slug": "najib-src-international-rm42m",
+    "title": "SRC International Trial (RM42 Million)",
+    "subtitle": "Najib Razak's First 1MDB-Related Conviction",
+    "description": "The SRC International trial was the first of several 1MDB-related cases against former Prime Minister Najib Razak. SRC International Sdn Bhd, a former subsidiary of 1MDB, was established to invest in energy resources but became central to corruption charges. Najib faced 7 counts: 1 count of abuse of power under Section 23 of the MACC Act 2009 for approving RM4 billion in loans from KWAP to SRC International, 3 counts of criminal breach of trust under Section 409 of the Penal Code, and 3 counts of money laundering under Section 4(1)(b) of AMLA 2001 involving RM42 million that flowed into his personal bank accounts.",
+    "category": "corruption",
+    "status": "concluded",
+    "isPublished": true,
+    "isFeatured": true,
+    "verdictSummary": "Najib Razak was found guilty on all 7 charges. He was sentenced to 12 years imprisonment and fined RM210 million (in default, 5 years imprisonment). The conviction was upheld by the Court of Appeal in December 2021 and the Federal Court in August 2022. His application for a royal pardon and home detention was denied.",
+    "verdictDate": "2020-07-28",
+    "outcome": "guilty",
+    "durationDays": 474,
+    "witnessCount": 57,
+    "hearingCount": 134,
+    "chargeCount": 7,
+    "metaDescription": "Complete coverage of Najib Razak's SRC International trial - the landmark Malaysian corruption case involving RM42 million. Timeline, lawyers, verdict, and appeal history.",
+    "tags": ["1mdb-scandal", "najib-razak", "malaysian-corruption", "high-profile", "political", "src-international", "money-laundering", "abuse-of-power"]
+  },
+  "timeline": [
+    {
+      "date": "2018-07-04",
+      "title": "Charged at Kuala Lumpur Sessions Court",
+      "description": "Najib Razak was charged with 7 counts at the Kuala Lumpur Sessions Court: 1 count of abuse of power under Section 23 of the MACC Act 2009, 3 counts of criminal breach of trust under Section 409 of the Penal Code, and 3 counts of money laundering under AMLA 2001. He pleaded not guilty to all charges.",
+      "court": "Kuala Lumpur Sessions Court",
+      "sortOrder": 1
+    },
+    {
+      "date": "2019-04-03",
+      "title": "Trial Begins at High Court",
+      "description": "The trial commenced at the Kuala Lumpur High Court before Justice Mohd Nazlan Mohd Ghazali. The prosecution was led by Senior Deputy Public Prosecutor Gopal Sri Ram.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 2
+    },
+    {
+      "date": "2019-04-15",
+      "title": "First Witness Testifies",
+      "description": "AmBank relationship manager Joanna Yu testified about the opening of Najib's personal accounts and the flow of funds from SRC International.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 3
+    },
+    {
+      "date": "2019-11-11",
+      "title": "Prima Facie Case Established",
+      "description": "Justice Nazlan ruled that the prosecution had established a prima facie case on all 7 charges. Najib was called to enter his defence.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 4
+    },
+    {
+      "date": "2020-02-27",
+      "title": "Defense Case Begins",
+      "description": "Najib's defense case commenced. Lead defense counsel Muhammad Shafee Abdullah outlined the defense strategy.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 5
+    },
+    {
+      "date": "2020-05-14",
+      "title": "Najib Testifies in Own Defense",
+      "description": "Najib took the stand as the first defense witness. He testified that he believed the funds in his accounts were donations from the Saudi royal family, not from SRC International.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 6
+    },
+    {
+      "date": "2020-07-28",
+      "title": "Verdict: Guilty on All 7 Charges",
+      "description": "Justice Nazlan found Najib guilty on all 7 charges. He was sentenced to 12 years imprisonment and fined RM210 million. Execution of sentence was stayed pending appeal.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 7
+    },
+    {
+      "date": "2020-08-07",
+      "title": "Appeal Filed",
+      "description": "Najib filed an appeal against his conviction and sentence at the Court of Appeal.",
+      "court": "Court of Appeal",
+      "sortOrder": 8
+    },
+    {
+      "date": "2021-04-05",
+      "title": "Appeal Hearing Begins",
+      "description": "The appeal hearing commenced before a three-member Court of Appeal panel led by Justice Abdul Karim Abdul Jalil.",
+      "court": "Court of Appeal",
+      "sortOrder": 9
+    },
+    {
+      "date": "2021-12-08",
+      "title": "Court of Appeal Upholds Conviction",
+      "description": "The Court of Appeal unanimously upheld Najib's conviction and 12-year sentence. The panel found no merit in the grounds of appeal.",
+      "court": "Court of Appeal",
+      "sortOrder": 10
+    },
+    {
+      "date": "2022-03-16",
+      "title": "Leave to Appeal to Federal Court Granted",
+      "description": "The Federal Court granted Najib leave to appeal on specific legal questions regarding the trial judge and prosecution conduct.",
+      "court": "Federal Court",
+      "sortOrder": 11
+    },
+    {
+      "date": "2022-08-23",
+      "title": "Federal Court Dismisses Final Appeal",
+      "description": "A five-member Federal Court panel led by Chief Justice Tengku Maimun Tuan Mat unanimously dismissed Najib's final appeal. Najib began serving his 12-year prison sentence at Kajang Prison.",
+      "court": "Federal Court",
+      "sortOrder": 12
+    },
+    {
+      "date": "2024-02-02",
+      "title": "Pardons Board Reduces Sentence",
+      "description": "The Pardons Board reduced Najib's prison sentence from 12 years to 6 years and his fine from RM210 million to RM50 million. His application for house arrest was denied.",
+      "court": "Pardons Board",
+      "sortOrder": 13
+    }
+  ],
+  "mediaReferences": [
+    {
+      "source": "Malaysiakini",
+      "title": "Najib found guilty on all 7 SRC charges, sentenced to 12 years' jail",
+      "url": "https://www.malaysiakini.com/news/536177",
+      "publishedAt": "2020-07-28",
+      "type": "news"
+    },
+    {
+      "source": "The Edge Markets",
+      "title": "Federal Court upholds Najib's conviction in SRC case",
+      "url": "https://www.theedgemarkets.com/article/federal-court-upholds-najibs-conviction-src-case",
+      "publishedAt": "2022-08-23",
+      "type": "news"
+    },
+    {
+      "source": "Free Malaysia Today",
+      "title": "Court of Appeal unanimously upholds Najib's SRC conviction",
+      "url": "https://www.freemalaysiatoday.com/category/nation/2021/12/08/court-of-appeal-unanimously-upholds-najibs-src-conviction/",
+      "publishedAt": "2021-12-08",
+      "type": "news"
+    },
+    {
+      "source": "Malay Mail",
+      "title": "Najib's 12-year jail term halved, RM210m fine reduced to RM50m after royal pardon",
+      "url": "https://www.malaymail.com/news/malaysia/2024/02/02/najibs-12-year-jail-term-halved-rm210m-fine-reduced-to-rm50m-after-royal-pardon/116447",
+      "publishedAt": "2024-02-02",
+      "type": "news"
+    },
+    {
+      "source": "The Star",
+      "title": "Najib begins prison sentence after final appeal dismissed",
+      "url": "https://www.thestar.com.my/news/nation/2022/08/23/najib-begins-prison-sentence-after-final-appeal-dismissed",
+      "publishedAt": "2022-08-23",
+      "type": "news"
+    },
+    {
+      "source": "Reuters",
+      "title": "Malaysia's Najib found guilty in first 1MDB-linked case",
+      "url": "https://www.reuters.com/article/us-malaysia-politics-najib-idUSKCN24T0AD",
+      "publishedAt": "2020-07-28",
+      "type": "news"
+    }
+  ]
+}

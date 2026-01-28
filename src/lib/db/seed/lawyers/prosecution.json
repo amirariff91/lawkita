@@ -1,0 +1,44 @@
+[
+  {
+    "slug": "gopal-sri-ram",
+    "name": "Tan Sri Gopal Sri Ram",
+    "bio": "Former Federal Court judge serving as Senior Deputy Public Prosecutor (ad-hoc appointment). Lead prosecutor in several 1MDB-related cases. Distinguished jurist with extensive appellate experience.",
+    "state": "Kuala Lumpur",
+    "city": "Kuala Lumpur City Centre",
+    "barStatus": "active",
+    "isVerified": false,
+    "isClaimed": false,
+    "subscriptionTier": "free",
+    "yearsAtBar": 50,
+    "courtAppearances": 600,
+    "practiceAreas": ["criminal-law", "constitutional-law", "appellate-practice"]
+  },
+  {
+    "slug": "v-sithambaram",
+    "name": "V. Sithambaram",
+    "bio": "Deputy Public Prosecutor with the Attorney General's Chambers. Member of the prosecution team in multiple high-profile corruption cases.",
+    "state": "Kuala Lumpur",
+    "city": "Putrajaya",
+    "barStatus": "active",
+    "isVerified": false,
+    "isClaimed": false,
+    "subscriptionTier": "free",
+    "yearsAtBar": 20,
+    "courtAppearances": 150,
+    "practiceAreas": ["criminal-law", "prosecution"]
+  },
+  {
+    "slug": "ahmad-akram-gharib",
+    "name": "Ahmad Akram Gharib",
+    "bio": "Deputy Public Prosecutor with the Attorney General's Chambers. Active member of the prosecution team in 1MDB and related corruption cases.",
+    "state": "Kuala Lumpur",
+    "city": "Putrajaya",
+    "barStatus": "active",
+    "isVerified": false,
+    "isClaimed": false,
+    "subscriptionTier": "free",
+    "yearsAtBar": 15,
+    "courtAppearances": 100,
+    "practiceAreas": ["criminal-law", "prosecution"]
+  }
+]

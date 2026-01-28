@@ -1,0 +1,123 @@
+{
+  "case": {
+    "slug": "1mdb-audit-tampering",
+    "title": "1MDB Audit Report Tampering",
+    "subtitle": "Obstruction of Justice Case Against Najib and Arul Kanda",
+    "description": "This case involved allegations that former Prime Minister Najib Razak and former 1MDB CEO Arul Kanda Kandasamy conspired to tamper with the 2016 Auditor-General's Report on 1MDB before it was tabled in Parliament. The tampering allegedly aimed to protect Najib from scrutiny by removing or altering sections critical of 1MDB's management and financial dealings. Najib was charged under Section 28(1) of the MACC Act for abusing his position, while Arul Kanda was charged for abetting him.",
+    "category": "criminal",
+    "status": "concluded",
+    "isPublished": true,
+    "isFeatured": false,
+    "verdictSummary": "Both Najib Razak and Arul Kanda Kandasamy were found guilty. Najib was convicted of abuse of power and sentenced to 12 years imprisonment and fined RM210 million (to run concurrently with SRC sentence). Arul Kanda was convicted of abetting and sentenced to 12 years imprisonment and fined RM210 million, which was later varied.",
+    "verdictDate": "2024-04-30",
+    "outcome": "guilty",
+    "durationDays": 1825,
+    "witnessCount": 18,
+    "hearingCount": 45,
+    "chargeCount": 2,
+    "metaDescription": "Complete coverage of the 1MDB audit tampering trial - Najib Razak and Arul Kanda convicted for altering the Auditor-General's Report. Timeline and verdict details.",
+    "tags": ["1mdb-scandal", "najib-razak", "malaysian-corruption", "high-profile", "political", "audit-tampering", "obstruction-of-justice", "arul-kanda"]
+  },
+  "timeline": [
+    {
+      "date": "2019-12-12",
+      "title": "Najib and Arul Kanda Charged",
+      "description": "Najib Razak was charged with abuse of power under Section 28(1) of the MACC Act 2009 for using his position to order amendments to the 1MDB audit report. Arul Kanda was charged with abetting Najib in the commission of the offence.",
+      "court": "Kuala Lumpur Sessions Court",
+      "sortOrder": 1
+    },
+    {
+      "date": "2020-11-16",
+      "title": "Trial Commences",
+      "description": "The joint trial of Najib and Arul Kanda began before Justice Collin Lawrence Sequerah at the Kuala Lumpur High Court.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 2
+    },
+    {
+      "date": "2021-02-22",
+      "title": "Former Auditor-General Testifies",
+      "description": "Former Auditor-General Ambrin Buang testified that he was asked to make amendments to the final audit report on 1MDB.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 3
+    },
+    {
+      "date": "2021-05-10",
+      "title": "Former Chief Secretary Testifies",
+      "description": "Former Chief Secretary Ali Hamsa testified about meetings where the audit report was discussed and amendments were proposed.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 4
+    },
+    {
+      "date": "2022-02-28",
+      "title": "Prosecution Closes Case",
+      "description": "The prosecution closed its case after calling 18 witnesses including former government officials involved in the audit process.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 5
+    },
+    {
+      "date": "2022-06-14",
+      "title": "Prima Facie Case Established",
+      "description": "Justice Sequerah ruled that the prosecution established a prima facie case against both accused. They were called to enter their defence.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 6
+    },
+    {
+      "date": "2023-03-06",
+      "title": "Najib Takes the Stand",
+      "description": "Najib testified that he acted on advice and that the amendments were not intended to hide wrongdoing.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 7
+    },
+    {
+      "date": "2023-08-21",
+      "title": "Arul Kanda Testifies",
+      "description": "Arul Kanda testified that he followed instructions from the board and government in facilitating the amendments.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 8
+    },
+    {
+      "date": "2024-04-30",
+      "title": "Both Found Guilty",
+      "description": "Justice Sequerah found both Najib and Arul Kanda guilty. Najib was sentenced to 12 years imprisonment and fined RM210 million. Arul Kanda received the same sentence. Najib's sentence to run concurrently with his SRC International sentence.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 9
+    }
+  ],
+  "mediaReferences": [
+    {
+      "source": "Malaysiakini",
+      "title": "Najib, Arul Kanda charged over 1MDB audit report tampering",
+      "url": "https://www.malaysiakini.com/news/502984",
+      "publishedAt": "2019-12-12",
+      "type": "news"
+    },
+    {
+      "source": "The Edge Markets",
+      "title": "Former A-G tells court he was asked to amend 1MDB report",
+      "url": "https://www.theedgemarkets.com/article/former-ag-tells-court-he-was-asked-amend-1mdb-report",
+      "publishedAt": "2021-02-22",
+      "type": "news"
+    },
+    {
+      "source": "Free Malaysia Today",
+      "title": "Najib, Arul Kanda to enter defence in audit tampering case",
+      "url": "https://www.freemalaysiatoday.com/category/nation/2022/06/14/najib-arul-kanda-to-enter-defence-in-audit-tampering-case/",
+      "publishedAt": "2022-06-14",
+      "type": "news"
+    },
+    {
+      "source": "Malay Mail",
+      "title": "Najib, Arul Kanda found guilty in 1MDB audit tampering case",
+      "url": "https://www.malaymail.com/news/malaysia/2024/04/30/najib-arul-kanda-found-guilty-in-1mdb-audit-tampering-case/128934",
+      "publishedAt": "2024-04-30",
+      "type": "news"
+    },
+    {
+      "source": "The Star",
+      "title": "1MDB audit report tampering: What the case is about",
+      "url": "https://www.thestar.com.my/news/nation/2020/11/16/1mdb-audit-report-tampering-what-the-case-is-about",
+      "publishedAt": "2020-11-16",
+      "type": "news"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+export { ProfileHeader } from "./profile-header";
+export { AboutSection } from "./about-section";
+export { PracticeAreasSection } from "./practice-areas-section";
+export { EducationSection } from "./education-section";
+export { MetricsSection } from "./metrics-section";
+export { ReviewsSection } from "./reviews-section";
+export { CasesSection } from "./cases-section";
+export { LawyerJsonLd } from "./lawyer-json-ld";
+export { ClaimProfileCard } from "./claim-profile-card";

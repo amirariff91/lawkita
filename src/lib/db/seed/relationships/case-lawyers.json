@@ -1,0 +1,124 @@
+{
+  "relationships": [
+    {
+      "caseSlug": "najib-src-international-rm42m",
+      "lawyerSlug": "muhammad-shafee-abdullah",
+      "role": "defense",
+      "roleDescription": "Lead defense counsel"
+    },
+    {
+      "caseSlug": "najib-src-international-rm42m",
+      "lawyerSlug": "hisyam-teh-poh-teik",
+      "role": "defense",
+      "roleDescription": "Defense counsel"
+    },
+    {
+      "caseSlug": "najib-src-international-rm42m",
+      "lawyerSlug": "harvinderjit-singh",
+      "role": "defense",
+      "roleDescription": "Defense counsel"
+    },
+    {
+      "caseSlug": "najib-src-international-rm42m",
+      "lawyerSlug": "gopal-sri-ram",
+      "role": "prosecution",
+      "roleDescription": "Lead prosecutor (Senior DPP, ad-hoc)"
+    },
+    {
+      "caseSlug": "najib-src-international-rm42m",
+      "lawyerSlug": "v-sithambaram",
+      "role": "prosecution",
+      "roleDescription": "Deputy Public Prosecutor"
+    },
+    {
+      "caseSlug": "najib-src-international-rm42m",
+      "lawyerSlug": "ahmad-akram-gharib",
+      "role": "prosecution",
+      "roleDescription": "Deputy Public Prosecutor"
+    },
+    {
+      "caseSlug": "najib-src-international-rm42m",
+      "lawyerSlug": "mohd-nazlan-mohd-ghazali",
+      "role": "judge",
+      "roleDescription": "Presiding Judge, High Court (Trial)"
+    },
+    {
+      "caseSlug": "najib-src-international-rm42m",
+      "lawyerSlug": "abdul-karim-abdul-jalil",
+      "role": "judge",
+      "roleDescription": "Panel Chairman, Court of Appeal"
+    },
+    {
+      "caseSlug": "najib-src-international-rm42m",
+      "lawyerSlug": "tengku-maimun-tuan-mat",
+      "role": "judge",
+      "roleDescription": "Chief Justice, Federal Court (Final Appeal)"
+    },
+    {
+      "caseSlug": "najib-1mdb-tanore-rm2-28b",
+      "lawyerSlug": "muhammad-shafee-abdullah",
+      "role": "defense",
+      "roleDescription": "Lead defense counsel"
+    },
+    {
+      "caseSlug": "najib-1mdb-tanore-rm2-28b",
+      "lawyerSlug": "hisyam-teh-poh-teik",
+      "role": "defense",
+      "roleDescription": "Defense counsel"
+    },
+    {
+      "caseSlug": "najib-1mdb-tanore-rm2-28b",
+      "lawyerSlug": "gopal-sri-ram",
+      "role": "prosecution",
+      "roleDescription": "Lead prosecutor (Senior DPP, ad-hoc)"
+    },
+    {
+      "caseSlug": "najib-1mdb-tanore-rm2-28b",
+      "lawyerSlug": "ahmad-akram-gharib",
+      "role": "prosecution",
+      "roleDescription": "Deputy Public Prosecutor"
+    },
+    {
+      "caseSlug": "najib-1mdb-tanore-rm2-28b",
+      "lawyerSlug": "collin-lawrence-sequerah",
+      "role": "judge",
+      "roleDescription": "Presiding Judge, High Court"
+    },
+    {
+      "caseSlug": "1mdb-audit-tampering",
+      "lawyerSlug": "muhammad-shafee-abdullah",
+      "role": "defense",
+      "roleDescription": "Defense counsel for Najib Razak"
+    },
+    {
+      "caseSlug": "1mdb-audit-tampering",
+      "lawyerSlug": "gopal-sri-ram",
+      "role": "prosecution",
+      "roleDescription": "Lead prosecutor (Senior DPP, ad-hoc)"
+    },
+    {
+      "caseSlug": "1mdb-audit-tampering",
+      "lawyerSlug": "collin-lawrence-sequerah",
+      "role": "judge",
+      "roleDescription": "Presiding Judge, High Court"
+    },
+    {
+      "caseSlug": "rosmah-solar-project-corruption",
+      "lawyerSlug": "jagjit-singh-sidhu",
+      "role": "defense",
+      "roleDescription": "Lead defense counsel"
+    },
+    {
+      "caseSlug": "rosmah-solar-project-corruption",
+      "lawyerSlug": "gopal-sri-ram",
+      "role": "prosecution",
+      "roleDescription": "Lead prosecutor (Senior DPP, ad-hoc)"
+    },
+    {
+      "caseSlug": "rosmah-solar-project-corruption",
+      "lawyerSlug": "mohamed-zaini-mazlan",
+      "role": "judge",
+      "roleDescription": "Presiding Judge, High Court"
+    }
+  ]
+}

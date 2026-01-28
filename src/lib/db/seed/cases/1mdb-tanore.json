@@ -1,0 +1,118 @@
+{
+  "case": {
+    "slug": "najib-1mdb-tanore-rm2-28b",
+    "title": "1MDB-Tanore Trial (RM2.28 Billion)",
+    "subtitle": "Najib Razak's Largest 1MDB Criminal Case",
+    "description": "The 1MDB-Tanore trial is the largest of Najib Razak's corruption cases, involving RM2.28 billion allegedly misappropriated from 1Malaysia Development Berhad. Najib faces 4 charges: 1 count of abuse of power for using his position to receive RM2.28 billion in bribes related to 1MDB, and 3 counts of money laundering involving the same amount. The funds allegedly flowed through Tanore Finance Corporation and Good Star Limited. This trial is separate from the SRC International case and represents the bulk of the 1MDB scandal allegations against Najib.",
+    "category": "corruption",
+    "status": "ongoing",
+    "isPublished": true,
+    "isFeatured": true,
+    "outcome": "ongoing",
+    "chargeCount": 4,
+    "metaDescription": "Follow Najib Razak's 1MDB-Tanore trial involving RM2.28 billion. Complete timeline, legal teams, and ongoing proceedings of Malaysia's largest corruption case.",
+    "tags": ["1mdb-scandal", "najib-razak", "malaysian-corruption", "high-profile", "political", "tanore-finance", "money-laundering", "abuse-of-power"]
+  },
+  "timeline": [
+    {
+      "date": "2018-09-20",
+      "title": "Charged with 4 Counts",
+      "description": "Najib Razak was charged with 4 counts: 1 count of abuse of power under Section 23 of the MACC Act 2009 and 3 counts of money laundering under AMLA 2001, involving RM2.28 billion from 1MDB funds. He pleaded not guilty.",
+      "court": "Kuala Lumpur Sessions Court",
+      "sortOrder": 1
+    },
+    {
+      "date": "2019-08-28",
+      "title": "Trial Commences",
+      "description": "The trial began at the Kuala Lumpur High Court before Justice Collin Lawrence Sequerah. The prosecution outlined how funds allegedly flowed from 1MDB through various entities.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 2
+    },
+    {
+      "date": "2020-01-06",
+      "title": "AmBank Witnesses Testify",
+      "description": "Former AmBank officers testified about the flow of funds into Najib's personal accounts, including transfers from Tanore Finance Corporation.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 3
+    },
+    {
+      "date": "2020-07-09",
+      "title": "Former 1MDB CEO Testifies",
+      "description": "Former 1MDB CEO Mohd Hazem Abd Rahman testified about board decisions and the role of Jho Low in 1MDB operations.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 4
+    },
+    {
+      "date": "2021-06-03",
+      "title": "Prosecution Rests Case",
+      "description": "After calling numerous witnesses including former 1MDB officials and banking officers, the prosecution closed its case.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 5
+    },
+    {
+      "date": "2021-11-30",
+      "title": "Prima Facie Case Established",
+      "description": "Justice Sequerah ruled that the prosecution had established a prima facie case on all 4 charges. Najib was called to enter his defense.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 6
+    },
+    {
+      "date": "2022-01-12",
+      "title": "Defense Case Begins",
+      "description": "Najib's defense case commenced. The defense argued that Najib was misled by fugitive businessman Jho Low and other advisors.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 7
+    },
+    {
+      "date": "2023-06-05",
+      "title": "Najib Concludes Testimony",
+      "description": "Najib completed his testimony after lengthy cross-examination. He maintained that he believed the funds were donations and investments.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 8
+    },
+    {
+      "date": "2024-05-15",
+      "title": "Trial Continues with Defense Witnesses",
+      "description": "The trial continues with defense witnesses being called. The defense team is presenting evidence on the role of third parties in the alleged misappropriation.",
+      "court": "Kuala Lumpur High Court",
+      "sortOrder": 9
+    }
+  ],
+  "mediaReferences": [
+    {
+      "source": "Malaysiakini",
+      "title": "Najib's 1MDB trial begins, prosecution outlines RM2.28b case",
+      "url": "https://www.malaysiakini.com/news/489891",
+      "publishedAt": "2019-08-28",
+      "type": "news"
+    },
+    {
+      "source": "The Edge Markets",
+      "title": "Najib ordered to enter defence in 1MDB-Tanore case",
+      "url": "https://www.theedgemarkets.com/article/najib-ordered-enter-defence-1mdbtanore-case",
+      "publishedAt": "2021-11-30",
+      "type": "news"
+    },
+    {
+      "source": "Free Malaysia Today",
+      "title": "Ex-1MDB CEO tells court of Jho Low's influence",
+      "url": "https://www.freemalaysiatoday.com/category/nation/2020/07/09/ex-1mdb-ceo-tells-court-of-jho-lows-influence/",
+      "publishedAt": "2020-07-09",
+      "type": "news"
+    },
+    {
+      "source": "Malay Mail",
+      "title": "In 1MDB-Tanore trial, Najib blames advisors for misleading him",
+      "url": "https://www.malaymail.com/news/malaysia/2022/01/12/in-1mdb-tanore-trial-najib-blames-advisors-for-misleading-him/2034567",
+      "publishedAt": "2022-01-12",
+      "type": "news"
+    },
+    {
+      "source": "The Star",
+      "title": "Najib's RM2.28bil 1MDB trial: What you need to know",
+      "url": "https://www.thestar.com.my/news/nation/2019/08/28/najibs-rm228bil-1mdb-trial-what-you-need-to-know",
+      "publishedAt": "2019-08-28",
+      "type": "news"
+    }
+  ]
+}
