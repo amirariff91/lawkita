@@ -3,6 +3,9 @@ import { db } from "@/lib/db";
 import { lawyers, cases, practiceAreas, states, cities } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 
+// Generate sitemap at runtime, not build time (requires DB connection)
+export const dynamic = "force-dynamic";
+
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.my";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
