@@ -31,22 +31,27 @@ interface CasesPageProps {
 }
 
 async function CasesContent({ searchParams }: { searchParams: SearchParams }) {
-  const { query, category, status, tag, page } =
-    await searchParamsCache.parse(searchParams);
+  try {
+    const { query, category, status, tag, page } =
+      await searchParamsCache.parse(searchParams);
 
-  const [result, allTags] = await Promise.all([
-    searchCases({
-      query: query || undefined,
-      category: (category as CaseCategory) || undefined,
-      status: (status as CaseStatus) || undefined,
-      tag: tag || undefined,
-      page: page || 1,
-      limit: 12,
-    }),
-    getAllCaseTags(),
-  ]);
+    const [result, allTags] = await Promise.all([
+      searchCases({
+        query: query || undefined,
+        category: (category as CaseCategory) || undefined,
+        status: (status as CaseStatus) || undefined,
+        tag: tag || undefined,
+        page: page || 1,
+        limit: 12,
+      }),
+      getAllCaseTags(),
+    ]);
 
-  return <CasesClient initialData={result} allTags={allTags} />;
+    return <CasesClient initialData={result} allTags={allTags} />;
+  } catch (error) {
+    console.error("Failed to fetch cases:", error);
+    throw error; // Re-throw to trigger error boundary
+  }
 }
 
 export default async function CasesPage({ searchParams }: CasesPageProps) {

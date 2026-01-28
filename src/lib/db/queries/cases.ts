@@ -60,8 +60,8 @@ export async function searchCases(
   }
 
   if (tag) {
-    // PostgreSQL array contains operator
-    conditions.push(sql`${cases.tags} @> ${JSON.stringify([tag])}`);
+    // PostgreSQL array contains operator with NULL safety
+    conditions.push(sql`COALESCE(${cases.tags}, '[]'::jsonb) @> ${JSON.stringify([tag])}`);
   }
 
   // Get total count
