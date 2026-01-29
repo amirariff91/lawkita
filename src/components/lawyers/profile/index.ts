@@ -7,3 +7,6 @@ export { ReviewsSection } from "./reviews-section";
 export { CasesSection } from "./cases-section";
 export { LawyerJsonLd } from "./lawyer-json-ld";
 export { ClaimProfileCard } from "./claim-profile-card";
+export { CompletenessIndicator } from "./completeness-indicator";
+export { SimilarLawyers } from "./similar-lawyers";
+export { FirmHistory } from "./firm-history";

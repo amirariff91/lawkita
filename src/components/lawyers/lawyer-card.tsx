@@ -9,6 +9,10 @@ import {
   Clock,
   BadgeCheck,
   Sparkles,
+  AlertTriangle,
+  ShieldCheck,
+  UserCheck,
+  GraduationCap,
 } from "lucide-react";
 import type { LawyerCardData } from "@/types/lawyer";
 
@@ -30,14 +34,27 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
 
   const location = [lawyer.city, lawyer.state].filter(Boolean).join(", ");
 
+  // Determine inactive status
+  const isInactive =
+    lawyer.barStatus === "deceased" ||
+    lawyer.barStatus === "inactive" ||
+    lawyer.barStatus === "suspended";
+
+  // New to bar: admitted within last 12 months
+  const isNewToBar = lawyer.yearsAtBar !== null && lawyer.yearsAtBar < 1;
+
   return (
     <Link href={`/lawyers/${lawyer.slug}`}>
-      <Card className="group h-full transition-all hover:shadow-md hover:border-primary/20">
+      <Card
+        className={`group h-full transition-all hover:shadow-md hover:border-primary/20 ${
+          isInactive ? "opacity-75 bg-muted/30" : ""
+        }`}
+      >
         <CardContent className="p-4">
           <div className="flex gap-4">
             {/* Avatar */}
             <div className="relative shrink-0">
-              <Avatar className="size-16">
+              <Avatar className={`size-16 ${isInactive ? "grayscale" : ""}`}>
                 <AvatarImage
                   src={lawyer.photo ?? undefined}
                   alt={lawyer.name}
@@ -47,7 +64,8 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
                 />
                 <AvatarFallback className="text-lg">{initials}</AvatarFallback>
               </Avatar>
-              {lawyer.isVerified && (
+              {/* Verification badge on avatar */}
+              {lawyer.isVerified && !isInactive && (
                 <div className="absolute -bottom-1 -right-1 rounded-full bg-background p-0.5">
                   <BadgeCheck className="size-4 text-primary" aria-hidden="true" />
                 </div>
@@ -58,7 +76,11 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                  <h3
+                    className={`font-semibold group-hover:text-primary transition-colors truncate ${
+                      isInactive ? "text-muted-foreground" : "text-foreground"
+                    }`}
+                  >
                     {lawyer.name}
                   </h3>
                   {lawyer.firmName && (
@@ -69,13 +91,32 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
                   )}
                 </div>
 
-                {/* Sponsored badge */}
-                {lawyer.subscriptionTier === "featured" && (
-                  <Badge variant="secondary" className="shrink-0 gap-1">
-                    <Sparkles className="size-3" aria-hidden="true" />
-                    Sponsored
-                  </Badge>
-                )}
+                {/* Top-right badges */}
+                <div className="flex flex-wrap gap-1 shrink-0">
+                  {/* Inactive badge */}
+                  {isInactive && (
+                    <Badge variant="destructive" className="shrink-0 gap-1 text-xs">
+                      <AlertTriangle className="size-3" aria-hidden="true" />
+                      {lawyer.barStatus === "suspended" ? "Suspended" : "Inactive"}
+                    </Badge>
+                  )}
+
+                  {/* Sponsored/Featured badge */}
+                  {lawyer.subscriptionTier === "featured" && !isInactive && (
+                    <Badge variant="secondary" className="shrink-0 gap-1">
+                      <Sparkles className="size-3" aria-hidden="true" />
+                      Sponsored
+                    </Badge>
+                  )}
+
+                  {/* New to Bar badge */}
+                  {isNewToBar && !isInactive && (
+                    <Badge variant="outline" className="shrink-0 gap-1 border-amber-500 text-amber-600">
+                      <GraduationCap className="size-3" aria-hidden="true" />
+                      New
+                    </Badge>
+                  )}
+                </div>
               </div>
 
               {/* Location */}
@@ -83,6 +124,24 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
                 <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                   <MapPin className="size-3 shrink-0" aria-hidden="true" />
                   <span className="truncate">{location}</span>
+                </div>
+              )}
+
+              {/* Verification badges row */}
+              {(lawyer.isVerified || lawyer.isClaimed) && !isInactive && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {lawyer.isVerified && (
+                    <Badge variant="outline" className="text-xs gap-1 border-blue-300 text-blue-600">
+                      <ShieldCheck className="size-3" aria-hidden="true" />
+                      Bar Council
+                    </Badge>
+                  )}
+                  {lawyer.isClaimed && (
+                    <Badge variant="outline" className="text-xs gap-1 border-green-300 text-green-600">
+                      <UserCheck className="size-3" aria-hidden="true" />
+                      Claimed
+                    </Badge>
+                  )}
                 </div>
               )}
 

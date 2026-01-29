@@ -11,7 +11,11 @@ import {
   Sparkles,
   AlertTriangle,
   MessageSquare,
+  Scale,
+  UserCheck,
+  ShieldCheck,
 } from "lucide-react";
+import { formatFreshness } from "@/lib/utils";
 import type { LawyerWithRelations } from "@/types/lawyer";
 
 interface ProfileHeaderProps {
@@ -29,19 +33,23 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
   const location = [lawyer.city, lawyer.state].filter(Boolean).join(", ");
 
   const isInactive =
-    lawyer.barStatus === "deceased" || lawyer.barStatus === "inactive";
+    lawyer.barStatus === "deceased" ||
+    lawyer.barStatus === "inactive" ||
+    lawyer.barStatus === "suspended";
 
   return (
     <div className="relative">
       {/* Status banner for inactive lawyers */}
       {isInactive && (
-        <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-900/50 dark:bg-yellow-900/20">
-          <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-900/20">
+          <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
             <AlertTriangle className="size-4" aria-hidden="true" />
             <span className="text-sm font-medium">
               {lawyer.barStatus === "deceased"
                 ? "This lawyer is deceased"
-                : "This lawyer is no longer practicing"}
+                : lawyer.barStatus === "suspended"
+                  ? "This lawyer is currently suspended by the Malaysian Bar Council"
+                  : "This lawyer is currently listed as inactive with the Malaysian Bar Council"}
             </span>
           </div>
         </div>
@@ -50,7 +58,7 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
       <div className="flex flex-col sm:flex-row gap-6">
         {/* Avatar */}
         <div className="relative shrink-0">
-          <Avatar className="size-24 sm:size-32">
+          <Avatar className={`size-24 sm:size-32 ${isInactive ? "opacity-75" : ""}`}>
             <AvatarImage
               src={lawyer.photo ?? undefined}
               alt={lawyer.name}
@@ -62,7 +70,7 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
               {initials}
             </AvatarFallback>
           </Avatar>
-          {lawyer.isVerified && (
+          {lawyer.isVerified && !isInactive && (
             <div className="absolute -bottom-1 -right-1 rounded-full bg-background p-1">
               <BadgeCheck className="size-6 text-primary" aria-hidden="true" />
             </div>
@@ -72,20 +80,56 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-start gap-2">
-            <h1 className="text-2xl sm:text-3xl font-bold text-balance">{lawyer.name}</h1>
-            {lawyer.subscriptionTier === "featured" && (
+            <h1 className={`text-2xl sm:text-3xl font-bold text-balance ${isInactive ? "text-muted-foreground" : ""}`}>
+              {lawyer.name}
+            </h1>
+
+            {/* Inactive badge */}
+            {isInactive && (
+              <Badge variant="destructive" className="gap-1">
+                <AlertTriangle className="size-3" aria-hidden="true" />
+                {lawyer.barStatus === "suspended" ? "Suspended" : "Inactive"}
+              </Badge>
+            )}
+
+            {/* Featured badge */}
+            {lawyer.subscriptionTier === "featured" && !isInactive && (
               <Badge variant="secondary" className="gap-1">
                 <Sparkles className="size-3" aria-hidden="true" />
                 Featured
               </Badge>
             )}
+
+            {/* Dual verification badges */}
             {lawyer.isVerified && (
-              <Badge className="gap-1">
-                <BadgeCheck className="size-3" aria-hidden="true" />
-                Verified
+              <Badge className="gap-1 bg-blue-600 hover:bg-blue-700">
+                <ShieldCheck className="size-3" aria-hidden="true" />
+                Bar Council
+              </Badge>
+            )}
+            {lawyer.isClaimed && (
+              <Badge className="gap-1 bg-green-600 hover:bg-green-700">
+                <UserCheck className="size-3" aria-hidden="true" />
+                Claimed
               </Badge>
             )}
           </div>
+
+          {/* Bar membership number */}
+          {lawyer.barMembershipNumber && (
+            <div className="flex items-center gap-2 text-muted-foreground mt-2">
+              <Scale className="size-4 shrink-0" aria-hidden="true" />
+              <span className="text-sm">
+                Bar No: <span className="font-medium">{lawyer.barMembershipNumber}</span>
+              </span>
+              {/* Data freshness indicator */}
+              {lawyer.lastScrapedAt && (
+                <span className="text-xs text-muted-foreground">
+                  (verified {formatFreshness(lawyer.lastScrapedAt)})
+                </span>
+              )}
+            </div>
+          )}
 
           {lawyer.firmName && (
             <div className="flex items-center gap-2 text-muted-foreground mt-2">
@@ -101,29 +145,27 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
             </div>
           )}
 
-          {/* Contact info (only show for premium or if verified) */}
-          {(lawyer.subscriptionTier !== "free" || lawyer.isClaimed) && (
-            <div className="flex flex-wrap gap-4 mt-3">
-              {lawyer.email && (
-                <a
-                  href={`mailto:${lawyer.email}`}
-                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Mail className="size-4" aria-hidden="true" />
-                  {lawyer.email}
-                </a>
-              )}
-              {lawyer.phone && (
-                <a
-                  href={`tel:${lawyer.phone}`}
-                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Phone className="size-4" aria-hidden="true" />
-                  {lawyer.phone}
-                </a>
-              )}
-            </div>
-          )}
+          {/* Contact info - always visible for SEO benefit */}
+          <div className="flex flex-wrap gap-4 mt-3">
+            {lawyer.email && (
+              <a
+                href={`mailto:${lawyer.email}`}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Mail className="size-4" aria-hidden="true" />
+                {lawyer.email}
+              </a>
+            )}
+            {lawyer.phone && (
+              <a
+                href={`tel:${lawyer.phone}`}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Phone className="size-4" aria-hidden="true" />
+                {lawyer.phone}
+              </a>
+            )}
+          </div>
 
           {/* CTA Button */}
           {!isInactive && (

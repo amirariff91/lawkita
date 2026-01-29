@@ -45,9 +45,9 @@ const plans = [
   {
     id: "premium",
     name: "Premium",
-    price: "RM199",
+    price: "RM299",
     period: "/month",
-    annualPrice: "RM1,990/year (Save RM398)",
+    annualPrice: "RM2,990/year (Save RM598)",
     description: "Enhanced visibility and client management",
     features: [
       { text: "Everything in Free", included: true },
@@ -63,9 +63,9 @@ const plans = [
   {
     id: "featured",
     name: "Featured",
-    price: "RM399",
+    price: "RM1,499",
     period: "/month",
-    annualPrice: "RM3,990/year (Save RM798)",
+    annualPrice: "RM14,990/year (Save RM2,998)",
     description: "Maximum visibility and premium features",
     features: [
       { text: "Everything in Premium", included: true },

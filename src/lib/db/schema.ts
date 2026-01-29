@@ -170,23 +170,34 @@ export const lawyerQualifications = pgTable("lawyer_qualifications", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 
-export const firms = pgTable("firms", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  name: text("name").notNull(),
-  slug: text("slug").unique().notNull(),
-  address: text("address"),
-  state: text("state"),
-  city: text("city"),
-  phone: text("phone"),
-  email: text("email"),
-  website: text("website"),
-  subscriptionTier: text("subscription_tier", {
-    enum: ["free", "firm_premium"],
-  }).default("free"),
-  subscriptionExpiresAt: timestamp("subscription_expires_at", { mode: "date" }),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const firms = pgTable(
+  "firms",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    slug: text("slug").unique().notNull(),
+    address: text("address"),
+    normalizedAddress: text("normalized_address"), // For deduplication
+    state: text("state"),
+    city: text("city"),
+    phone: text("phone"),
+    email: text("email"),
+    website: text("website"),
+    lawyerCount: integer("lawyer_count").default(0), // Cached count
+    avgYearsExperience: decimal("avg_years_experience", { precision: 4, scale: 1 }), // Cached stat
+    subscriptionTier: text("subscription_tier", {
+      enum: ["free", "firm_premium"],
+    }).default("free"),
+    subscriptionExpiresAt: timestamp("subscription_expires_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("firms_normalized_address_idx").on(table.normalizedAddress),
+    index("firms_state_idx").on(table.state),
+    index("firms_city_idx").on(table.city),
+  ]
+);
 
 export const lawyerFirms = pgTable(
   "lawyer_firms",
@@ -204,6 +215,28 @@ export const lawyerFirms = pgTable(
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => [primaryKey({ columns: [table.lawyerId, table.firmId] })]
+);
+
+// Firm history tracking - tracks when lawyers change firms
+export const lawyerFirmHistory = pgTable(
+  "lawyer_firm_history",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    lawyerId: uuid("lawyer_id")
+      .notNull()
+      .references(() => lawyers.id, { onDelete: "cascade" }),
+    firmName: text("firm_name").notNull(),
+    firmId: uuid("firm_id").references(() => firms.id, { onDelete: "set null" }),
+    firmAddress: text("firm_address"),
+    firstSeen: timestamp("first_seen", { mode: "date" }).defaultNow().notNull(),
+    lastSeen: timestamp("last_seen", { mode: "date" }).defaultNow().notNull(),
+    isCurrent: boolean("is_current").default(true).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("lawyer_firm_history_lawyer_id_idx").on(table.lawyerId),
+    index("lawyer_firm_history_firm_id_idx").on(table.firmId),
+  ]
 );
 
 // ============================================================================

@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, CheckCircle2, AlertCircle, Shield, Mail, FileText } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Shield, Mail, FileText, Upload, X } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { createClient } from "@supabase/supabase-js";
 
 interface ClaimFormProps {
   lawyerId: string;
@@ -25,10 +26,14 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
   const [formData, setFormData] = useState({
     barMembershipNumber: lawyerBarNumber || "",
     firmEmail: "",
+    phoneNumber: "",
   });
   const [status, setStatus] = useState<FormStatus>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [verificationMethod, setVerificationMethod] = useState<VerificationMethod>("bar_lookup");
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // If not logged in, show login prompt
   if (!session?.user) {
@@ -57,18 +62,85 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
     );
   }
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+      if (!validTypes.includes(file.type)) {
+        setErrorMessage("Please upload a JPG, PNG, WebP, or PDF file");
+        return;
+      }
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        setErrorMessage("File size must be less than 10MB");
+        return;
+      }
+      setDocumentFile(file);
+      setErrorMessage("");
+    }
+  };
+
+  const uploadDocument = async (): Promise<string | null> => {
+    if (!documentFile) return null;
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error("Storage not configured");
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    const fileExt = documentFile.name.split(".").pop();
+    const fileName = `claims/${lawyerId}/${Date.now()}.${fileExt}`;
+
+    setUploadProgress(30);
+
+    const { data, error } = await supabase.storage
+      .from("documents")
+      .upload(fileName, documentFile, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (error) {
+      throw new Error("Failed to upload document: " + error.message);
+    }
+
+    setUploadProgress(80);
+
+    // Get public URL
+    const { data: urlData } = supabase.storage.from("documents").getPublicUrl(data.path);
+
+    setUploadProgress(100);
+    return urlData.publicUrl;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus("submitting");
     setErrorMessage("");
+    setUploadProgress(0);
 
     try {
+      // Upload document if provided
+      let documentUrl: string | null = null;
+      if (verificationMethod === "document" && documentFile) {
+        setUploadProgress(10);
+        documentUrl = await uploadDocument();
+      }
+
       const response = await fetch(`/api/lawyers/${lawyerId}/claim`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...formData,
+          barMembershipNumber: formData.barMembershipNumber,
+          firmEmail: formData.firmEmail || undefined,
+          phoneNumber: formData.phoneNumber || undefined,
           verificationMethod,
+          verificationDocument: documentUrl,
         }),
       });
 
@@ -246,18 +318,83 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
 
           {/* Document Upload - only show if document method selected */}
           {verificationMethod === "document" && (
-            <div className="space-y-2 p-4 bg-muted rounded-lg">
-              <p className="text-sm">
-                After submitting this form, you'll be able to upload your practicing certificate
-                from your dashboard. Acceptable documents:
-              </p>
-              <ul className="text-sm text-muted-foreground list-disc list-inside">
-                <li>Valid Practicing Certificate</li>
-                <li>Bar Council Membership Card</li>
-                <li>Official letter from your firm</li>
-              </ul>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="document">Upload Verification Document *</Label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  id="document"
+                  accept=".jpg,.jpeg,.png,.webp,.pdf"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                {documentFile ? (
+                  <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50">
+                    <FileText className="h-8 w-8 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{documentFile.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(documentFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setDocumentFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full p-6 border-2 border-dashed rounded-lg hover:border-primary/50 transition-colors text-center"
+                  >
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm font-medium">Click to upload document</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      JPG, PNG, WebP, or PDF up to 10MB
+                    </p>
+                  </button>
+                )}
+              </div>
+              {uploadProgress > 0 && uploadProgress < 100 && (
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              )}
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground">
+                  <strong>Acceptable documents:</strong> Valid Practicing Certificate,
+                  Bar Council Membership Card, or official letter from your firm on letterhead.
+                </p>
+              </div>
             </div>
           )}
+
+          {/* Phone Number for WhatsApp verification */}
+          <div className="space-y-2">
+            <Label htmlFor="phoneNumber">WhatsApp Number (Optional)</Label>
+            <Input
+              id="phoneNumber"
+              type="tel"
+              value={formData.phoneNumber}
+              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+              placeholder="e.g., 012-345 6789"
+            />
+            <p className="text-xs text-muted-foreground">
+              We may send a verification code via WhatsApp for faster verification
+            </p>
+          </div>
 
           {status === "error" && (
             <div role="alert" aria-live="polite" className="flex items-center gap-2 text-destructive text-sm">

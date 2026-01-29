@@ -82,8 +82,8 @@ export const SUBSCRIPTION_PLANS = {
   },
   premium: {
     name: "Premium",
-    monthlyPrice: 199, // RM
-    annualPrice: 1990, // RM (2 months free)
+    monthlyPrice: 299, // RM per spec
+    annualPrice: 2990, // RM (2 months free)
     monthlyPriceId: process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID,
     annualPriceId: process.env.STRIPE_PREMIUM_ANNUAL_PRICE_ID,
     features: [
@@ -97,8 +97,8 @@ export const SUBSCRIPTION_PLANS = {
   },
   featured: {
     name: "Featured",
-    monthlyPrice: 399, // RM
-    annualPrice: 3990, // RM (2 months free)
+    monthlyPrice: 1499, // RM per spec
+    annualPrice: 14990, // RM (2 months free)
     monthlyPriceId: process.env.STRIPE_FEATURED_MONTHLY_PRICE_ID,
     annualPriceId: process.env.STRIPE_FEATURED_ANNUAL_PRICE_ID,
     features: [

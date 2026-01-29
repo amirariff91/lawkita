@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getLawyerBySlug } from "@/lib/db/queries/lawyers";
+import { getLawyerBySlug, getSimilarLawyers } from "@/lib/db/queries/lawyers";
 import {
   ProfileHeader,
   AboutSection,
@@ -11,6 +11,8 @@ import {
   CasesSection,
   LawyerJsonLd,
   ClaimProfileCard,
+  CompletenessIndicator,
+  SimilarLawyers,
 } from "@/components/lawyers/profile";
 import { EnquiryForm } from "@/components/lawyers/enquiry-form";
 import {
@@ -81,7 +83,10 @@ export default async function LawyerProfilePage({
   params,
 }: LawyerProfilePageProps) {
   const { slug } = await params;
-  const lawyer = await getLawyerBySlug(slug);
+  const [lawyer, similarLawyers] = await Promise.all([
+    getLawyerBySlug(slug),
+    getSimilarLawyers(slug, 4),
+  ]);
 
   if (!lawyer) {
     notFound();
@@ -126,6 +131,16 @@ export default async function LawyerProfilePage({
             reviewCount={lawyer.reviewCount ?? 0}
             lawyerSlug={slug}
           />
+
+          {/* Similar Lawyers */}
+          <SimilarLawyers lawyers={similarLawyers} currentLawyerName={lawyer.name} />
+
+          {/* Profile Completeness (for unclaimed profiles) */}
+          {!lawyer.isClaimed && (
+            <div className="rounded-lg border bg-card p-6">
+              <CompletenessIndicator lawyer={lawyer} showDetails />
+            </div>
+          )}
 
           {/* Claim Profile CTA (for unclaimed profiles) */}
           {!lawyer.isClaimed && (

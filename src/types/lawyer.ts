@@ -60,6 +60,10 @@ export interface LawyerCardData {
   averageRating: string | null; // decimal stored as string
   responseRate: string | null;
   practiceAreas: string[];
+  // Phase 1: Trust signals
+  barStatus: "active" | "inactive" | "suspended" | "deceased" | null;
+  barMembershipNumber: string | null;
+  lastScrapedAt: Date | null;
 }
 
 // Search/filter params

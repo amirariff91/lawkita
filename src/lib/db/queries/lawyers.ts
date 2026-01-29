@@ -49,7 +49,10 @@ export async function searchLawyers(
       years_at_bar,
       review_count,
       average_rating,
-      response_rate
+      response_rate,
+      bar_status,
+      bar_membership_number,
+      last_scraped_at
     `, { count: "exact" })
     .eq("is_active", true);
 
@@ -173,6 +176,9 @@ export async function searchLawyers(
         averageRating: lawyer.average_rating,
         responseRate: lawyer.response_rate,
         practiceAreas: practiceAreaMap.get(lawyer.id) ?? [],
+        barStatus: lawyer.bar_status as LawyerCardData["barStatus"],
+        barMembershipNumber: lawyer.bar_membership_number,
+        lastScrapedAt: lawyer.last_scraped_at ? new Date(lawyer.last_scraped_at) : null,
       }));
 
       const filteredTotal = filteredResults.length;
@@ -206,6 +212,9 @@ export async function searchLawyers(
     averageRating: lawyer.average_rating,
     responseRate: lawyer.response_rate,
     practiceAreas: practiceAreaMap.get(lawyer.id) ?? [],
+    barStatus: lawyer.bar_status as LawyerCardData["barStatus"],
+    barMembershipNumber: lawyer.bar_membership_number,
+    lastScrapedAt: lawyer.last_scraped_at ? new Date(lawyer.last_scraped_at) : null,
   }));
 
   const totalPages = Math.ceil(total / limit);
@@ -453,4 +462,271 @@ export async function getLawyerCountsByPracticeArea(): Promise<
   return Object.entries(counts)
     .map(([slug, { name, count }]) => ({ slug, name, count }))
     .sort((a, b) => b.count - a.count);
+}
+
+// Get newly admitted lawyers (admitted within last 12 months)
+export async function getNewlyAdmittedLawyers(
+  limit = 20,
+  page = 1
+): Promise<LawyerSearchResult> {
+  const offset = (page - 1) * limit;
+  const supabase = createServerSupabaseClient();
+
+  // Query for lawyers with years_at_bar < 1
+  let queryBuilder = supabase
+    .from("lawyers")
+    .select(`
+      id,
+      slug,
+      name,
+      photo,
+      bio,
+      state,
+      city,
+      firm_name,
+      is_verified,
+      is_claimed,
+      subscription_tier,
+      years_at_bar,
+      review_count,
+      average_rating,
+      response_rate,
+      bar_status,
+      bar_membership_number,
+      last_scraped_at
+    `, { count: "exact" })
+    .eq("is_active", true)
+    .lt("years_at_bar", 1)
+    .order("years_at_bar", { ascending: true })
+    .range(offset, offset + limit - 1);
+
+  const { data: lawyerResults, error, count } = await queryBuilder;
+
+  if (error) {
+    console.error("Error fetching newly admitted lawyers:", error);
+    return {
+      lawyers: [],
+      total: 0,
+      page,
+      totalPages: 0,
+      hasMore: false,
+    };
+  }
+
+  const total = count ?? 0;
+
+  // Get practice areas for the returned lawyers
+  const lawyerIds = lawyerResults?.map((l) => l.id) ?? [];
+  let practiceAreaMap: Map<string, string[]> = new Map();
+
+  if (lawyerIds.length > 0) {
+    const { data: practiceAreaData } = await supabase
+      .from("lawyer_practice_areas")
+      .select(`
+        lawyer_id,
+        practice_areas!inner(name)
+      `)
+      .in("lawyer_id", lawyerIds);
+
+    if (practiceAreaData) {
+      for (const row of practiceAreaData) {
+        const existing = practiceAreaMap.get(row.lawyer_id) ?? [];
+        // @ts-expect-error - Supabase types don't handle nested selects well
+        existing.push(row.practice_areas.name);
+        practiceAreaMap.set(row.lawyer_id, existing);
+      }
+    }
+  }
+
+  // Map to LawyerCardData
+  const lawyerCards: LawyerCardData[] = (lawyerResults ?? []).map((lawyer) => ({
+    id: lawyer.id,
+    slug: lawyer.slug,
+    name: lawyer.name,
+    photo: lawyer.photo,
+    bio: lawyer.bio,
+    state: lawyer.state,
+    city: lawyer.city,
+    firmName: lawyer.firm_name,
+    isVerified: lawyer.is_verified,
+    isClaimed: lawyer.is_claimed,
+    subscriptionTier: lawyer.subscription_tier as "free" | "premium" | "featured",
+    yearsAtBar: lawyer.years_at_bar,
+    reviewCount: lawyer.review_count ?? 0,
+    averageRating: lawyer.average_rating,
+    responseRate: lawyer.response_rate,
+    practiceAreas: practiceAreaMap.get(lawyer.id) ?? [],
+    barStatus: lawyer.bar_status as LawyerCardData["barStatus"],
+    barMembershipNumber: lawyer.bar_membership_number,
+    lastScrapedAt: lawyer.last_scraped_at ? new Date(lawyer.last_scraped_at) : null,
+  }));
+
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    lawyers: lawyerCards,
+    total,
+    page,
+    totalPages,
+    hasMore: page < totalPages,
+  };
+}
+
+// Get similar lawyers based on location, practice areas, and experience
+export async function getSimilarLawyers(
+  lawyerSlug: string,
+  limit = 4
+): Promise<LawyerCardData[]> {
+  const supabase = createServerSupabaseClient();
+
+  // First get the target lawyer
+  const { data: targetLawyer } = await supabase
+    .from("lawyers")
+    .select(`
+      id,
+      state,
+      city,
+      years_at_bar
+    `)
+    .eq("slug", lawyerSlug)
+    .single();
+
+  if (!targetLawyer) return [];
+
+  // Get target lawyer's practice areas
+  const { data: targetPracticeAreas } = await supabase
+    .from("lawyer_practice_areas")
+    .select("practice_area_id")
+    .eq("lawyer_id", targetLawyer.id);
+
+  const targetPracticeAreaIds = targetPracticeAreas?.map((pa) => pa.practice_area_id) ?? [];
+
+  // Find similar lawyers - prioritize same state/city and overlapping practice areas
+  let queryBuilder = supabase
+    .from("lawyers")
+    .select(`
+      id,
+      slug,
+      name,
+      photo,
+      bio,
+      state,
+      city,
+      firm_name,
+      is_verified,
+      is_claimed,
+      subscription_tier,
+      years_at_bar,
+      review_count,
+      average_rating,
+      response_rate,
+      bar_status,
+      bar_membership_number,
+      last_scraped_at
+    `)
+    .eq("is_active", true)
+    .neq("id", targetLawyer.id) // Exclude the target lawyer
+    .in("bar_status", ["active"])
+    .limit(50); // Get more candidates to filter
+
+  // Prioritize same state/city
+  if (targetLawyer.state) {
+    queryBuilder = queryBuilder.eq("state", targetLawyer.state);
+  }
+
+  const { data: candidates } = await queryBuilder;
+
+  if (!candidates || candidates.length === 0) return [];
+
+  // Get practice areas for candidates
+  const candidateIds = candidates.map((c) => c.id);
+  const { data: candidatePracticeAreas } = await supabase
+    .from("lawyer_practice_areas")
+    .select(`
+      lawyer_id,
+      practice_area_id,
+      practice_areas!inner(name)
+    `)
+    .in("lawyer_id", candidateIds);
+
+  // Build practice area map
+  const practiceAreaMap: Map<string, string[]> = new Map();
+  const practiceAreaIdMap: Map<string, string[]> = new Map();
+
+  if (candidatePracticeAreas) {
+    for (const row of candidatePracticeAreas) {
+      const existingNames = practiceAreaMap.get(row.lawyer_id) ?? [];
+      const existingIds = practiceAreaIdMap.get(row.lawyer_id) ?? [];
+      // @ts-expect-error - Supabase types
+      existingNames.push(row.practice_areas.name);
+      existingIds.push(row.practice_area_id);
+      practiceAreaMap.set(row.lawyer_id, existingNames);
+      practiceAreaIdMap.set(row.lawyer_id, existingIds);
+    }
+  }
+
+  // Score and rank candidates
+  const scoredCandidates = candidates.map((lawyer) => {
+    const lawyerPracticeAreaIds = practiceAreaIdMap.get(lawyer.id) ?? [];
+
+    // Calculate practice area overlap
+    const overlap = lawyerPracticeAreaIds.filter((id) =>
+      targetPracticeAreaIds.includes(id)
+    ).length;
+    const practiceScore = targetPracticeAreaIds.length > 0
+      ? overlap / targetPracticeAreaIds.length
+      : 0;
+
+    // Calculate location score
+    let locationScore = 0;
+    if (lawyer.city === targetLawyer.city) {
+      locationScore = 1;
+    } else if (lawyer.state === targetLawyer.state) {
+      locationScore = 0.6;
+    }
+
+    // Calculate experience similarity
+    let experienceScore = 0.5;
+    if (targetLawyer.years_at_bar !== null && lawyer.years_at_bar !== null) {
+      const diff = Math.abs(targetLawyer.years_at_bar - lawyer.years_at_bar);
+      if (diff <= 2) experienceScore = 1;
+      else if (diff <= 5) experienceScore = 0.7;
+      else if (diff <= 10) experienceScore = 0.4;
+      else experienceScore = 0.2;
+    }
+
+    // Weighted score
+    const totalScore =
+      locationScore * 0.33 + practiceScore * 0.34 + experienceScore * 0.33;
+
+    return { lawyer, score: totalScore };
+  });
+
+  // Sort by score and take top N
+  const topCandidates = scoredCandidates
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+
+  // Map to LawyerCardData
+  return topCandidates.map(({ lawyer }) => ({
+    id: lawyer.id,
+    slug: lawyer.slug,
+    name: lawyer.name,
+    photo: lawyer.photo,
+    bio: lawyer.bio,
+    state: lawyer.state,
+    city: lawyer.city,
+    firmName: lawyer.firm_name,
+    isVerified: lawyer.is_verified,
+    isClaimed: lawyer.is_claimed,
+    subscriptionTier: lawyer.subscription_tier as "free" | "premium" | "featured",
+    yearsAtBar: lawyer.years_at_bar,
+    reviewCount: lawyer.review_count ?? 0,
+    averageRating: lawyer.average_rating,
+    responseRate: lawyer.response_rate,
+    practiceAreas: practiceAreaMap.get(lawyer.id) ?? [],
+    barStatus: lawyer.bar_status as LawyerCardData["barStatus"],
+    barMembershipNumber: lawyer.bar_membership_number,
+    lastScrapedAt: lawyer.last_scraped_at ? new Date(lawyer.last_scraped_at) : null,
+  }));
 }

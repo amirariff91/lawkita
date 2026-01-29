@@ -1,0 +1,54 @@
+[27/01/2026, 12:52:40 PM] LawKita - Lawyer Directory: ‎You created group “LawKita - Lawyer Directory”
+[27/01/2026, 12:52:40 PM] LawKita - Lawyer Directory: ‎Messages and calls are end-to-end encrypted. Only people in this chat can read, listen to, or share them.
+[27/01/2026, 12:52:55 PM] Mohd Hazim: hi guys
+[27/01/2026, 12:55:20 PM] Amirul Farhan (Suria): Helloo
+[27/01/2026, 12:55:49 PM] Mohd Hazim: farhan dgn suria lg ke
+?
+[27/01/2026, 12:56:04 PM] Amirul Farhan (Suria): Masihh
+[27/01/2026, 12:56:10 PM] Mohd Hazim: powerr
+[27/01/2026, 12:56:14 PM] Mohd Hazim: jom lah kita
+[27/01/2026, 12:56:45 PM] Mohd Hazim: sy baru start company baru
+[27/01/2026, 12:56:55 PM] Mohd Hazim: arus digital sdn bhd
+[27/01/2026, 12:58:36 PM] Amirul Farhan (Suria): Mari
+[27/01/2026, 12:58:39 PM] Amirul Farhan (Suria): Project apa tu
+[27/01/2026, 12:59:04 PM] Fariz Izhan Abdul Hadi: onzzz
+[27/01/2026, 12:59:09 PM] Fariz Izhan Abdul Hadi: apa saja untuk abe hazim
+[27/01/2026, 12:59:17 PM] Mohd Hazim: anything han
+[27/01/2026, 12:59:41 PM] Fariz Izhan Abdul Hadi: handal
+[27/01/2026, 12:59:43 PM] Mohd Hazim: sy tlg create vehicle utk kita semua
+[27/01/2026, 12:59:59 PM] Mohd Hazim: kita start dgn law kita
+[27/01/2026, 1:00:22 PM] ~ Jiha: ‎Mohd Hazim added ~ Jiha
+[27/01/2026, 1:00:24 PM] Fariz Izhan Abdul Hadi: @⁨Amir Ariff⁩ boleh github
+[27/01/2026, 1:00:28 PM] Fariz Izhan Abdul Hadi: share
+[27/01/2026, 1:00:40 PM] Amir Ariff: The Hook: Famous Cases Explorer
+- Interactive timelines of high-profile cases (1MDB, Rosmah, undersea tunnel)
+- Who represented whom, case "report cards", shareable infographics
+- Think MyParliament but for lawyers - transparency + virality
+
+Why it works:
+1. No proper lawyer directory exists in Malaysia (current options are basic/outdated)
+2. Malaysians are obsessed with court drama (1MDB alone = instant traffic)
+3. Lawyers WANT visibility and leads (they'll pay RM299-1,499/month)
+4. We can scrape court records from e-Judgment Portal for real data
+
+Revenue: Lawyer subscriptions + lead generation fees (RM25-150 per enquiry)
+[27/01/2026, 1:01:24 PM] Amir Ariff: PRD (Product Requirements Document): https://docs.google.com/document/d/1EpTUWb2218Kze9XKembZshlT2au6OawH38NtJGGfHo0/edit?usp=sharing
+[27/01/2026, 1:01:25 PM] Mohd Hazim: guys ni jiha. dia akan act as admin utk kita. so dia akan tlg prepare any documentation yang kita perlu. ‎<This message was edited>
+[27/01/2026, 1:02:05 PM] Amir Ariff: hi jiha @⁨~Jiha⁩
+[27/01/2026, 1:02:18 PM] Amir Ariff: target to expand to Singapore jgk sbb law system sama
+[27/01/2026, 1:02:19 PM] Fariz Izhan Abdul Hadi: hi jiha @⁨~Jiha⁩
+[27/01/2026, 1:02:28 PM] Fariz Izhan Abdul Hadi: kasi jadi
+[27/01/2026, 1:02:40 PM] Mohd Hazim: jom2
+[27/01/2026, 1:03:13 PM] Mohd Hazim: @⁨Amir Ariff⁩ seh tlg delegate kerja seh
+[27/01/2026, 1:03:32 PM] Amir Ariff: bereh seh
+[27/01/2026, 1:03:40 PM] Amirul Farhan (Suria): Fuhh mantap ni
+[27/01/2026, 1:21:41 PM] Amir Ariff: lets goo
+[27/01/2026, 1:21:49 PM] Amir Ariff: bereh sehh
+‎[28/01/2026, 11:12:15 AM] ~ Jiha: SSM ARUS DIGITAL.pdf • ‎6 pages ‎document omitted
+[28/01/2026, 11:12:57 AM] ~ Jiha: salam semua. ni ssm arus digital. nanti perlukan apa apa dokumen boleh bg list dekat saya
+[28/01/2026, 1:16:47 PM] Mohd Hazim: lets do this
+[28/01/2026, 1:16:49 PM] Mohd Hazim: sehhh
+[28/01/2026, 1:16:51 PM] Mohd Hazim: next apa?
+[28/01/2026, 1:30:13 PM] Amir Ariff: Wsalam @⁨~Jiha⁩ thank you nnt yg ni utk submit payment gateway sniffy nanti
+[28/01/2026, 1:30:23 PM] Amir Ariff: utk LawKita domain dah registered
+[28/01/2026, 1:54:30 PM] Amir Ariff: nanti saya share the concept & demo of lawkita utk feedback & brainstorm from here

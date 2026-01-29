@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, CheckCircle2, AlertCircle, Star } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Star, Upload, FileText, X, Shield } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
 
 interface ReviewFormProps {
   lawyerId: string;
@@ -83,6 +84,62 @@ export function ReviewForm({ lawyerId, lawyerName }: ReviewFormProps) {
   });
   const [status, setStatus] = useState<FormStatus>("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const [verificationDocument, setVerificationDocument] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const validTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+      if (!validTypes.includes(file.type)) {
+        setErrorMessage("Please upload a JPG, PNG, WebP, or PDF file");
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setErrorMessage("File size must be less than 10MB");
+        return;
+      }
+      setVerificationDocument(file);
+      setErrorMessage("");
+    }
+  };
+
+  const uploadDocument = async (): Promise<string | null> => {
+    if (!verificationDocument) return null;
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error("Storage not configured");
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    const fileExt = verificationDocument.name.split(".").pop();
+    const fileName = `reviews/${lawyerId}/${Date.now()}.${fileExt}`;
+
+    setUploadProgress(30);
+
+    const { data, error } = await supabase.storage
+      .from("documents")
+      .upload(fileName, verificationDocument, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (error) {
+      throw new Error("Failed to upload document: " + error.message);
+    }
+
+    setUploadProgress(80);
+
+    const { data: urlData } = supabase.storage.from("documents").getPublicUrl(data.path);
+
+    setUploadProgress(100);
+    return urlData.publicUrl;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,12 +152,24 @@ export function ReviewForm({ lawyerId, lawyerName }: ReviewFormProps) {
 
     setStatus("submitting");
     setErrorMessage("");
+    setUploadProgress(0);
 
     try {
+      // Upload verification document if provided
+      let documentUrl: string | null = null;
+      if (verificationDocument) {
+        setUploadProgress(10);
+        documentUrl = await uploadDocument();
+      }
+
       const response = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, lawyerId }),
+        body: JSON.stringify({
+          ...formData,
+          lawyerId,
+          verificationDocument: documentUrl,
+        }),
       });
 
       if (!response.ok) {
@@ -258,6 +327,69 @@ export function ReviewForm({ lawyerId, lawyerName }: ReviewFormProps) {
             </div>
           </div>
 
+          {/* Invoice/Receipt Upload */}
+          <div className="border-t pt-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-green-600" />
+              <Label className="text-sm font-medium">Upload Proof of Service (Recommended)</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Reviews with verified invoices or receipts are published faster and displayed as "Verified Client"
+            </p>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,.pdf"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            {verificationDocument ? (
+              <div className="flex items-center gap-3 p-3 border rounded-lg bg-green-50 dark:bg-green-900/20">
+                <FileText className="h-8 w-8 text-green-600" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{verificationDocument.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(verificationDocument.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setVerificationDocument(null);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full p-4 border-2 border-dashed rounded-lg hover:border-green-500/50 transition-colors text-center"
+              >
+                <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm font-medium">Click to upload invoice or receipt</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  JPG, PNG, WebP, or PDF up to 10MB
+                </p>
+              </button>
+            )}
+
+            {uploadProgress > 0 && uploadProgress < 100 && (
+              <div className="w-full bg-muted rounded-full h-2">
+                <div
+                  className="bg-green-600 h-2 rounded-full transition-all"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            )}
+          </div>
+
           {status === "error" && (
             <div role="alert" aria-live="polite" className="flex items-center gap-2 text-destructive text-sm">
               <AlertCircle className="h-4 w-4" aria-hidden="true" />
@@ -269,7 +401,7 @@ export function ReviewForm({ lawyerId, lawyerName }: ReviewFormProps) {
             {status === "submitting" ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                Submitting...
+                {uploadProgress > 0 && uploadProgress < 100 ? "Uploading..." : "Submitting..."}
               </>
             ) : (
               "Submit Review"
@@ -277,7 +409,9 @@ export function ReviewForm({ lawyerId, lawyerName }: ReviewFormProps) {
           </Button>
 
           <p className="text-xs text-muted-foreground text-center">
-            Your review will be verified before publication. We may contact you to verify your identity.
+            {verificationDocument
+              ? "Your invoice will be verified automatically. Reviews typically publish within minutes."
+              : "Your review will be verified before publication. This may take 1-2 business days."}
           </p>
         </form>
       </CardContent>
