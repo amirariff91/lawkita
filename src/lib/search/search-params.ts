@@ -2,6 +2,7 @@ import {
   createSearchParamsCache,
   parseAsString,
   parseAsInteger,
+  parseAsBoolean,
 } from "nuqs/server";
 
 export const lawyerSearchParamsParsers = {
@@ -10,6 +11,7 @@ export const lawyerSearchParamsParsers = {
   state: parseAsString,
   city: parseAsString,
   experienceLevel: parseAsString,
+  showInactive: parseAsBoolean.withDefault(false),
   sort: parseAsString.withDefault("relevance"),
   page: parseAsInteger.withDefault(1),
 };

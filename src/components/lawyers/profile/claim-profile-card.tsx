@@ -13,7 +13,7 @@ export function ClaimProfileCard({ lawyerId, lawyerName }: ClaimProfileCardProps
     <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <UserCheck className="size-5 text-primary" />
+          <UserCheck className="size-5 text-primary" aria-hidden="true" />
           Is this your profile?
         </CardTitle>
         <CardDescription>
@@ -23,7 +23,7 @@ export function ClaimProfileCard({ lawyerId, lawyerName }: ClaimProfileCardProps
       <CardContent>
         <div className="grid sm:grid-cols-3 gap-4 mb-6">
           <div className="flex items-start gap-3">
-            <Shield className="size-5 text-muted-foreground shrink-0 mt-0.5" />
+            <Shield className="size-5 text-muted-foreground shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <p className="font-medium text-sm">Get Verified</p>
               <p className="text-xs text-muted-foreground">
@@ -32,7 +32,7 @@ export function ClaimProfileCard({ lawyerId, lawyerName }: ClaimProfileCardProps
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <MessageSquare className="size-5 text-muted-foreground shrink-0 mt-0.5" />
+            <MessageSquare className="size-5 text-muted-foreground shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <p className="font-medium text-sm">Receive Enquiries</p>
               <p className="text-xs text-muted-foreground">
@@ -41,7 +41,7 @@ export function ClaimProfileCard({ lawyerId, lawyerName }: ClaimProfileCardProps
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <BarChart3 className="size-5 text-muted-foreground shrink-0 mt-0.5" />
+            <BarChart3 className="size-5 text-muted-foreground shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <p className="font-medium text-sm">Track Analytics</p>
               <p className="text-xs text-muted-foreground">

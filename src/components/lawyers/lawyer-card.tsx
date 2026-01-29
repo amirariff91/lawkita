@@ -46,7 +46,7 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
   return (
     <Link href={`/lawyers/${lawyer.slug}`}>
       <Card
-        className={`group h-full transition-all hover:shadow-md hover:border-primary/20 ${
+        className={`group h-full transition-shadow transition-colors hover:shadow-md hover:border-primary/20 ${
           isInactive ? "opacity-75 bg-muted/30" : ""
         }`}
       >

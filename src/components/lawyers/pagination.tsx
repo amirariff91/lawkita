@@ -69,7 +69,7 @@ export function Pagination({
         disabled={currentPage === 1}
         onClick={() => onPageChange(currentPage - 1)}
       >
-        <ChevronLeft className="size-4" />
+        <ChevronLeft className="size-4" aria-hidden="true" />
         <span className="sr-only">Previous page</span>
       </Button>
 
@@ -100,7 +100,7 @@ export function Pagination({
         disabled={currentPage === totalPages}
         onClick={() => onPageChange(currentPage + 1)}
       >
-        <ChevronRight className="size-4" />
+        <ChevronRight className="size-4" aria-hidden="true" />
         <span className="sr-only">Next page</span>
       </Button>
     </div>

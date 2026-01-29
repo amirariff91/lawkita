@@ -15,6 +15,7 @@ import {
 import { PracticeAreaFilter } from "./practice-area-filter";
 import { LocationFilter } from "./location-filter";
 import { ExperienceFilter } from "./experience-filter";
+import { ActiveFilter } from "./active-filter";
 import { SortSelect } from "./sort-select";
 import { Badge } from "@/components/ui/badge";
 import type { ExperienceLevel, SortOption } from "@/types/lawyer";
@@ -24,11 +25,13 @@ interface FilterDrawerProps {
   state: string | null;
   city: string | null;
   experienceLevel: ExperienceLevel | null;
+  showInactive: boolean;
   sort: SortOption;
   onPracticeAreaChange: (value: string | null) => void;
   onStateChange: (value: string | null) => void;
   onCityChange: (value: string | null) => void;
   onExperienceLevelChange: (value: ExperienceLevel | null) => void;
+  onShowInactiveChange: (value: boolean) => void;
   onSortChange: (value: SortOption) => void;
   onClearFilters: () => void;
   activeFilterCount: number;
@@ -39,11 +42,13 @@ export function FilterDrawer({
   state,
   city,
   experienceLevel,
+  showInactive,
   sort,
   onPracticeAreaChange,
   onStateChange,
   onCityChange,
   onExperienceLevelChange,
+  onShowInactiveChange,
   onSortChange,
   onClearFilters,
   activeFilterCount,
@@ -52,7 +57,7 @@ export function FilterDrawer({
     <Sheet>
       <SheetTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2 md:hidden">
-          <Filter className="size-4" />
+          <Filter className="size-4" aria-hidden="true" />
           Filters
           {activeFilterCount > 0 && (
             <Badge variant="secondary" className="size-5 p-0 justify-center">
@@ -100,6 +105,14 @@ export function FilterDrawer({
             <label className="text-sm font-medium">Sort By</label>
             <SortSelect value={sort} onChange={onSortChange} />
           </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Status</label>
+            <ActiveFilter
+              showInactive={showInactive}
+              onChange={onShowInactiveChange}
+            />
+          </div>
         </div>
 
         <SheetFooter className="flex-row gap-2">
@@ -109,7 +122,7 @@ export function FilterDrawer({
               onClick={onClearFilters}
               className="flex-1"
             >
-              <X className="size-4 mr-2" />
+              <X className="size-4 mr-2" aria-hidden="true" />
               Clear all
             </Button>
           )}

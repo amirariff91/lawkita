@@ -71,13 +71,13 @@ export function PaginationLink({
     <div className="flex items-center justify-center gap-1">
       {currentPage === 1 ? (
         <Button variant="outline" size="icon" className="size-8" disabled>
-          <ChevronLeft className="size-4" />
+          <ChevronLeft className="size-4" aria-hidden="true" />
           <span className="sr-only">Previous page</span>
         </Button>
       ) : (
         <Button variant="outline" size="icon" className="size-8" asChild>
           <Link href={getPageUrl(currentPage - 1)}>
-            <ChevronLeft className="size-4" />
+            <ChevronLeft className="size-4" aria-hidden="true" />
             <span className="sr-only">Previous page</span>
           </Link>
         </Button>
@@ -101,13 +101,13 @@ export function PaginationLink({
 
       {currentPage === totalPages ? (
         <Button variant="outline" size="icon" className="size-8" disabled>
-          <ChevronRight className="size-4" />
+          <ChevronRight className="size-4" aria-hidden="true" />
           <span className="sr-only">Next page</span>
         </Button>
       ) : (
         <Button variant="outline" size="icon" className="size-8" asChild>
           <Link href={getPageUrl(currentPage + 1)}>
-            <ChevronRight className="size-4" />
+            <ChevronRight className="size-4" aria-hidden="true" />
             <span className="sr-only">Next page</span>
           </Link>
         </Button>

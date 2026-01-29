@@ -23,6 +23,7 @@ import {
 const navigation = [
   { name: "Find a Lawyer", href: "/lawyers" },
   { name: "Famous Cases", href: "/cases" },
+  { name: "Law Firms", href: "/firms" },
   { name: "Practice Areas", href: "/lawyers/practice-area" },
 ];
 

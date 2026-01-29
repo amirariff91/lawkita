@@ -81,7 +81,7 @@ export function MetricsSection({ lawyer }: MetricsSectionProps) {
                 key={metric.label}
                 className="flex flex-col items-center p-4 rounded-lg bg-muted/50 text-center"
               >
-                <Icon className="size-5 text-muted-foreground mb-2" />
+                <Icon className="size-5 text-muted-foreground mb-2" aria-hidden="true" />
                 <span className="text-2xl font-bold">
                   {metric.format(metric.value as number)}
                   {metric.suffix && (

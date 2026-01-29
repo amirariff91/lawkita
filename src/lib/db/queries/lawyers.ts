@@ -26,10 +26,39 @@ export async function searchLawyers(
     sort = "relevance",
     page = 1,
     limit = 20,
+    showInactive = false,
   } = params;
 
   const offset = (page - 1) * limit;
   const supabase = createServerSupabaseClient();
+
+  // If filtering by practice area, get the lawyer IDs first
+  let practiceAreaLawyerIds: Set<string> | null = null;
+  if (practiceArea) {
+    const { data: practiceAreaRecord } = await supabase
+      .from("practice_areas")
+      .select("id")
+      .eq("slug", practiceArea)
+      .single();
+
+    if (practiceAreaRecord) {
+      const { data: lawyerIdsInArea } = await supabase
+        .from("lawyer_practice_areas")
+        .select("lawyer_id")
+        .eq("practice_area_id", practiceAreaRecord.id);
+
+      practiceAreaLawyerIds = new Set(lawyerIdsInArea?.map((l) => l.lawyer_id) ?? []);
+    } else {
+      // Practice area not found - return empty results
+      return {
+        lawyers: [],
+        total: 0,
+        page,
+        totalPages: 0,
+        hasMore: false,
+      };
+    }
+  }
 
   // Start building the query
   let queryBuilder = supabase
@@ -53,8 +82,27 @@ export async function searchLawyers(
       bar_status,
       bar_membership_number,
       last_scraped_at
-    `, { count: "exact" })
-    .eq("is_active", true);
+    `, { count: "exact" });
+
+  // Only filter by is_active if showInactive is false
+  if (!showInactive) {
+    queryBuilder = queryBuilder.eq("is_active", true);
+  }
+
+  // Filter by practice area lawyer IDs at database level
+  if (practiceAreaLawyerIds !== null) {
+    if (practiceAreaLawyerIds.size === 0) {
+      // No lawyers in this practice area
+      return {
+        lawyers: [],
+        total: 0,
+        page,
+        totalPages: 0,
+        hasMore: false,
+      };
+    }
+    queryBuilder = queryBuilder.in("id", Array.from(practiceAreaLawyerIds));
+  }
 
   // Apply filters
   if (query) {
@@ -117,7 +165,7 @@ export async function searchLawyers(
 
   // Get practice areas for the returned lawyers
   const lawyerIds = lawyerResults?.map((l) => l.id) ?? [];
-  let practiceAreaMap: Map<string, string[]> = new Map();
+  const practiceAreaMap: Map<string, string[]> = new Map();
 
   if (lawyerIds.length > 0) {
     const { data: practiceAreaData } = await supabase
@@ -135,62 +183,6 @@ export async function searchLawyers(
         existing.push(row.practice_areas.name);
         practiceAreaMap.set(row.lawyer_id, existing);
       }
-    }
-  }
-
-  // If filtering by practice area, we need to filter the results
-  if (practiceArea && lawyerResults) {
-    // Get the practice area ID first
-    const { data: practiceAreaRecord } = await supabase
-      .from("practice_areas")
-      .select("id")
-      .eq("slug", practiceArea)
-      .single();
-
-    if (practiceAreaRecord) {
-      const { data: lawyerIdsInArea } = await supabase
-        .from("lawyer_practice_areas")
-        .select("lawyer_id")
-        .eq("practice_area_id", practiceAreaRecord.id);
-
-      const validIds = new Set(lawyerIdsInArea?.map((l) => l.lawyer_id) ?? []);
-
-      // Filter the results
-      const filteredResults = lawyerResults.filter((l) => validIds.has(l.id));
-
-      // Map to LawyerCardData
-      const lawyerCards: LawyerCardData[] = filteredResults.map((lawyer) => ({
-        id: lawyer.id,
-        slug: lawyer.slug,
-        name: lawyer.name,
-        photo: lawyer.photo,
-        bio: lawyer.bio,
-        state: lawyer.state,
-        city: lawyer.city,
-        firmName: lawyer.firm_name,
-        isVerified: lawyer.is_verified,
-        isClaimed: lawyer.is_claimed,
-        subscriptionTier: lawyer.subscription_tier as "free" | "premium" | "featured",
-        yearsAtBar: lawyer.years_at_bar,
-        reviewCount: lawyer.review_count ?? 0,
-        averageRating: lawyer.average_rating,
-        responseRate: lawyer.response_rate,
-        practiceAreas: practiceAreaMap.get(lawyer.id) ?? [],
-        barStatus: lawyer.bar_status as LawyerCardData["barStatus"],
-        barMembershipNumber: lawyer.bar_membership_number,
-        lastScrapedAt: lawyer.last_scraped_at ? new Date(lawyer.last_scraped_at) : null,
-      }));
-
-      const filteredTotal = filteredResults.length;
-      const totalPages = Math.ceil(filteredTotal / limit);
-
-      return {
-        lawyers: lawyerCards,
-        total: filteredTotal,
-        page,
-        totalPages,
-        hasMore: page < totalPages,
-      };
     }
   }
 

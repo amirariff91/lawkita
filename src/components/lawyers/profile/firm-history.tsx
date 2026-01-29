@@ -25,7 +25,7 @@ export function FirmHistory({ history }: FirmHistoryProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <History className="size-4 text-muted-foreground" />
+        <History className="size-4 text-muted-foreground" aria-hidden="true" />
         <span>Career History</span>
       </div>
       <div className="space-y-2 pl-6 border-l-2 border-muted">
@@ -34,7 +34,7 @@ export function FirmHistory({ history }: FirmHistoryProps) {
           <div className="relative">
             <div className="absolute -left-[25px] top-1.5 size-2 rounded-full bg-primary" />
             <div className="flex items-center gap-2">
-              <Building2 className="size-4 text-muted-foreground" />
+              <Building2 className="size-4 text-muted-foreground" aria-hidden="true" />
               {currentFirm.firmSlug ? (
                 <Link
                   href={`/firms/${currentFirm.firmSlug}`}
@@ -55,7 +55,7 @@ export function FirmHistory({ history }: FirmHistoryProps) {
           <div key={index} className="relative">
             <div className="absolute -left-[25px] top-1.5 size-2 rounded-full bg-muted-foreground" />
             <div className="flex items-center gap-2">
-              <Building2 className="size-4 text-muted-foreground" />
+              <Building2 className="size-4 text-muted-foreground" aria-hidden="true" />
               {firm.firmSlug ? (
                 <Link
                   href={`/firms/${firm.firmSlug}`}

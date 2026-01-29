@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getLawyerBySlug, getSimilarLawyers } from "@/lib/db/queries/lawyers";
+import { getLawyerFirmHistory } from "@/lib/db/queries/firms";
 import {
   ProfileHeader,
   AboutSection,
@@ -13,6 +14,7 @@ import {
   ClaimProfileCard,
   CompletenessIndicator,
   SimilarLawyers,
+  FirmHistory,
 } from "@/components/lawyers/profile";
 import { EnquiryForm } from "@/components/lawyers/enquiry-form";
 import {
@@ -88,6 +90,9 @@ export default async function LawyerProfilePage({
     getSimilarLawyers(slug, 4),
   ]);
 
+  // Fetch firm history after we have the lawyer
+  const firmHistory = lawyer ? await getLawyerFirmHistory(lawyer.id) : [];
+
   if (!lawyer) {
     notFound();
   }
@@ -111,6 +116,9 @@ export default async function LawyerProfilePage({
 
           {/* About */}
           <AboutSection bio={lawyer.bio} />
+
+          {/* Firm History */}
+          <FirmHistory history={firmHistory} />
 
           {/* Practice Areas */}
           <PracticeAreasSection practiceAreas={lawyer.practiceAreas} />

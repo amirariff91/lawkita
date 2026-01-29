@@ -91,7 +91,7 @@ function ReviewCard({ review }: { review: Review }) {
               {review.pros && (
                 <div className="flex-1">
                   <div className="flex items-center gap-1 text-sm font-medium text-green-600 dark:text-green-400">
-                    <ThumbsUp className="size-3" />
+                    <ThumbsUp className="size-3" aria-hidden="true" />
                     Pros
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -102,7 +102,7 @@ function ReviewCard({ review }: { review: Review }) {
               {review.cons && (
                 <div className="flex-1">
                   <div className="flex items-center gap-1 text-sm font-medium text-red-600 dark:text-red-400">
-                    <ThumbsDown className="size-3" />
+                    <ThumbsDown className="size-3" aria-hidden="true" />
                     Cons
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">

@@ -40,7 +40,7 @@ export function CasesSection({ cases }: CasesSectionProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Scale className="size-5" />
+          <Scale className="size-5" aria-hidden="true" />
           Notable Cases
         </CardTitle>
       </CardHeader>
@@ -83,7 +83,7 @@ export function CasesSection({ cases }: CasesSectionProps) {
                   </span>
                 </div>
               </div>
-              <ArrowRight className="size-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-4" />
+              <ArrowRight className="size-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-4" aria-hidden="true" />
             </Link>
           ))}
         </div>

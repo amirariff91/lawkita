@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { searchLawyers } from "@/lib/db/queries/lawyers";
 import { LawyersClient } from "./lawyers-client";
 import { LawyerGridSkeleton } from "@/components/lawyers";
+import { ErrorBoundary } from "@/components/error-boundary";
 import type { SearchParams } from "nuqs/server";
 import { lawyerSearchParamsCache } from "@/lib/search/search-params";
 import type { ExperienceLevel, SortOption } from "@/types/lawyer";
@@ -29,6 +30,7 @@ async function LawyersContent({ searchParams }: { searchParams: SearchParams }) 
     state,
     city,
     experienceLevel,
+    showInactive,
     sort,
     page,
   } = await lawyerSearchParamsCache.parse(searchParams);
@@ -39,6 +41,7 @@ async function LawyersContent({ searchParams }: { searchParams: SearchParams }) 
     state: state || undefined,
     city: city || undefined,
     experienceLevel: (experienceLevel as ExperienceLevel) || undefined,
+    showInactive: showInactive || false,
     sort: (sort as SortOption) || "relevance",
     page: page || 1,
     limit: 20,
@@ -59,9 +62,11 @@ export default async function LawyersPage({ searchParams }: LawyersPageProps) {
         </p>
       </div>
 
-      <Suspense fallback={<LawyerGridSkeleton count={6} />}>
-        <LawyersContent searchParams={resolvedParams} />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={<LawyerGridSkeleton count={6} />}>
+          <LawyersContent searchParams={resolvedParams} />
+        </Suspense>
+      </ErrorBoundary>
     </div>
   );
 }

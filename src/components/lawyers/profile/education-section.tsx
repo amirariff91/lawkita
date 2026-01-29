@@ -33,7 +33,7 @@ export function EducationSection({
         {education.length > 0 && (
           <div>
             <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-              <GraduationCap className="size-4" />
+              <GraduationCap className="size-4" aria-hidden="true" />
               Education
             </h4>
             <div className="space-y-4">
@@ -57,7 +57,7 @@ export function EducationSection({
         {qualifications.length > 0 && (
           <div>
             <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-              <Award className="size-4" />
+              <Award className="size-4" aria-hidden="true" />
               Professional Qualifications
             </h4>
             <div className="space-y-4">

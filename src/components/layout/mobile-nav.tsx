@@ -17,6 +17,7 @@ import {
   SearchLegal,
   GavelCases,
   BriefcaseLegal,
+  BuildingCourt,
   LogIn,
   UserPlus,
   DashboardGrid,
@@ -38,6 +39,7 @@ interface MobileNavProps {
 const navigation = [
   { name: "Find a Lawyer", href: "/lawyers", icon: SearchLegal },
   { name: "Famous Cases", href: "/cases", icon: GavelCases },
+  { name: "Law Firms", href: "/firms", icon: BuildingCourt },
   { name: "Practice Areas", href: "/lawyers/practice-area", icon: BriefcaseLegal },
 ];
 

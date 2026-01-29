@@ -1,6 +1,6 @@
 "use client";
 
-import { useQueryStates, parseAsString, parseAsInteger } from "nuqs";
+import { useQueryStates, parseAsString, parseAsInteger, parseAsBoolean } from "nuqs";
 import { useTransition, useCallback } from "react";
 import { LawyerGrid, LawyerGridSkeleton } from "@/components/lawyers";
 import { FilterBar } from "@/components/lawyers/filters/filter-bar";
@@ -23,6 +23,7 @@ export function LawyersClient({ initialData }: LawyersClientProps) {
       state: parseAsString,
       city: parseAsString,
       experienceLevel: parseAsString,
+      showInactive: parseAsBoolean.withDefault(false),
       sort: parseAsString.withDefault("relevance"),
       page: parseAsInteger.withDefault(1),
     },
@@ -51,6 +52,7 @@ export function LawyersClient({ initialData }: LawyersClientProps) {
       state: null,
       city: null,
       experienceLevel: null,
+      showInactive: false,
       sort: "relevance",
       page: 1,
     });
@@ -61,6 +63,7 @@ export function LawyersClient({ initialData }: LawyersClientProps) {
     params.state,
     params.city,
     params.experienceLevel,
+    params.showInactive,
   ].filter(Boolean).length;
 
   return (
@@ -77,6 +80,7 @@ export function LawyersClient({ initialData }: LawyersClientProps) {
             state={params.state}
             city={params.city}
             experienceLevel={params.experienceLevel as ExperienceLevel | null}
+            showInactive={params.showInactive}
             sort={params.sort as SortOption}
             onPracticeAreaChange={(value) => updateParam("practiceArea", value)}
             onStateChange={(value) => updateParam("state", value)}
@@ -84,6 +88,7 @@ export function LawyersClient({ initialData }: LawyersClientProps) {
             onExperienceLevelChange={(value) =>
               updateParam("experienceLevel", value)
             }
+            onShowInactiveChange={(value) => updateParam("showInactive", value)}
             onSortChange={(value) => updateParam("sort", value)}
             onClearFilters={clearFilters}
             activeFilterCount={activeFilterCount}
@@ -102,6 +107,7 @@ export function LawyersClient({ initialData }: LawyersClientProps) {
           state={params.state}
           city={params.city}
           experienceLevel={params.experienceLevel as ExperienceLevel | null}
+          showInactive={params.showInactive}
           sort={params.sort as SortOption}
           onQueryChange={(value) => updateParam("query", value)}
           onPracticeAreaChange={(value) => updateParam("practiceArea", value)}
@@ -110,6 +116,7 @@ export function LawyersClient({ initialData }: LawyersClientProps) {
           onExperienceLevelChange={(value) =>
             updateParam("experienceLevel", value)
           }
+          onShowInactiveChange={(value) => updateParam("showInactive", value)}
           onSortChange={(value) => updateParam("sort", value)}
           onClearFilters={clearFilters}
         />
@@ -121,6 +128,15 @@ export function LawyersClient({ initialData }: LawyersClientProps) {
       {/* Results */}
       {isPending ? (
         <LawyerGridSkeleton count={6} />
+      ) : initialData.lawyers.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">
+            No lawyers found matching your criteria.
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Try adjusting your filters or search terms.
+          </p>
+        </div>
       ) : (
         <LawyerGrid lawyers={initialData.lawyers} />
       )}

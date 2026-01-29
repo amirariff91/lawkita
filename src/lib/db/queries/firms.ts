@@ -299,6 +299,8 @@ export async function getLawyerFirmHistory(
   }));
 }
 
+export type FirmSortOption = "lawyers" | "experience" | "name";
+
 /**
  * Search firms with pagination
  */
@@ -306,6 +308,8 @@ export async function searchFirms(params: {
   query?: string;
   state?: string;
   city?: string;
+  practiceArea?: string;
+  sort?: FirmSortOption;
   page?: number;
   limit?: number;
 }): Promise<{
@@ -314,15 +318,61 @@ export async function searchFirms(params: {
   page: number;
   totalPages: number;
 }> {
-  const { query, state, city, page = 1, limit = 20 } = params;
+  const { query, state, city, practiceArea, sort = "lawyers", page = 1, limit = 20 } = params;
   const offset = (page - 1) * limit;
   const supabase = createServerSupabaseClient();
+
+  // If filtering by practice area, get firm IDs that have lawyers in that practice area
+  let practiceAreaFirmIds: Set<string> | null = null;
+  if (practiceArea) {
+    const { data: practiceAreaRecord } = await supabase
+      .from("practice_areas")
+      .select("id")
+      .eq("slug", practiceArea)
+      .single();
+
+    if (practiceAreaRecord) {
+      // Get lawyer IDs in this practice area
+      const { data: lawyerIdsInArea } = await supabase
+        .from("lawyer_practice_areas")
+        .select("lawyer_id")
+        .eq("practice_area_id", practiceAreaRecord.id);
+
+      const lawyerIds = lawyerIdsInArea?.map((l) => l.lawyer_id) ?? [];
+
+      if (lawyerIds.length > 0) {
+        // Get firm IDs for these lawyers
+        const { data: firmIdsData } = await supabase
+          .from("lawyers")
+          .select("primary_firm_id")
+          .in("id", lawyerIds)
+          .not("primary_firm_id", "is", null);
+
+        practiceAreaFirmIds = new Set(
+          firmIdsData?.map((l) => l.primary_firm_id).filter(Boolean) as string[] ?? []
+        );
+      } else {
+        practiceAreaFirmIds = new Set();
+      }
+    } else {
+      // Practice area not found - return empty results
+      return { firms: [], total: 0, page, totalPages: 0 };
+    }
+  }
 
   let queryBuilder = supabase
     .from("firms")
     .select("id, name, slug, address, state, city, lawyer_count, avg_years_experience", {
       count: "exact",
     });
+
+  // Filter by practice area firm IDs
+  if (practiceAreaFirmIds !== null) {
+    if (practiceAreaFirmIds.size === 0) {
+      return { firms: [], total: 0, page, totalPages: 0 };
+    }
+    queryBuilder = queryBuilder.in("id", Array.from(practiceAreaFirmIds));
+  }
 
   if (query) {
     queryBuilder = queryBuilder.or(`name.ilike.%${query}%,address.ilike.%${query}%`);
@@ -336,9 +386,21 @@ export async function searchFirms(params: {
     queryBuilder = queryBuilder.eq("city", city);
   }
 
-  queryBuilder = queryBuilder
-    .order("lawyer_count", { ascending: false, nullsFirst: false })
-    .range(offset, offset + limit - 1);
+  // Apply sorting
+  switch (sort) {
+    case "experience":
+      queryBuilder = queryBuilder.order("avg_years_experience", { ascending: false, nullsFirst: false });
+      break;
+    case "name":
+      queryBuilder = queryBuilder.order("name", { ascending: true });
+      break;
+    case "lawyers":
+    default:
+      queryBuilder = queryBuilder.order("lawyer_count", { ascending: false, nullsFirst: false });
+      break;
+  }
+
+  queryBuilder = queryBuilder.range(offset, offset + limit - 1);
 
   const { data, count, error } = await queryBuilder;
 

@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import type { Metadata } from "next";
 import { getFirmBySlug } from "@/lib/db/queries/firms";
 import { LawyerGrid } from "@/components/lawyers";

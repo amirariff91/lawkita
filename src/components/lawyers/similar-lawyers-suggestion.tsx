@@ -25,7 +25,7 @@ export function SimilarLawyersSuggestion({
     <Card className="border-dashed">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
-          <Search className="size-4 text-muted-foreground" />
+          <Search className="size-4 text-muted-foreground" aria-hidden="true" />
           <CardTitle className="text-base">You might also consider</CardTitle>
         </div>
         <p className="text-sm text-muted-foreground">
@@ -109,7 +109,7 @@ export function SimilarLawyersSuggestion({
                         <span>{lawyer.yearsAtBar}y</span>
                       )}
                     </div>
-                    <ArrowRight className="size-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ArrowRight className="size-3 opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
                   </div>
                 </div>
               </Link>

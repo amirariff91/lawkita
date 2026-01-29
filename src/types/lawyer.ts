@@ -77,6 +77,7 @@ export interface LawyerSearchParams {
   sort?: "relevance" | "experience" | "rating" | "reviews";
   page?: number;
   limit?: number;
+  showInactive?: boolean;
 }
 
 // Search result with pagination
