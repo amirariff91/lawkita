@@ -53,7 +53,7 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
             <Button onClick={() => authClient.signIn.social({ provider: "google" })}>
               Sign in with Google
             </Button>
-            <Button variant="outline" onClick={() => router.push("/sign-in")}>
+            <Button variant="outline" onClick={() => router.push("/auth/signin")}>
               Sign in with Email
             </Button>
           </div>

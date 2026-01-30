@@ -39,7 +39,7 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
   });
 
   if (!session?.user) {
-    redirect("/sign-in?callbackUrl=/admin");
+    redirect("/auth/signin?callbackUrl=/admin");
   }
 
   // Check if user is admin

@@ -2,10 +2,12 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { ChevronLeft, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { getLawyersByLocation } from "@/lib/db/queries/lawyers";
 import { getStateBySlug, getCitiesForState } from "@/lib/constants/locations";
 import { LawyerGrid, LawyerGridSkeleton, PaginationLink } from "@/components/lawyers";
+import { Breadcrumbs } from "@/components/seo";
+import { getLocationPageSchema } from "@/lib/utils/seo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { SearchParams } from "nuqs/server";
@@ -129,33 +131,38 @@ export default async function StatePage({
     notFound();
   }
 
-  return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-6">
-        <Link
-          href="/lawyers"
-          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ChevronLeft className="size-4 mr-1" />
-          All Lawyers
-        </Link>
+  const locationSchema = getLocationPageSchema(state.name);
 
-        <div className="flex flex-wrap items-center gap-3">
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(locationSchema) }}
+      />
+      <div className="container mx-auto py-8 px-4">
+        <Breadcrumbs
+          items={[
+            { label: "Lawyers", href: "/lawyers" },
+            { label: state.name, href: `/lawyers/location/${stateSlug}` },
+          ]}
+        />
+
+        <div className="flex flex-wrap items-center gap-3 mb-2">
           <h1 className="text-3xl font-bold tracking-tight">
             Lawyers in {state.name}
           </h1>
           <Badge variant="outline">{state.code}</Badge>
         </div>
 
-        <p className="text-muted-foreground mt-2 max-w-2xl">
+        <p className="text-muted-foreground mb-6 max-w-2xl">
           Find experienced lawyers across {state.name}, Malaysia. Browse by city
           or search across all {state.cities.length} cities.
         </p>
-      </div>
 
-      <Suspense fallback={<LawyerGridSkeleton count={6} />}>
-        <StateContent stateSlug={stateSlug} searchParams={resolvedSearchParams} />
-      </Suspense>
-    </div>
+        <Suspense fallback={<LawyerGridSkeleton count={6} />}>
+          <StateContent stateSlug={stateSlug} searchParams={resolvedSearchParams} />
+        </Suspense>
+      </div>
+    </>
   );
 }

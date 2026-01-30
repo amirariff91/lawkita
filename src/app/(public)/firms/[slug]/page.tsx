@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getFirmBySlug } from "@/lib/db/queries/firms";
 import { LawyerGrid } from "@/components/lawyers";
+import { FirmJsonLd } from "@/components/firms";
+import { Breadcrumbs } from "@/components/seo";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -59,9 +61,17 @@ export default async function FirmProfilePage({
   const location = [firm.city, firm.state].filter(Boolean).join(", ");
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-5xl mx-auto space-y-8">
-        {/* Header */}
+    <>
+      <FirmJsonLd firm={firm} />
+      <div className="container mx-auto py-8 px-4">
+        <Breadcrumbs
+          items={[
+            { label: "Firms", href: "/firms" },
+            { label: firm.name, href: `/firms/${firm.slug}` },
+          ]}
+        />
+        <div className="max-w-5xl mx-auto space-y-8">
+          {/* Header */}
         <div className="space-y-4">
           <div className="flex items-start gap-4">
             <div className="p-3 rounded-lg bg-primary/10">
@@ -195,7 +205,8 @@ export default async function FirmProfilePage({
             </p>
           )}
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -4,6 +4,7 @@ import { searchFirms } from "@/lib/db/queries/firms";
 import { FirmsClient } from "./firms-client";
 import { FirmGridSkeleton } from "@/components/firms";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { Breadcrumbs } from "@/components/seo";
 import type { SearchParams } from "nuqs/server";
 import { firmSearchParamsCache } from "@/lib/search/firm-search-params";
 
@@ -45,6 +46,7 @@ export default async function FirmsPage({ searchParams }: FirmsPageProps) {
 
   return (
     <div className="container mx-auto py-8 px-4 sm:px-[max(1rem,env(safe-area-inset-left))]">
+      <Breadcrumbs items={[{ label: "Firms", href: "/firms" }]} />
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Law Firms</h1>
         <p className="text-muted-foreground mt-2">

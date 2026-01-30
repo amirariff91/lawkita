@@ -4,9 +4,9 @@ import { Suspense } from "react";
 import { getLawyersByPracticeArea } from "@/lib/db/queries/lawyers";
 import { getPracticeAreaBySlug } from "@/lib/constants/practice-areas";
 import { LawyerGrid, LawyerGridSkeleton, PaginationLink } from "@/components/lawyers";
+import { Breadcrumbs } from "@/components/seo";
+import { getPracticeAreaPageSchema } from "@/lib/utils/seo";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
 import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsInteger } from "nuqs/server";
 
@@ -100,18 +100,28 @@ export default async function PracticeAreaPage({
     notFound();
   }
 
-  return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-6">
-        <Link
-          href="/lawyers/practice-area"
-          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ChevronLeft className="size-4 mr-1" />
-          All Practice Areas
-        </Link>
+  const practiceAreaSchema = getPracticeAreaPageSchema(
+    practiceArea.name,
+    area,
+    practiceArea.description
+  );
 
-        <div className="flex flex-wrap items-center gap-3">
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(practiceAreaSchema) }}
+      />
+      <div className="container mx-auto py-8 px-4">
+        <Breadcrumbs
+          items={[
+            { label: "Lawyers", href: "/lawyers" },
+            { label: "Practice Areas", href: "/lawyers/practice-area" },
+            { label: practiceArea.name, href: `/lawyers/practice-area/${area}` },
+          ]}
+        />
+
+        <div className="flex flex-wrap items-center gap-3 mb-2">
           <h1 className="text-3xl font-bold tracking-tight">
             {practiceArea.name} Lawyers
           </h1>
@@ -120,14 +130,14 @@ export default async function PracticeAreaPage({
           </Badge>
         </div>
 
-        <p className="text-muted-foreground mt-2 max-w-2xl">
+        <p className="text-muted-foreground mb-6 max-w-2xl">
           {practiceArea.description}
         </p>
-      </div>
 
-      <Suspense fallback={<LawyerGridSkeleton count={6} />}>
-        <PracticeAreaContent areaSlug={area} searchParams={resolvedSearchParams} />
-      </Suspense>
-    </div>
+        <Suspense fallback={<LawyerGridSkeleton count={6} />}>
+          <PracticeAreaContent areaSlug={area} searchParams={resolvedSearchParams} />
+        </Suspense>
+      </div>
+    </>
   );
 }

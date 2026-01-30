@@ -35,7 +35,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   });
 
   if (!session?.user) {
-    redirect("/sign-in?callbackUrl=/dashboard");
+    redirect("/auth/signin?callbackUrl=/dashboard");
   }
 
   // Get the user's lawyer profile

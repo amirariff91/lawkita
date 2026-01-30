@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Breadcrumbs } from "@/components/seo";
 import { ArrowRight } from "lucide-react";
 import {
   getMainPracticeAreas,
@@ -55,6 +56,12 @@ export default async function PracticeAreasIndexPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
+      <Breadcrumbs
+        items={[
+          { label: "Lawyers", href: "/lawyers" },
+          { label: "Practice Areas", href: "/lawyers/practice-area" },
+        ]}
+      />
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Practice Areas</h1>
         <p className="text-muted-foreground mt-2">

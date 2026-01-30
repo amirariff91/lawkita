@@ -9,6 +9,11 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+    sendResetPassword: async ({ user, url }) => {
+      // TODO: Implement email sending with Resend or similar
+      // For now, log the reset URL in development
+      console.log(`Password reset requested for ${user.email}: ${url}`);
+    },
   },
   socialProviders: {
     google: {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { GlobalSchemas } from "@/components/seo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -57,6 +58,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${sourceSerif.variable} antialiased`}
       >
+        <GlobalSchemas />
         <NuqsAdapter>{children}</NuqsAdapter>
       </body>
     </html>

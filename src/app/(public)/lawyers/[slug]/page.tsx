@@ -17,6 +17,7 @@ import {
   FirmHistory,
 } from "@/components/lawyers/profile";
 import { EnquiryForm } from "@/components/lawyers/enquiry-form";
+import { Breadcrumbs } from "@/components/seo";
 import {
   getLawyerOgImageUrl,
   getLawyerCanonicalUrl,
@@ -104,6 +105,12 @@ export default async function LawyerProfilePage({
       <LawyerJsonLd lawyer={lawyer} url={url} />
 
       <div className="container mx-auto py-8 px-4">
+        <Breadcrumbs
+          items={[
+            { label: "Lawyers", href: "/lawyers" },
+            { label: lawyer.name, href: `/lawyers/${slug}` },
+          ]}
+        />
         <div className="max-w-4xl mx-auto space-y-8">
           {/* Profile Header */}
           <ProfileHeader lawyer={lawyer} />

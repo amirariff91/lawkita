@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
 import { getLawyersByLocation } from "@/lib/db/queries/lawyers";
 import { getStateBySlug, getCityBySlug } from "@/lib/constants/locations";
 import { LawyerGrid, LawyerGridSkeleton, PaginationLink } from "@/components/lawyers";
+import { Breadcrumbs } from "@/components/seo";
+import { getLocationPageSchema } from "@/lib/utils/seo";
 import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsInteger } from "nuqs/server";
 
@@ -109,34 +109,40 @@ export default async function CityPage({
     notFound();
   }
 
-  return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-6">
-        <Link
-          href={`/lawyers/location/${stateSlug}`}
-          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ChevronLeft className="size-4 mr-1" />
-          {state.name}
-        </Link>
+  const locationSchema = getLocationPageSchema(state.name, city.name);
 
-        <h1 className="text-3xl font-bold tracking-tight">
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(locationSchema) }}
+      />
+      <div className="container mx-auto py-8 px-4">
+        <Breadcrumbs
+          items={[
+            { label: "Lawyers", href: "/lawyers" },
+            { label: state.name, href: `/lawyers/location/${stateSlug}` },
+            { label: city.name, href: `/lawyers/location/${stateSlug}/${citySlug}` },
+          ]}
+        />
+
+        <h1 className="text-3xl font-bold tracking-tight mb-2">
           Lawyers in {city.name}
         </h1>
 
-        <p className="text-muted-foreground mt-2 max-w-2xl">
+        <p className="text-muted-foreground mb-6 max-w-2xl">
           Find experienced lawyers in {city.name}, {state.name}. Browse profiles,
           read reviews, and connect with local legal professionals.
         </p>
-      </div>
 
-      <Suspense fallback={<LawyerGridSkeleton count={6} />}>
-        <CityContent
-          stateSlug={stateSlug}
-          citySlug={citySlug}
-          searchParams={resolvedSearchParams}
-        />
-      </Suspense>
-    </div>
+        <Suspense fallback={<LawyerGridSkeleton count={6} />}>
+          <CityContent
+            stateSlug={stateSlug}
+            citySlug={citySlug}
+            searchParams={resolvedSearchParams}
+          />
+        </Suspense>
+      </div>
+    </>
   );
 }

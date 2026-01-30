@@ -4,6 +4,7 @@ import { searchLawyers } from "@/lib/db/queries/lawyers";
 import { LawyersClient } from "./lawyers-client";
 import { LawyerGridSkeleton } from "@/components/lawyers";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { Breadcrumbs } from "@/components/seo";
 import type { SearchParams } from "nuqs/server";
 import { lawyerSearchParamsCache } from "@/lib/search/search-params";
 import type { ExperienceLevel, SortOption } from "@/types/lawyer";
@@ -55,6 +56,7 @@ export default async function LawyersPage({ searchParams }: LawyersPageProps) {
 
   return (
     <div className="container mx-auto py-8 px-4">
+      <Breadcrumbs items={[{ label: "Lawyers", href: "/lawyers" }]} />
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Find a Lawyer</h1>
         <p className="text-muted-foreground mt-2">
