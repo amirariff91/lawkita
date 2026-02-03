@@ -1,10 +1,13 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { getFirmBySlug } from "@/lib/db/queries/firms";
+import { createServerSupabaseClient } from "@/lib/supabase/client";
 import { LawyerGrid } from "@/components/lawyers";
 import { FirmJsonLd } from "@/components/firms";
 import { Breadcrumbs } from "@/components/seo";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Building2,
@@ -15,6 +18,8 @@ import {
   Users,
   Clock,
   Scale,
+  Crown,
+  UserPlus,
 } from "lucide-react";
 
 interface FirmProfilePageProps {
@@ -40,10 +45,18 @@ export async function generateMetadata({
   return {
     title,
     description,
+    alternates: {
+      canonical: `${process.env.NEXT_PUBLIC_APP_URL}/firms/${slug}`,
+    },
     openGraph: {
       title,
       description,
       type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
     },
   };
 }
@@ -58,6 +71,16 @@ export default async function FirmProfilePage({
     notFound();
   }
 
+  // Get firm claim status
+  const supabase = createServerSupabaseClient();
+  const { data: firmData } = await supabase
+    .from("firms")
+    .select("id, is_claimed, subscription_tier")
+    .eq("slug", slug)
+    .single();
+
+  const isClaimed = firmData?.is_claimed ?? false;
+  const isPremium = firmData?.subscription_tier === "firm_premium";
   const location = [firm.city, firm.state].filter(Boolean).join(", ");
 
   return (
@@ -73,19 +96,37 @@ export default async function FirmProfilePage({
         <div className="max-w-5xl mx-auto space-y-8">
           {/* Header */}
         <div className="space-y-4">
-          <div className="flex items-start gap-4">
-            <div className="p-3 rounded-lg bg-primary/10">
-              <Building2 className="size-8 text-primary" />
-            </div>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold">{firm.name}</h1>
-              {location && (
-                <div className="flex items-center gap-2 text-muted-foreground mt-1">
-                  <MapPin className="size-4" />
-                  <span>{location}</span>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className={`p-3 rounded-lg ${isPremium ? "bg-amber-100 dark:bg-amber-900/30" : "bg-primary/10"}`}>
+                <Building2 className={`size-8 ${isPremium ? "text-amber-600" : "text-primary"}`} />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-3xl font-bold">{firm.name}</h1>
+                  {isPremium && (
+                    <Badge className="bg-amber-500">
+                      <Crown className="h-3 w-3 mr-1" />
+                      Premium
+                    </Badge>
+                  )}
                 </div>
-              )}
+                {location && (
+                  <div className="flex items-center gap-2 text-muted-foreground mt-1">
+                    <MapPin className="size-4" />
+                    <span>{location}</span>
+                  </div>
+                )}
+              </div>
             </div>
+            {!isClaimed && firmData?.id && (
+              <Button asChild>
+                <Link href={`/claim-firm/${firmData.id}`}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Claim This Firm
+                </Link>
+              </Button>
+            )}
           </div>
 
           {/* Contact Info */}

@@ -16,6 +16,7 @@ import {
   Scale,
   ArrowLeft,
   Settings,
+  Building2,
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -25,7 +26,8 @@ interface AdminLayoutProps {
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/reviews", label: "Reviews", icon: MessageSquareWarning },
-  { href: "/admin/claims", label: "Claims", icon: UserCheck },
+  { href: "/admin/claims", label: "Lawyer Claims", icon: UserCheck },
+  { href: "/admin/firm-claims", label: "Firm Claims", icon: Building2 },
   { href: "/admin/content/lawyers", label: "Lawyers", icon: Users },
   { href: "/admin/content/cases", label: "Cases", icon: Scale },
   { href: "/admin/content/practice-areas", label: "Practice Areas", icon: Briefcase },

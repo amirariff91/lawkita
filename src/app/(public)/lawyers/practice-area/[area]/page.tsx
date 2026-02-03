@@ -39,7 +39,15 @@ export async function generateMetadata({
   return {
     title,
     description,
+    alternates: {
+      canonical: `${process.env.NEXT_PUBLIC_APP_URL}/lawyers/practice-area/${area}`,
+    },
     openGraph: {
+      title,
+      description,
+    },
+    twitter: {
+      card: "summary_large_image",
       title,
       description,
     },

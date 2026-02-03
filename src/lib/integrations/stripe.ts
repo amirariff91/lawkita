@@ -110,6 +110,20 @@ export const SUBSCRIPTION_PLANS = {
       "Homepage spotlight",
     ],
   },
+  firm_premium: {
+    name: "Firm Premium",
+    monthlyPrice: 499, // RM
+    annualPrice: 4990, // RM (2 months free)
+    monthlyPriceId: process.env.STRIPE_FIRM_MONTHLY_PRICE_ID,
+    annualPriceId: process.env.STRIPE_FIRM_ANNUAL_PRICE_ID,
+    features: [
+      "Featured placement in directory",
+      "Firm logo displayed",
+      "Analytics dashboard",
+      "Priority in search results",
+      "Priority support",
+    ],
+  },
 } as const;
 
 // ============================================================================
@@ -422,7 +436,7 @@ export function isStripeConfigured(): boolean {
 // Subscription Tier Mapping
 // ============================================================================
 
-export function getTierFromPriceId(priceId: string): "free" | "premium" | "featured" {
+export function getTierFromPriceId(priceId: string): "free" | "premium" | "featured" | "firm_premium" {
   const premiumPrices = [
     process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID,
     process.env.STRIPE_PREMIUM_ANNUAL_PRICE_ID,
@@ -433,12 +447,21 @@ export function getTierFromPriceId(priceId: string): "free" | "premium" | "featu
     process.env.STRIPE_FEATURED_ANNUAL_PRICE_ID,
   ];
 
+  const firmPremiumPrices = [
+    process.env.STRIPE_FIRM_MONTHLY_PRICE_ID,
+    process.env.STRIPE_FIRM_ANNUAL_PRICE_ID,
+  ];
+
   if (featuredPrices.includes(priceId)) {
     return "featured";
   }
 
   if (premiumPrices.includes(priceId)) {
     return "premium";
+  }
+
+  if (firmPremiumPrices.includes(priceId)) {
+    return "firm_premium";
   }
 
   return "free";

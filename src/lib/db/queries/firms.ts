@@ -427,3 +427,255 @@ export async function searchFirms(params: {
 
   return { firms, total, page, totalPages };
 }
+
+/**
+ * Update firm contact info by aggregating from its lawyers
+ * Uses the most common phone/email from active lawyers at the firm
+ */
+export async function updateFirmContactInfo(firmId: string): Promise<void> {
+  const supabase = createServerSupabaseClient();
+
+  // Get all active lawyers at this firm
+  const { data: lawyers } = await supabase
+    .from("lawyers")
+    .select("phone, email")
+    .eq("primary_firm_id", firmId)
+    .eq("is_active", true);
+
+  if (!lawyers || lawyers.length === 0) {
+    return;
+  }
+
+  // Find most common phone (excluding nulls)
+  const phones = lawyers.map((l) => l.phone).filter(Boolean) as string[];
+  const phoneCounts = new Map<string, number>();
+  for (const phone of phones) {
+    phoneCounts.set(phone, (phoneCounts.get(phone) ?? 0) + 1);
+  }
+  const mostCommonPhone = [...phoneCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+  // Find most common email (excluding nulls)
+  const emails = lawyers.map((l) => l.email).filter(Boolean) as string[];
+  const emailCounts = new Map<string, number>();
+  for (const email of emails) {
+    emailCounts.set(email, (emailCounts.get(email) ?? 0) + 1);
+  }
+  const mostCommonEmail = [...emailCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+  // Update firm with aggregated contact info (only if firm doesn't already have them)
+  const { data: firm } = await supabase
+    .from("firms")
+    .select("phone, email")
+    .eq("id", firmId)
+    .single();
+
+  const updates: Record<string, string | null> = {};
+  if (!firm?.phone && mostCommonPhone) {
+    updates.phone = mostCommonPhone;
+  }
+  if (!firm?.email && mostCommonEmail) {
+    updates.email = mostCommonEmail;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await supabase.from("firms").update(updates).eq("id", firmId);
+  }
+}
+
+/**
+ * Update cached lawyer count and average years experience for a firm
+ */
+export async function updateFirmCachedStats(firmId: string): Promise<void> {
+  const supabase = createServerSupabaseClient();
+
+  // Get all active lawyers at this firm
+  const { data: lawyers } = await supabase
+    .from("lawyers")
+    .select("years_at_bar")
+    .eq("primary_firm_id", firmId)
+    .eq("is_active", true);
+
+  const lawyerCount = lawyers?.length ?? 0;
+  const yearsArray = lawyers
+    ?.map((l) => l.years_at_bar)
+    .filter((y): y is number => y !== null) ?? [];
+  const avgYearsExperience =
+    yearsArray.length > 0
+      ? yearsArray.reduce((a, b) => a + b, 0) / yearsArray.length
+      : null;
+
+  await supabase
+    .from("firms")
+    .update({
+      lawyer_count: lawyerCount,
+      avg_years_experience: avgYearsExperience,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", firmId);
+}
+
+/**
+ * Get firm by ID
+ */
+export async function getFirmById(firmId: string): Promise<FirmWithStats | null> {
+  const supabase = createServerSupabaseClient();
+
+  const { data: firm } = await supabase
+    .from("firms")
+    .select("slug")
+    .eq("id", firmId)
+    .single();
+
+  if (!firm) return null;
+
+  return getFirmBySlug(firm.slug);
+}
+
+/**
+ * Get firm for dashboard (with ownership info)
+ */
+export interface FirmDashboardData {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  logo: string | null;
+  address: string | null;
+  state: string | null;
+  city: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  isClaimed: boolean;
+  subscriptionTier: "free" | "firm_premium";
+  subscriptionExpiresAt: Date | null;
+  lawyerCount: number;
+  avgYearsExperience: number | null;
+}
+
+export async function getFirmForDashboard(
+  firmId: string,
+  userId: string
+): Promise<FirmDashboardData | null> {
+  const supabase = createServerSupabaseClient();
+
+  const { data: firm, error } = await supabase
+    .from("firms")
+    .select("*")
+    .eq("id", firmId)
+    .eq("owner_id", userId)
+    .single();
+
+  if (error || !firm) {
+    return null;
+  }
+
+  return {
+    id: firm.id,
+    name: firm.name,
+    slug: firm.slug,
+    description: firm.description,
+    logo: firm.logo,
+    address: firm.address,
+    state: firm.state,
+    city: firm.city,
+    phone: firm.phone,
+    email: firm.email,
+    website: firm.website,
+    isClaimed: firm.is_claimed,
+    subscriptionTier: firm.subscription_tier as "free" | "firm_premium",
+    subscriptionExpiresAt: firm.subscription_expires_at
+      ? new Date(firm.subscription_expires_at)
+      : null,
+    lawyerCount: firm.lawyer_count ?? 0,
+    avgYearsExperience: firm.avg_years_experience
+      ? parseFloat(firm.avg_years_experience)
+      : null,
+  };
+}
+
+/**
+ * Get user's claimed firm (if any)
+ */
+export async function getUserFirm(userId: string): Promise<FirmDashboardData | null> {
+  const supabase = createServerSupabaseClient();
+
+  const { data: firm, error } = await supabase
+    .from("firms")
+    .select("*")
+    .eq("owner_id", userId)
+    .single();
+
+  if (error || !firm) {
+    return null;
+  }
+
+  return {
+    id: firm.id,
+    name: firm.name,
+    slug: firm.slug,
+    description: firm.description,
+    logo: firm.logo,
+    address: firm.address,
+    state: firm.state,
+    city: firm.city,
+    phone: firm.phone,
+    email: firm.email,
+    website: firm.website,
+    isClaimed: firm.is_claimed,
+    subscriptionTier: firm.subscription_tier as "free" | "firm_premium",
+    subscriptionExpiresAt: firm.subscription_expires_at
+      ? new Date(firm.subscription_expires_at)
+      : null,
+    lawyerCount: firm.lawyer_count ?? 0,
+    avgYearsExperience: firm.avg_years_experience
+      ? parseFloat(firm.avg_years_experience)
+      : null,
+  };
+}
+
+/**
+ * Update firm profile
+ */
+export async function updateFirmProfile(
+  firmId: string,
+  userId: string,
+  data: {
+    name?: string;
+    description?: string;
+    address?: string;
+    state?: string;
+    city?: string;
+    phone?: string;
+    email?: string;
+    website?: string;
+    logo?: string;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = createServerSupabaseClient();
+
+  // Verify ownership
+  const { data: firm } = await supabase
+    .from("firms")
+    .select("id, owner_id")
+    .eq("id", firmId)
+    .single();
+
+  if (!firm || firm.owner_id !== userId) {
+    return { success: false, error: "Not authorized" };
+  }
+
+  const { error } = await supabase
+    .from("firms")
+    .update({
+      ...data,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", firmId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}

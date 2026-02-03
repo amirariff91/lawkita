@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  sendContactFormNotification,
+  sendContactFormConfirmation,
+} from "@/lib/integrations/resend";
 
 const contactSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -13,30 +17,17 @@ export async function POST(request: Request) {
     const body = await request.json();
     const validatedData = contactSchema.parse(body);
 
-    // Log the contact form submission
-    // In production, you would send an email or store in database
-    console.log("Contact form submission:", {
-      name: validatedData.name,
-      email: validatedData.email,
-      subject: validatedData.subject,
-      message: validatedData.message.substring(0, 100) + "...",
-      timestamp: new Date().toISOString(),
-    });
+    // Send notification to admin
+    const adminResult = await sendContactFormNotification(validatedData);
+    if (!adminResult.success) {
+      console.error("Failed to send contact form notification:", adminResult.error);
+    }
 
-    // TODO: Implement email sending using a service like Resend, SendGrid, etc.
-    // Example with Resend:
-    // await resend.emails.send({
-    //   from: 'noreply@lawkita.my',
-    //   to: 'support@lawkita.my',
-    //   subject: `Contact Form: ${validatedData.subject}`,
-    //   html: `
-    //     <p><strong>Name:</strong> ${validatedData.name}</p>
-    //     <p><strong>Email:</strong> ${validatedData.email}</p>
-    //     <p><strong>Subject:</strong> ${validatedData.subject}</p>
-    //     <p><strong>Message:</strong></p>
-    //     <p>${validatedData.message}</p>
-    //   `,
-    // });
+    // Send confirmation to user
+    const userResult = await sendContactFormConfirmation(validatedData);
+    if (!userResult.success) {
+      console.error("Failed to send contact form confirmation:", userResult.error);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

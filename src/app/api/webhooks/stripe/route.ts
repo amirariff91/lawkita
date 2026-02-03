@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { lawyers, subscriptions } from "@/lib/db/schema";
+import { lawyers, firms, subscriptions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
   verifyWebhookSignature,
@@ -84,50 +84,103 @@ async function handleCheckoutCompleted(session: Record<string, unknown>) {
   const priceId = sub.items.data[0]?.price?.id;
   const tier = priceId ? getTierFromPriceId(priceId) : "premium";
 
-  // Create or update subscription record
-  const existingSubscription = await db.query.subscriptions.findFirst({
-    where: eq(subscriptions.lawyerId, lawyerId),
-  });
+  // Determine if this is a firm or lawyer subscription
+  const isFirmSubscription = tier === "firm_premium";
 
-  if (existingSubscription) {
-    await db
-      .update(subscriptions)
-      .set({
+  if (isFirmSubscription) {
+    // Handle firm subscription - entityId is the firm ID
+    const firmId = lawyerId; // We're using lawyerId field to store firmId for firm subscriptions
+
+    const existingSubscription = await db.query.subscriptions.findFirst({
+      where: eq(subscriptions.firmId, firmId),
+    });
+
+    if (existingSubscription) {
+      await db
+        .update(subscriptions)
+        .set({
+          stripeCustomerId: customerId,
+          stripeSubscriptionId: subscriptionId,
+          stripePriceId: priceId,
+          tier,
+          status: "active",
+          currentPeriodStart: new Date(sub.current_period_start * 1000),
+          currentPeriodEnd: new Date(sub.current_period_end * 1000),
+          updatedAt: new Date(),
+        })
+        .where(eq(subscriptions.id, existingSubscription.id));
+    } else {
+      await db.insert(subscriptions).values({
+        firmId,
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId,
         stripePriceId: priceId,
         tier,
+        billingPeriod: "monthly",
         status: "active",
         currentPeriodStart: new Date(sub.current_period_start * 1000),
         currentPeriodEnd: new Date(sub.current_period_end * 1000),
+      });
+    }
+
+    // Update firm profile
+    await db
+      .update(firms)
+      .set({
+        subscriptionTier: "firm_premium",
+        subscriptionExpiresAt: new Date(sub.current_period_end * 1000),
         updatedAt: new Date(),
       })
-      .where(eq(subscriptions.id, existingSubscription.id));
+      .where(eq(firms.id, firmId));
+
+    console.log(`[Stripe Webhook] Subscription activated for firm ${firmId}`);
   } else {
-    await db.insert(subscriptions).values({
-      lawyerId,
-      stripeCustomerId: customerId,
-      stripeSubscriptionId: subscriptionId,
-      stripePriceId: priceId,
-      tier,
-      billingPeriod: "monthly", // Will be updated based on price
-      status: "active",
-      currentPeriodStart: new Date(sub.current_period_start * 1000),
-      currentPeriodEnd: new Date(sub.current_period_end * 1000),
+    // Handle lawyer subscription
+    const existingSubscription = await db.query.subscriptions.findFirst({
+      where: eq(subscriptions.lawyerId, lawyerId),
     });
+
+    if (existingSubscription) {
+      await db
+        .update(subscriptions)
+        .set({
+          stripeCustomerId: customerId,
+          stripeSubscriptionId: subscriptionId,
+          stripePriceId: priceId,
+          tier,
+          status: "active",
+          currentPeriodStart: new Date(sub.current_period_start * 1000),
+          currentPeriodEnd: new Date(sub.current_period_end * 1000),
+          updatedAt: new Date(),
+        })
+        .where(eq(subscriptions.id, existingSubscription.id));
+    } else {
+      await db.insert(subscriptions).values({
+        lawyerId,
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId,
+        stripePriceId: priceId,
+        tier,
+        billingPeriod: "monthly",
+        status: "active",
+        currentPeriodStart: new Date(sub.current_period_start * 1000),
+        currentPeriodEnd: new Date(sub.current_period_end * 1000),
+      });
+    }
+
+    // Update lawyer profile - only for lawyer tiers
+    const lawyerTier = tier as "free" | "premium" | "featured";
+    await db
+      .update(lawyers)
+      .set({
+        subscriptionTier: lawyerTier,
+        subscriptionExpiresAt: new Date(sub.current_period_end * 1000),
+        updatedAt: new Date(),
+      })
+      .where(eq(lawyers.id, lawyerId));
+
+    console.log(`[Stripe Webhook] Subscription activated for lawyer ${lawyerId}`);
   }
-
-  // Update lawyer profile
-  await db
-    .update(lawyers)
-    .set({
-      subscriptionTier: tier,
-      subscriptionExpiresAt: new Date(sub.current_period_end * 1000),
-      updatedAt: new Date(),
-    })
-    .where(eq(lawyers.id, lawyerId));
-
-  console.log(`[Stripe Webhook] Subscription activated for lawyer ${lawyerId}`);
 }
 
 async function handleSubscriptionUpdated(subscription: Record<string, unknown>) {
@@ -174,10 +227,20 @@ async function handleSubscriptionUpdated(subscription: Record<string, unknown>) 
     })
     .where(eq(subscriptions.id, existingSubscription.id));
 
-  // Update lawyer profile if tier changed
-  if (existingSubscription.lawyerId) {
-    // Only update lawyer if tier is valid for lawyers (not firm_premium)
-    const lawyerTier = tier === "firm_premium" ? "free" : tier;
+  // Update profile based on subscription type
+  if (existingSubscription.firmId && tier === "firm_premium") {
+    // Update firm profile
+    await db
+      .update(firms)
+      .set({
+        subscriptionTier: "firm_premium",
+        subscriptionExpiresAt: new Date(currentPeriodEnd * 1000),
+        updatedAt: new Date(),
+      })
+      .where(eq(firms.id, existingSubscription.firmId));
+  } else if (existingSubscription.lawyerId && tier !== "firm_premium") {
+    // Update lawyer profile - only for valid lawyer tiers
+    const lawyerTier = tier as "free" | "premium" | "featured";
     await db
       .update(lawyers)
       .set({
@@ -213,8 +276,17 @@ async function handleSubscriptionDeleted(subscription: Record<string, unknown>) 
     })
     .where(eq(subscriptions.id, existingSubscription.id));
 
-  // Downgrade lawyer to free tier
-  if (existingSubscription.lawyerId) {
+  // Downgrade to free tier
+  if (existingSubscription.firmId) {
+    await db
+      .update(firms)
+      .set({
+        subscriptionTier: "free",
+        subscriptionExpiresAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(firms.id, existingSubscription.firmId));
+  } else if (existingSubscription.lawyerId) {
     await db
       .update(lawyers)
       .set({

@@ -41,7 +41,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Create billing portal session
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (!appUrl) {
+      console.error("NEXT_PUBLIC_APP_URL not configured");
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+
     const portalResult = await createBillingPortalSession({
       customerId: subscription.stripeCustomerId,
       returnUrl: `${appUrl}/dashboard/subscription`,

@@ -9,10 +9,11 @@
  */
 
 import { db } from "@/lib/db";
-import { cases, caseLawyers, caseMediaReferences, lawyers } from "@/lib/db/schema";
-import { eq, ilike, sql, or } from "drizzle-orm";
+import { cases, caseLawyers, caseMediaReferences, lawyers, scrapingLogs } from "@/lib/db/schema";
+import { eq, ilike, or } from "drizzle-orm";
 import {
   scrapePage,
+  crawlWebsite,
   NEWS_SOURCES,
   extractMentions,
   type ExtractedMention,
@@ -55,6 +56,16 @@ export async function runNewsCrawlerJob(): Promise<CrawlJobResult> {
   };
 
   console.log("[NewsCrawler] Starting daily news crawl...");
+
+  // Create scraping log entry
+  const [logEntry] = await db
+    .insert(scrapingLogs)
+    .values({
+      jobType: "news_extraction",
+      sourceType: "news",
+      status: "running",
+    })
+    .returning();
 
   try {
     // Process each news source
@@ -118,24 +129,134 @@ export async function runNewsCrawlerJob(): Promise<CrawlJobResult> {
       `Errors: ${result.errors.length}`
   );
 
+  // Update scraping log
+  await db
+    .update(scrapingLogs)
+    .set({
+      status: result.success ? (result.errors.length > 0 ? "partial" : "completed") : "failed",
+      recordsProcessed: result.articlesFound,
+      recordsCreated: result.casesCreated,
+      recordsUpdated: result.casesUpdated,
+      errorCount: result.errors.length,
+      errors: result.errors.length > 0 ? result.errors.slice(0, 50).map((e) => ({ message: e })) : undefined,
+      completedAt: new Date(),
+      durationMs: result.duration,
+      metadata: {
+        sourcesProcessed: result.sourcesProcessed,
+        lawyerAssociationsCreated: result.lawyerAssociationsCreated,
+      },
+    })
+    .where(eq(scrapingLogs.id, logEntry.id));
+
   return result;
 }
 
 /**
- * Find legal news URLs from a source
- * This is a simplified version - in production you'd use Firecrawl's crawl endpoint
+ * Legal content keywords for filtering
+ */
+const LEGAL_KEYWORDS = [
+  "court", "judge", "lawyer", "attorney", "trial", "verdict",
+  "prosecution", "defendant", "accused", "charged", "sentenced",
+  "mahkamah", "hakim", "peguam", "tuduhan", "hukuman",
+  "high court", "federal court", "sessions court", "appeal",
+  "acquitted", "convicted", "bail", "custody",
+];
+
+/**
+ * Check if content appears to be legal/court-related
+ */
+function isLegalContent(text: string): boolean {
+  const lowerText = text.toLowerCase();
+  let matchCount = 0;
+
+  for (const keyword of LEGAL_KEYWORDS) {
+    if (lowerText.includes(keyword)) {
+      matchCount++;
+      // Require at least 2 keyword matches for confidence
+      if (matchCount >= 2) return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Find legal news URLs from a source using Firecrawl crawl endpoint
  */
 async function findLegalNewsUrls(source: (typeof NEWS_SOURCES)[0]): Promise<string[]> {
-  // For now, return predefined legal news sections
-  // In production, this would use Firecrawl to discover URLs
-  const legalSections = [
-    `${source.url}/tag/court`,
-    `${source.url}/tag/legal`,
-    `${source.url}/news/courts-crime`,
-    `${source.url}/nation/courts-crime`,
-  ];
+  try {
+    // Use Firecrawl to crawl the news source and discover legal articles
+    const crawlResult = await crawlWebsite(source.url, {
+      limit: 30,
+      includePaths: [
+        "/news/courts*",
+        "/news/nation/courts*",
+        "/tag/court*",
+        "/tag/legal*",
+        "/courts*",
+        "/crime*",
+        "/nation/courts*",
+      ],
+      excludePaths: [
+        "/sports*",
+        "/lifestyle*",
+        "/entertainment*",
+        "/business/markets*",
+        "/tech*",
+        "/photos*",
+        "/videos*",
+      ],
+      maxDepth: 2,
+    });
 
-  return legalSections;
+    if (!crawlResult?.success || !crawlResult.data) {
+      console.warn(`[NewsCrawler] Crawl failed for ${source.name}, falling back to predefined sections`);
+      // Fallback to predefined legal news sections
+      return [
+        `${source.url}/tag/court`,
+        `${source.url}/tag/legal`,
+        `${source.url}/news/courts-crime`,
+        `${source.url}/nation/courts-crime`,
+      ];
+    }
+
+    // Filter results for legal content
+    const urls: string[] = [];
+
+    for (const page of crawlResult.data) {
+      const sourceUrl = page.metadata?.sourceURL;
+      if (!sourceUrl) continue;
+
+      // Check if the page content is legal-related
+      const content = page.markdown || "";
+      if (content && isLegalContent(content)) {
+        urls.push(sourceUrl);
+      }
+    }
+
+    console.log(`[NewsCrawler] Found ${urls.length} legal news URLs from ${source.name}`);
+
+    // If no legal content found via crawl, return fallback URLs
+    if (urls.length === 0) {
+      return [
+        `${source.url}/tag/court`,
+        `${source.url}/tag/legal`,
+        `${source.url}/news/courts-crime`,
+        `${source.url}/nation/courts-crime`,
+      ];
+    }
+
+    return urls;
+  } catch (error) {
+    console.error(`[NewsCrawler] Error finding legal news URLs for ${source.name}:`, error);
+    // Return fallback URLs on error
+    return [
+      `${source.url}/tag/court`,
+      `${source.url}/tag/legal`,
+      `${source.url}/news/courts-crime`,
+      `${source.url}/nation/courts-crime`,
+    ];
+  }
 }
 
 /**

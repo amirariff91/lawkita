@@ -176,6 +176,8 @@ export const firms = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     name: text("name").notNull(),
     slug: text("slug").unique().notNull(),
+    description: text("description"),
+    logo: text("logo"), // Supabase storage URL
     address: text("address"),
     normalizedAddress: text("normalized_address"), // For deduplication
     state: text("state"),
@@ -183,12 +185,22 @@ export const firms = pgTable(
     phone: text("phone"),
     email: text("email"),
     website: text("website"),
-    lawyerCount: integer("lawyer_count").default(0), // Cached count
-    avgYearsExperience: decimal("avg_years_experience", { precision: 4, scale: 1 }), // Cached stat
+
+    // Ownership
+    ownerId: text("owner_id").references(() => user.id, { onDelete: "set null" }),
+    isClaimed: boolean("is_claimed").default(false).notNull(),
+    claimedAt: timestamp("claimed_at", { mode: "date" }),
+
+    // Cached stats
+    lawyerCount: integer("lawyer_count").default(0),
+    avgYearsExperience: decimal("avg_years_experience", { precision: 4, scale: 1 }),
+
+    // Subscription
     subscriptionTier: text("subscription_tier", {
       enum: ["free", "firm_premium"],
     }).default("free"),
     subscriptionExpiresAt: timestamp("subscription_expires_at", { mode: "date" }),
+
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -196,6 +208,7 @@ export const firms = pgTable(
     index("firms_normalized_address_idx").on(table.normalizedAddress),
     index("firms_state_idx").on(table.state),
     index("firms_city_idx").on(table.city),
+    index("firms_owner_id_idx").on(table.ownerId),
   ]
 );
 
@@ -622,6 +635,45 @@ export const claims = pgTable(
   ]
 );
 
+// Firm claims - for claiming/verifying firm ownership
+export const firmClaims = pgTable(
+  "firm_claims",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    firmId: uuid("firm_id")
+      .notNull()
+      .references(() => firms.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+
+    // Position at firm
+    position: text("position"), // Managing Partner, Admin, etc.
+
+    // Verification
+    verificationDocument: text("verification_document"), // Supabase storage URL
+    status: text("status", {
+      enum: ["pending", "verified", "rejected"],
+    })
+      .default("pending")
+      .notNull(),
+    rejectionReason: text("rejection_reason"),
+
+    // Admin
+    reviewedBy: text("reviewed_by").references(() => user.id),
+    reviewedAt: timestamp("reviewed_at", { mode: "date" }),
+    adminNotes: text("admin_notes"),
+
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("firm_claims_firm_id_idx").on(table.firmId),
+    index("firm_claims_user_id_idx").on(table.userId),
+    index("firm_claims_status_idx").on(table.status),
+  ]
+);
+
 // ============================================================================
 // SUBSCRIPTIONS & PAYMENTS
 // ============================================================================
@@ -865,6 +917,30 @@ export const endorsementsRelations = relations(endorsements, ({ one }) => ({
     fields: [endorsements.endorseeId],
     references: [lawyers.id],
     relationName: "endorsee",
+  }),
+}));
+
+export const firmsRelations = relations(firms, ({ one, many }) => ({
+  owner: one(user, {
+    fields: [firms.ownerId],
+    references: [user.id],
+  }),
+  lawyers: many(lawyerFirms),
+  claims: many(firmClaims),
+}));
+
+export const firmClaimsRelations = relations(firmClaims, ({ one }) => ({
+  firm: one(firms, {
+    fields: [firmClaims.firmId],
+    references: [firms.id],
+  }),
+  user: one(user, {
+    fields: [firmClaims.userId],
+    references: [user.id],
+  }),
+  reviewer: one(user, {
+    fields: [firmClaims.reviewedBy],
+    references: [user.id],
   }),
 }));
 

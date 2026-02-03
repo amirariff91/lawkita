@@ -114,6 +114,46 @@ function wrapTemplate(content: string): string {
 }
 
 // ============================================================================
+// Password Reset Email
+// ============================================================================
+
+export async function sendPasswordResetEmail(
+  email: string,
+  resetUrl: string
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  const html = wrapTemplate(`
+    <div class="header">
+      <h1>Reset Your Password</h1>
+    </div>
+    <div class="content">
+      <p>Hi,</p>
+      <p>You requested to reset your password for your LawKita account.</p>
+
+      <p>Click the button below to set a new password:</p>
+
+      <a href="${resetUrl}" class="button">Reset Password</a>
+
+      <div class="info-box">
+        <p>This link will expire in 1 hour for security reasons.</p>
+        <p>If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+      </div>
+
+      <p style="color: #64748b; font-size: 14px;">
+        If the button doesn't work, copy and paste this URL into your browser:<br>
+        <a href="${resetUrl}" style="word-break: break-all;">${resetUrl}</a>
+      </p>
+    </div>
+  `);
+
+  return sendEmail({
+    to: { email },
+    subject: "Reset Your Password - LawKita",
+    html,
+    text: `Reset your LawKita password by visiting this link: ${resetUrl}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
+  });
+}
+
+// ============================================================================
 // Enquiry Notifications
 // ============================================================================
 
@@ -356,6 +396,84 @@ export async function sendReviewPublishedNotification(
   return sendEmail({
     to: { email: data.reviewerEmail, name: data.reviewerName },
     subject: `Your Review is Live - ${data.lawyerName}`,
+    html,
+  });
+}
+
+// ============================================================================
+// Contact Form Notifications
+// ============================================================================
+
+interface ContactFormData {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}
+
+export async function sendContactFormNotification(
+  data: ContactFormData
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  const adminEmail = process.env.ADMIN_EMAIL || "support@lawkita.my";
+
+  const html = wrapTemplate(`
+    <div class="header">
+      <h1>New Contact Form Submission</h1>
+    </div>
+    <div class="content">
+      <div class="info-box">
+        <p><span class="label">Name:</span> ${data.name}</p>
+        <p><span class="label">Email:</span> ${data.email}</p>
+        <p><span class="label">Subject:</span> ${data.subject}</p>
+      </div>
+
+      <p><strong>Message:</strong></p>
+      <div class="info-box">
+        ${data.message.replace(/\n/g, "<br>")}
+      </div>
+
+      <p style="color: #64748b; font-size: 14px;">
+        Reply directly to this email to respond to the sender.
+      </p>
+    </div>
+  `);
+
+  return sendEmail({
+    to: { email: adminEmail },
+    subject: `Contact Form: ${data.subject}`,
+    html,
+    replyTo: data.email,
+  });
+}
+
+export async function sendContactFormConfirmation(
+  data: ContactFormData
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  const html = wrapTemplate(`
+    <div class="header">
+      <h1>We've Received Your Message</h1>
+    </div>
+    <div class="content">
+      <p>Hi ${data.name},</p>
+      <p>Thank you for contacting LawKita. We've received your message and will get back to you as soon as possible.</p>
+
+      <div class="info-box">
+        <p><span class="label">Subject:</span> ${data.subject}</p>
+        <p><span class="label">Your message:</span></p>
+        <p>${data.message.replace(/\n/g, "<br>")}</p>
+      </div>
+
+      <p>Our team typically responds within 24-48 hours during business days.</p>
+
+      <p style="color: #64748b; font-size: 14px;">
+        If you have an urgent matter, please note this is an automated response and we'll attend to your query shortly.
+      </p>
+    </div>
+  `);
+
+  return sendEmail({
+    to: { email: data.email, name: data.name },
+    subject: "We've Received Your Message - LawKita",
     html,
   });
 }

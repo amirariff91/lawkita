@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,21 @@ import {
 import { HeroSection } from "@/components/home/hero-section";
 import { StatsSection } from "@/components/home/stats-section";
 import { FeaturedLawyers } from "@/components/home/featured-lawyers";
+
+export const metadata: Metadata = {
+  title: "LawKita - Find the Right Lawyer in Malaysia",
+  description:
+    "Search 1,900+ verified Malaysian lawyers by location, practice area, and ratings. Read reviews, compare experience, and find legal help today.",
+  alternates: {
+    canonical: process.env.NEXT_PUBLIC_APP_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "LawKita - Find the Right Lawyer in Malaysia",
+    description:
+      "Search 1,900+ verified Malaysian lawyers by location, practice area, and ratings. Read reviews, compare experience, and find legal help today.",
+  },
+};
 
 export default function HomePage() {
   return (
