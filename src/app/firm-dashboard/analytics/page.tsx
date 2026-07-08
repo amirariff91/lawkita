@@ -39,7 +39,7 @@ export default async function FirmAnalyticsPage() {
         <div>
           <h1 className="text-2xl font-bold">Firm Analytics</h1>
           <p className="text-muted-foreground mt-1">
-            Track your firm's visibility and performance
+            Track your firm&apos;s visibility and performance
           </p>
         </div>
         {!isPremium && (
@@ -117,7 +117,7 @@ export default async function FirmAnalyticsPage() {
               <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">Detailed Analytics Coming Soon</h3>
               <p className="text-muted-foreground max-w-md mx-auto">
-                We're building comprehensive analytics to help you understand your firm's
+                We&apos;re building comprehensive analytics to help you understand your firm&apos;s
                 performance. Check back soon for detailed insights, charts, and reports.
               </p>
             </CardContent>

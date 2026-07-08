@@ -334,7 +334,7 @@ export function ReviewForm({ lawyerId, lawyerName }: ReviewFormProps) {
               <Label className="text-sm font-medium">Upload Proof of Service (Recommended)</Label>
             </div>
             <p className="text-xs text-muted-foreground">
-              Reviews with verified invoices or receipts are published faster and displayed as "Verified Client"
+              Reviews with verified invoices or receipts are published faster and displayed as &quot;Verified Client&quot;
             </p>
 
             <input

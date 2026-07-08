@@ -230,7 +230,7 @@ export default function PricingPage() {
             <div>
               <h3 className="font-semibold mb-2">Is there a refund policy?</h3>
               <p className="text-muted-foreground text-sm">
-                We offer a 14-day money-back guarantee for new subscribers. If you're not satisfied,
+                We offer a 14-day money-back guarantee for new subscribers. If you&apos;re not satisfied,
                 contact our support team within 14 days of your first payment for a full refund.
               </p>
             </div>

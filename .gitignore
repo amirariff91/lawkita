@@ -32,7 +32,8 @@
 .continue/
 .agent/
 .agents/
-.claude/
+.claude/*
+!.claude/rules/
 .cline/
 .codebuddy/
 .codex/
@@ -54,6 +55,7 @@
 .roo/
 .trae/
 .zencoder/
+.firecrawl/
 
 # debug
 npm-debug.log*
@@ -74,3 +76,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local research exports (owner decision 2026-07-08)
+docs/_chat*.txt

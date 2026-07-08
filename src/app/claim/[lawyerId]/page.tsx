@@ -160,12 +160,12 @@ export default async function ClaimPage({ params }: ClaimPageProps) {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
-              If you're having trouble claiming your profile or if the information shown is incorrect,
+              If you&apos;re having trouble claiming your profile or if the information shown is incorrect,
               please contact our support team.
             </p>
             <p>
               <strong>Not your profile?</strong> If someone else has claimed a profile that belongs to you,
-              please report it and we'll investigate.
+              please report it and we&apos;ll investigate.
             </p>
           </CardContent>
         </Card>

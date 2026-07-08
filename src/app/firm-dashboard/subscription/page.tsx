@@ -38,7 +38,7 @@ export default async function FirmSubscriptionPage() {
       <div>
         <h1 className="text-2xl font-bold">Subscription</h1>
         <p className="text-muted-foreground mt-1">
-          Manage your firm's subscription plan
+          Manage your firm&apos;s subscription plan
         </p>
       </div>
 

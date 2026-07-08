@@ -219,7 +219,7 @@ export default async function AnalyticsPage() {
                       <div key={term} className="flex items-center justify-between">
                         <span className="text-sm">{term}</span>
                         <span className="text-sm text-muted-foreground">
-                          {Math.floor(Math.random() * 50) + 10} searches
+                          {((term.length * 7 + i * 11) % 50) + 10} searches
                         </span>
                       </div>
                     )

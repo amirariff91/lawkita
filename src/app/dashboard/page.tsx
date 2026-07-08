@@ -109,7 +109,7 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold">Welcome back, {lawyer.name.split(" ")[0]}</h1>
           <p className="text-muted-foreground">
-            Here's what's happening with your profile
+            Here&apos;s what&apos;s happening with your profile
           </p>
         </div>
         <div className="flex items-center gap-2">

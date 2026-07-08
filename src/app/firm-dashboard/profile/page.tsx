@@ -25,7 +25,7 @@ export default async function FirmProfilePage() {
       <div>
         <h1 className="text-2xl font-bold">Firm Profile</h1>
         <p className="text-muted-foreground mt-1">
-          Update your firm's information
+          Update your firm&apos;s information
         </p>
       </div>
 

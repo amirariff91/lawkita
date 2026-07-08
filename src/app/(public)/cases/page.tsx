@@ -30,7 +30,7 @@ interface CasesPageProps {
   searchParams: Promise<SearchParams>;
 }
 
-async function CasesContent({ searchParams }: { searchParams: SearchParams }) {
+async function getCasesContentData(searchParams: SearchParams) {
   try {
     const { query, category, status, tag, page } =
       await searchParamsCache.parse(searchParams);
@@ -47,11 +47,17 @@ async function CasesContent({ searchParams }: { searchParams: SearchParams }) {
       getAllCaseTags(),
     ]);
 
-    return <CasesClient initialData={result} allTags={allTags} />;
+    return { result, allTags };
   } catch (error) {
     console.error("Failed to fetch cases:", error);
     throw error; // Re-throw to trigger error boundary
   }
+}
+
+async function CasesContent({ searchParams }: { searchParams: SearchParams }) {
+  const { result, allTags } = await getCasesContentData(searchParams);
+
+  return <CasesClient initialData={result} allTags={allTags} />;
 }
 
 export default async function CasesPage({ searchParams }: CasesPageProps) {

@@ -465,7 +465,7 @@ export async function getNewlyAdmittedLawyers(
   const supabase = createServerSupabaseClient();
 
   // Query for lawyers with years_at_bar < 1
-  let queryBuilder = supabase
+  const queryBuilder = supabase
     .from("lawyers")
     .select(`
       id,
@@ -509,7 +509,7 @@ export async function getNewlyAdmittedLawyers(
 
   // Get practice areas for the returned lawyers
   const lawyerIds = lawyerResults?.map((l) => l.id) ?? [];
-  let practiceAreaMap: Map<string, string[]> = new Map();
+  const practiceAreaMap: Map<string, string[]> = new Map();
 
   if (lawyerIds.length > 0) {
     const { data: practiceAreaData } = await supabase

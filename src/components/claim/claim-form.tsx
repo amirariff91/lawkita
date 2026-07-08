@@ -167,12 +167,12 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
               <p className="text-muted-foreground mt-1">
                 {verificationMethod === "email" ? (
                   <>
-                    We've sent a verification email to <span className="font-medium">{formData.firmEmail}</span>.
+                    We&apos;ve sent a verification email to <span className="font-medium">{formData.firmEmail}</span>.
                     Please check your inbox and follow the instructions to complete verification.
                   </>
                 ) : verificationMethod === "bar_lookup" ? (
                   <>
-                    We're verifying your Bar membership number against the Malaysian Bar Council directory.
+                    We&apos;re verifying your Bar membership number against the Malaysian Bar Council directory.
                     This usually takes 1-2 business days.
                   </>
                 ) : (
@@ -311,7 +311,7 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
                 placeholder="you@lawfirm.com.my"
               />
               <p className="text-xs text-muted-foreground">
-                We'll send a verification link to this email address
+                We&apos;ll send a verification link to this email address
               </p>
             </div>
           )}

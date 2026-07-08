@@ -167,7 +167,7 @@ export function ClaimFirmForm({ firmId, firmName }: ClaimFirmFormProps) {
             <div>
               <h3 className="font-semibold text-lg">Claim Submitted</h3>
               <p className="text-muted-foreground mt-1">
-                Your claim for {firmName} is being reviewed. We'll verify your documentation
+                Your claim for {firmName} is being reviewed. We&apos;ll verify your documentation
                 and notify you within 1-3 business days.
               </p>
             </div>
@@ -185,7 +185,7 @@ export function ClaimFirmForm({ firmId, firmName }: ClaimFirmFormProps) {
       <CardHeader>
         <CardTitle>Claim Your Firm</CardTitle>
         <CardDescription>
-          Verify your authority to manage {firmName}'s profile
+          Verify your authority to manage {firmName}&apos;s profile
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -300,7 +300,7 @@ export function ClaimFirmForm({ firmId, firmName }: ClaimFirmFormProps) {
           </Button>
 
           <p className="text-xs text-muted-foreground text-center">
-            By claiming this firm, you confirm that you are authorized to manage {firmName}'s
+            By claiming this firm, you confirm that you are authorized to manage {firmName}&apos;s
             profile and agree to our Terms of Service.
           </p>
         </form>

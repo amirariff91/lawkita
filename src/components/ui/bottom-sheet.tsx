@@ -104,7 +104,7 @@ function BottomSheetTrigger({
   };
 
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children as React.ReactElement<any>, {
+    return React.cloneElement(children as React.ReactElement<{ onClick?: React.MouseEventHandler<HTMLButtonElement> }>, {
       onClick: handleClick,
     });
   }

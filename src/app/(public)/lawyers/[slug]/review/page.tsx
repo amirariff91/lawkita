@@ -43,7 +43,7 @@ export default async function ReviewPage({ params }: ReviewPageProps) {
         <Button variant="ghost" asChild className="mb-4">
           <Link href={`/lawyers/${slug}`}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to {lawyer.name}'s profile
+            Back to {lawyer.name}&apos;s profile
           </Link>
         </Button>
 

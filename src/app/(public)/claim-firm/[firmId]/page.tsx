@@ -132,7 +132,7 @@ export default async function ClaimFirmPage({ params }: ClaimFirmPageProps) {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
-              If you're having trouble claiming your firm profile or if the information shown is incorrect,
+              If you&apos;re having trouble claiming your firm profile or if the information shown is incorrect,
               please contact our support team.
             </p>
             <p>
