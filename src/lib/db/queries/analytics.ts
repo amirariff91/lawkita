@@ -1,11 +1,17 @@
-import { createServerSupabaseClient } from "@/lib/supabase/client";
+import { and, count, eq, gte, isNotNull } from "drizzle-orm";
+import { db } from "@/lib/db";
+import {
+  firms,
+  lawyerPracticeAreas,
+  lawyers,
+  practiceAreas,
+} from "@/lib/db/schema";
 
 export interface GeographicStats {
   state: string;
   count: number;
   percentage: number;
 }
-
 export interface ExperienceDistribution {
   level: "junior" | "mid" | "senior";
   label: string;
@@ -44,326 +50,235 @@ export interface InsightsData {
   underservedAreas: GeographicStats[];
 }
 
-/**
- * Get overall statistics
- */
 export async function getOverallStats(): Promise<OverallStats> {
-  const supabase = createServerSupabaseClient();
+  const [total, active, verified, claimed, firmsCount, practiceAreasCount, years] =
+    await Promise.all([
+      db.select({ count: count() }).from(lawyers),
+      db
+        .select({ count: count() })
+        .from(lawyers)
+        .where(and(eq(lawyers.isActive, true), eq(lawyers.barStatus, "active"))),
+      db.select({ count: count() }).from(lawyers).where(eq(lawyers.isVerified, true)),
+      db.select({ count: count() }).from(lawyers).where(eq(lawyers.isClaimed, true)),
+      db.select({ count: count() }).from(firms),
+      db
+        .select({ count: count() })
+        .from(practiceAreas)
+        .where(eq(practiceAreas.isUserFacing, true)),
+      db
+        .select({ years: lawyers.yearsAtBar })
+        .from(lawyers)
+        .where(and(eq(lawyers.isActive, true), isNotNull(lawyers.yearsAtBar))),
+    ]);
 
-  // Get lawyer counts
-  const { count: totalLawyers } = await supabase
-    .from("lawyers")
-    .select("*", { count: "exact", head: true });
-
-  const { count: activeLawyers } = await supabase
-    .from("lawyers")
-    .select("*", { count: "exact", head: true })
-    .eq("is_active", true)
-    .eq("bar_status", "active");
-
-  const { count: verifiedLawyers } = await supabase
-    .from("lawyers")
-    .select("*", { count: "exact", head: true })
-    .eq("is_verified", true);
-
-  const { count: claimedProfiles } = await supabase
-    .from("lawyers")
-    .select("*", { count: "exact", head: true })
-    .eq("is_claimed", true);
-
-  // Get average years experience
-  const { data: avgData } = await supabase
-    .from("lawyers")
-    .select("years_at_bar")
-    .eq("is_active", true)
-    .not("years_at_bar", "is", null);
-
-  const validYears = avgData?.map((l) => l.years_at_bar).filter((y): y is number => y !== null) ?? [];
-  const avgYearsExperience = validYears.length > 0
-    ? validYears.reduce((a, b) => a + b, 0) / validYears.length
+  const validYears = years
+    .map((row) => row.years)
+    .filter((year): year is number => year !== null);
+  const average = validYears.length
+    ? validYears.reduce((sum, year) => sum + year, 0) / validYears.length
     : 0;
 
-  // Get firm count
-  const { count: totalFirms } = await supabase
-    .from("firms")
-    .select("*", { count: "exact", head: true });
-
-  // Get practice area count
-  const { count: totalPracticeAreas } = await supabase
-    .from("practice_areas")
-    .select("*", { count: "exact", head: true })
-    .eq("is_user_facing", true);
-
   return {
-    totalLawyers: totalLawyers ?? 0,
-    activeLawyers: activeLawyers ?? 0,
-    verifiedLawyers: verifiedLawyers ?? 0,
-    claimedProfiles: claimedProfiles ?? 0,
-    avgYearsExperience: Math.round(avgYearsExperience * 10) / 10,
-    totalFirms: totalFirms ?? 0,
-    totalPracticeAreas: totalPracticeAreas ?? 0,
+    totalLawyers: Number(total[0]?.count ?? 0),
+    activeLawyers: Number(active[0]?.count ?? 0),
+    verifiedLawyers: Number(verified[0]?.count ?? 0),
+    claimedProfiles: Number(claimed[0]?.count ?? 0),
+    avgYearsExperience: Math.round(average * 10) / 10,
+    totalFirms: Number(firmsCount[0]?.count ?? 0),
+    totalPracticeAreas: Number(practiceAreasCount[0]?.count ?? 0),
   };
 }
 
-/**
- * Get geographic distribution of lawyers by state
- */
 export async function getGeographicDistribution(filters?: {
   practiceArea?: string;
 }): Promise<GeographicStats[]> {
-  const supabase = createServerSupabaseClient();
+  const conditions = [eq(lawyers.isActive, true), isNotNull(lawyers.state)];
 
-  let query = supabase
-    .from("lawyers")
-    .select("state")
-    .eq("is_active", true)
-    .not("state", "is", null);
-
-  // If filtering by practice area, we need to join
   if (filters?.practiceArea) {
-    const { data: lawyerIds } = await supabase
-      .from("lawyer_practice_areas")
-      .select("lawyer_id, practice_areas!inner(slug)")
-      .eq("practice_areas.slug", filters.practiceArea);
-
-    if (lawyerIds && lawyerIds.length > 0) {
-      query = query.in("id", lawyerIds.map((l) => l.lawyer_id));
-    }
+    conditions.push(eq(practiceAreas.slug, filters.practiceArea));
   }
 
-  const { data } = await query;
+  const rows = filters?.practiceArea
+    ? await db
+        .select({ state: lawyers.state })
+        .from(lawyers)
+        .innerJoin(
+          lawyerPracticeAreas,
+          eq(lawyers.id, lawyerPracticeAreas.lawyerId)
+        )
+        .innerJoin(
+          practiceAreas,
+          eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id)
+        )
+        .where(and(...conditions))
+    : await db
+        .select({ state: lawyers.state })
+        .from(lawyers)
+        .where(and(...conditions));
 
-  if (!data) return [];
+  return groupByState(rows.map((row) => row.state));
+}
 
-  // Count by state
-  const counts: Record<string, number> = {};
-  for (const row of data) {
-    if (row.state) {
-      counts[row.state] = (counts[row.state] || 0) + 1;
-    }
+function groupByState(states: (string | null)[]): GeographicStats[] {
+  const counts = new Map<string, number>();
+  for (const state of states) {
+    if (state) counts.set(state, (counts.get(state) ?? 0) + 1);
   }
+  const total = [...counts.values()].reduce((sum, value) => sum + value, 0);
 
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
-
-  return Object.entries(counts)
+  return [...counts]
     .map(([state, count]) => ({
       state,
       count,
-      percentage: Math.round((count / total) * 1000) / 10,
+      percentage: total ? Math.round((count / total) * 1000) / 10 : 0,
     }))
     .sort((a, b) => b.count - a.count);
 }
 
-/**
- * Get experience level distribution
- */
 export async function getExperienceDistribution(filters?: {
   state?: string;
   practiceArea?: string;
 }): Promise<ExperienceDistribution[]> {
-  const supabase = createServerSupabaseClient();
+  const conditions = [eq(lawyers.isActive, true), isNotNull(lawyers.yearsAtBar)];
+  if (filters?.state) conditions.push(eq(lawyers.state, filters.state));
+  if (filters?.practiceArea) conditions.push(eq(practiceAreas.slug, filters.practiceArea));
 
-  let query = supabase
-    .from("lawyers")
-    .select("years_at_bar")
-    .eq("is_active", true)
-    .not("years_at_bar", "is", null);
+  const rows = filters?.practiceArea
+    ? await db
+        .select({ years: lawyers.yearsAtBar })
+        .from(lawyers)
+        .innerJoin(
+          lawyerPracticeAreas,
+          eq(lawyers.id, lawyerPracticeAreas.lawyerId)
+        )
+        .innerJoin(
+          practiceAreas,
+          eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id)
+        )
+        .where(and(...conditions))
+    : await db
+        .select({ years: lawyers.yearsAtBar })
+        .from(lawyers)
+        .where(and(...conditions));
 
-  if (filters?.state) {
-    query = query.eq("state", filters.state);
-  }
-
-  const { data } = await query;
-
-  if (!data) return [];
-
-  // Categorize by experience level
   const distribution = {
     junior: { count: 0, label: "Junior (0-5 years)" },
     mid: { count: 0, label: "Mid-Level (6-15 years)" },
     senior: { count: 0, label: "Senior (16+ years)" },
   };
 
-  for (const row of data) {
-    const years = row.years_at_bar;
-    if (years === null) continue;
-
-    if (years <= 5) {
-      distribution.junior.count++;
-    } else if (years <= 15) {
-      distribution.mid.count++;
-    } else {
-      distribution.senior.count++;
-    }
+  for (const row of rows) {
+    if (row.years === null) continue;
+    if (row.years <= 5) distribution.junior.count++;
+    else if (row.years <= 15) distribution.mid.count++;
+    else distribution.senior.count++;
   }
 
-  const total = distribution.junior.count + distribution.mid.count + distribution.senior.count;
-
-  return (["junior", "mid", "senior"] as const).map((level) => ({
+  const total = Object.values(distribution).reduce((sum, item) => sum + item.count, 0);
+  return (Object.keys(distribution) as (keyof typeof distribution)[]).map((level) => ({
     level,
     label: distribution[level].label,
     count: distribution[level].count,
-    percentage: total > 0 ? Math.round((distribution[level].count / total) * 1000) / 10 : 0,
+    percentage: total ? Math.round((distribution[level].count / total) * 1000) / 10 : 0,
   }));
 }
 
-/**
- * Get practice area statistics
- */
 export async function getPracticeAreaStats(filters?: {
   state?: string;
   limit?: number;
 }): Promise<PracticeAreaStats[]> {
-  const supabase = createServerSupabaseClient();
-  const limit = filters?.limit ?? 20;
+  const conditions = [eq(practiceAreas.isUserFacing, true)];
+  if (filters?.state) conditions.push(eq(lawyers.state, filters.state));
 
-  let lawyerIds: string[] | null = null;
+  const rows = await db
+    .select({ slug: practiceAreas.slug, name: practiceAreas.name })
+    .from(lawyerPracticeAreas)
+    .innerJoin(
+      practiceAreas,
+      eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id)
+    )
+    .innerJoin(lawyers, eq(lawyerPracticeAreas.lawyerId, lawyers.id))
+    .where(and(...conditions));
+  const counts = new Map<string, { name: string; count: number }>();
 
-  // If filtering by state, get lawyer IDs first
-  if (filters?.state) {
-    const { data: lawyers } = await supabase
-      .from("lawyers")
-      .select("id")
-      .eq("state", filters.state)
-      .eq("is_active", true);
-
-    lawyerIds = lawyers?.map((l) => l.id) ?? [];
+  for (const row of rows) {
+    const current = counts.get(row.slug) ?? { name: row.name, count: 0 };
+    current.count++;
+    counts.set(row.slug, current);
   }
 
-  // Get practice area counts
-  let query = supabase
-    .from("lawyer_practice_areas")
-    .select(`
-      practice_area_id,
-      practice_areas!inner(slug, name, is_user_facing)
-    `);
-
-  if (lawyerIds) {
-    query = query.in("lawyer_id", lawyerIds);
-  }
-
-  const { data } = await query;
-
-  if (!data) return [];
-
-  // Count by practice area
-  const counts: Record<string, { name: string; count: number }> = {};
-  for (const row of data) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pa = (row as any).practice_areas;
-    if (pa?.is_user_facing) {
-      if (!counts[pa.slug]) {
-        counts[pa.slug] = { name: pa.name, count: 0 };
-      }
-      counts[pa.slug].count++;
-    }
-  }
-
-  const total = Object.values(counts).reduce((a, b) => a + b.count, 0);
-
-  return Object.entries(counts)
-    .map(([slug, { name, count }]) => ({
+  const total = [...counts.values()].reduce((sum, item) => sum + item.count, 0);
+  return [...counts]
+    .map(([slug, value]) => ({
       slug,
-      name,
-      count,
-      percentage: total > 0 ? Math.round((count / total) * 1000) / 10 : 0,
+      name: value.name,
+      count: value.count,
+      percentage: total ? Math.round((value.count / total) * 1000) / 10 : 0,
     }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, limit);
+    .slice(0, filters?.limit ?? 20);
 }
 
-/**
- * Get admission trends by year
- */
-export async function getAdmissionTrends(
-  yearsBack = 10
-): Promise<AdmissionTrend[]> {
-  const supabase = createServerSupabaseClient();
+export async function getAdmissionTrends(yearsBack = 10): Promise<AdmissionTrend[]> {
   const currentYear = new Date().getFullYear();
   const startYear = currentYear - yearsBack;
+  const startDate = new Date(startYear, 0, 1);
+  const rows = await db
+    .select({ admissionDate: lawyers.barAdmissionDate })
+    .from(lawyers)
+    .where(and(isNotNull(lawyers.barAdmissionDate), gte(lawyers.barAdmissionDate, startDate)));
+  const counts = new Map<number, number>();
+  for (let year = startYear; year <= currentYear; year++) counts.set(year, 0);
 
-  const { data } = await supabase
-    .from("lawyers")
-    .select("bar_admission_date")
-    .not("bar_admission_date", "is", null)
-    .gte("bar_admission_date", `${startYear}-01-01`);
-
-  if (!data) return [];
-
-  // Count by year
-  const counts: Record<number, number> = {};
-  for (let year = startYear; year <= currentYear; year++) {
-    counts[year] = 0;
+  for (const row of rows) {
+    if (!row.admissionDate) continue;
+    const year = row.admissionDate.getFullYear();
+    if (counts.has(year)) counts.set(year, (counts.get(year) ?? 0) + 1);
   }
 
-  for (const row of data) {
-    if (row.bar_admission_date) {
-      const year = new Date(row.bar_admission_date).getFullYear();
-      if (year >= startYear && year <= currentYear) {
-        counts[year]++;
-      }
-    }
-  }
-
-  return Object.entries(counts)
-    .map(([year, count]) => ({
-      year: parseInt(year),
-      count,
-    }))
-    .sort((a, b) => a.year - b.year);
+  return [...counts].map(([year, count]) => ({ year, count }));
 }
 
-/**
- * Get underserved areas (states with few lawyers relative to population)
- */
 export async function getUnderservedAreas(): Promise<GeographicStats[]> {
   const geographic = await getGeographicDistribution();
-
-  // Malaysian state populations (approximate, 2023)
   const statePopulations: Record<string, number> = {
-    "Selangor": 6990000,
-    "Johor": 4010000,
-    "Sabah": 3910000,
-    "Sarawak": 2820000,
-    "Perak": 2510000,
-    "Kedah": 2190000,
-    "Penang": 1770000,
-    "Kelantan": 1930000,
-    "Pahang": 1680000,
-    "Terengganu": 1290000,
+    Selangor: 6990000,
+    Johor: 4010000,
+    Sabah: 3910000,
+    Sarawak: 2820000,
+    Perak: 2510000,
+    Kedah: 2190000,
+    Penang: 1770000,
+    Kelantan: 1930000,
+    Pahang: 1680000,
+    Terengganu: 1290000,
     "Negeri Sembilan": 1170000,
-    "Melaka": 1020000,
+    Melaka: 1020000,
     "Kuala Lumpur": 1980000,
-    "Perlis": 270000,
-    "Labuan": 100000,
-    "Putrajaya": 120000,
+    Perlis: 270000,
+    Labuan: 100000,
+    Putrajaya: 120000,
   };
 
-  // Calculate lawyers per 100,000 population
-  const withDensity = geographic.map((g) => {
-    const population = statePopulations[g.state] || 1000000;
-    const densityPer100k = (g.count / population) * 100000;
-    return {
-      ...g,
-      densityPer100k,
-    };
-  });
-
-  // Return states with lowest density
-  return withDensity
+  return geographic
+    .map((item) => ({
+      ...item,
+      densityPer100k: (item.count / (statePopulations[item.state] || 1000000)) * 100000,
+    }))
     .sort((a, b) => a.densityPer100k - b.densityPer100k)
     .slice(0, 5)
-    .map(({ state, count, percentage }) => ({ state, count, percentage }));
+    .map(({ state, count: lawyerCount, percentage }) => ({
+      state,
+      count: lawyerCount,
+      percentage,
+    }));
 }
 
-/**
- * Get all insights data in one call
- */
 export async function getAllInsightsData(filters?: {
   state?: string;
   practiceArea?: string;
 }): Promise<InsightsData> {
-  const [overall, geographic, experience, practiceAreas, admissionTrends, underservedAreas] =
+  const [overall, geographic, experience, practiceAreasData, admissionTrends, underservedAreas] =
     await Promise.all([
       getOverallStats(),
       getGeographicDistribution(filters),
@@ -377,7 +292,7 @@ export async function getAllInsightsData(filters?: {
     overall,
     geographic,
     experience,
-    practiceAreas,
+    practiceAreas: practiceAreasData,
     admissionTrends,
     underservedAreas,
   };

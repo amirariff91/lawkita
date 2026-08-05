@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
+import { desc, eq, isNotNull } from "drizzle-orm";
 import {
   scrapeBarCouncilDirectory,
   MALAYSIAN_STATES,
@@ -11,10 +11,9 @@ import {
   scrapeJudgmentsList,
   saveJudgmentsToDatabase,
 } from "@/lib/scrapers/ejudgment-scraper";
-import { createServiceRoleClient } from "@/lib/supabase/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { user } from "@/lib/db/schema";
+import { lawyers, scrapingLogs, user } from "@/lib/db/schema";
 
 async function isAdmin(userId: string): Promise<boolean> {
   const currentUser = await db.query.user.findFirst({
@@ -171,34 +170,26 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = createServiceRoleClient();
-
-    const { data: jobs, error } = await supabase
-      .from("scraping_logs")
-      .select("*")
-      .order("started_at", { ascending: false })
+    const jobs = await db
+      .select()
+      .from(scrapingLogs)
+      .orderBy(desc(scrapingLogs.startedAt))
       .limit(20);
 
-    if (error) {
-      throw error;
-    }
-
     // Get stats summary
-    const { data: stats } = await supabase
-      .from("lawyers")
-      .select("id, last_scraped_at, is_claimed, subscription_tier")
-      .not("last_scraped_at", "is", null);
+    const stats = await db
+      .select({
+        id: lawyers.id,
+        lastScrapedAt: lawyers.lastScrapedAt,
+        isClaimed: lawyers.isClaimed,
+        subscriptionTier: lawyers.subscriptionTier,
+      })
+      .from(lawyers)
+      .where(isNotNull(lawyers.lastScrapedAt));
 
-    interface LawyerStat {
-      id: string;
-      last_scraped_at: string | null;
-      is_claimed: boolean;
-      subscription_tier: string;
-    }
-
-    const scrapedCount = stats?.length || 0;
-    const claimedCount = stats?.filter((l: LawyerStat) => l.is_claimed).length || 0;
-    const paidCount = stats?.filter((l: LawyerStat) => l.subscription_tier !== "free").length || 0;
+    const scrapedCount = stats.length;
+    const claimedCount = stats.filter((lawyer) => lawyer.isClaimed).length;
+    const paidCount = stats.filter((lawyer) => lawyer.subscriptionTier !== "free").length;
 
     return NextResponse.json({
       jobs: jobs || [],

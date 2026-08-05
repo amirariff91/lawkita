@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, CheckCircle2, AlertCircle, FileText, Upload, X } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
-import { createClient } from "@supabase/supabase-js";
+import { uploadStorageFile } from "@/lib/storage/client";
 
 interface ClaimFirmFormProps {
   firmId: string;
@@ -81,38 +81,14 @@ export function ClaimFirmForm({ firmId, firmName }: ClaimFirmFormProps) {
   const uploadDocument = async (): Promise<string | null> => {
     if (!documentFile) return null;
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error("Storage not configured");
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    const fileExt = documentFile.name.split(".").pop();
-    const fileName = `firm-claims/${firmId}/${Date.now()}.${fileExt}`;
-
     setUploadProgress(30);
-
-    const { data, error } = await supabase.storage
-      .from("documents")
-      .upload(fileName, documentFile, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-    if (error) {
-      throw new Error("Failed to upload document: " + error.message);
-    }
-
-    setUploadProgress(80);
-
-    // Get public URL
-    const { data: urlData } = supabase.storage.from("documents").getPublicUrl(data.path);
-
-    setUploadProgress(100);
-    return urlData.publicUrl;
+    return uploadStorageFile({
+      bucket: "documents",
+      purpose: "firm-claim-document",
+      resourceId: firmId,
+      file: documentFile,
+      onProgress: setUploadProgress,
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

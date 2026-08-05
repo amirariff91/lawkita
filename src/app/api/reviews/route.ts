@@ -25,7 +25,7 @@ const reviewSchema = z.object({
   valueRating: z.number().min(0).max(5).optional(),
   pros: z.string().optional(),
   cons: z.string().optional(),
-  verificationDocument: z.string().optional(), // Supabase storage URL for invoice/receipt
+  verificationDocument: z.string().optional(), // Object storage URL for invoice/receipt
 });
 
 export async function POST(request: NextRequest) {

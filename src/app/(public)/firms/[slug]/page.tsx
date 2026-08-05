@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getFirmBySlug } from "@/lib/db/queries/firms";
-import { createServerSupabaseClient } from "@/lib/supabase/client";
 import { LawyerGrid } from "@/components/lawyers";
 import { FirmJsonLd } from "@/components/firms";
 import { Breadcrumbs } from "@/components/seo";
@@ -71,16 +70,8 @@ export default async function FirmProfilePage({
     notFound();
   }
 
-  // Get firm claim status
-  const supabase = createServerSupabaseClient();
-  const { data: firmData } = await supabase
-    .from("firms")
-    .select("id, is_claimed, subscription_tier")
-    .eq("slug", slug)
-    .single();
-
-  const isClaimed = firmData?.is_claimed ?? false;
-  const isPremium = firmData?.subscription_tier === "firm_premium";
+  const isClaimed = firm.isClaimed ?? false;
+  const isPremium = firm.subscriptionTier === "firm_premium";
   const location = [firm.city, firm.state].filter(Boolean).join(", ");
 
   return (
@@ -119,9 +110,9 @@ export default async function FirmProfilePage({
                 )}
               </div>
             </div>
-            {!isClaimed && firmData?.id && (
+            {!isClaimed && firm.id && (
               <Button asChild>
-                <Link href={`/claim-firm/${firmData.id}`}>
+                <Link href={`/claim-firm/${firm.id}`}>
                   <UserPlus className="h-4 w-4 mr-2" />
                   Claim This Firm
                 </Link>

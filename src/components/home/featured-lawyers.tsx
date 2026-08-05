@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createServerSupabaseClient } from "@/lib/supabase/client";
+import { getFeaturedLawyers as getFeaturedLawyerCards } from "@/lib/db/queries/lawyers";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,72 +28,20 @@ interface FeaturedLawyer {
 }
 
 async function getFeaturedLawyers(): Promise<FeaturedLawyer[]> {
-  const supabase = createServerSupabaseClient();
-
-  // Get top-rated lawyers with highest review counts
-  const { data: lawyerResults, error } = await supabase
-    .from("lawyers")
-    .select(`
-      id,
-      name,
-      slug,
-      photo,
-      firm_name,
-      city,
-      state,
-      average_rating,
-      review_count,
-      is_verified,
-      subscription_tier
-    `)
-    .eq("is_active", true)
-    .not("average_rating", "is", null)
-    .order("subscription_tier", { ascending: false })
-    .order("average_rating", { ascending: false })
-    .order("review_count", { ascending: false })
-    .limit(4);
-
-  if (error || !lawyerResults) {
-    console.error("Error fetching featured lawyers:", error);
-    return [];
-  }
-
-  // Get practice areas for these lawyers
-  const lawyerIds = lawyerResults.map((l) => l.id);
-  const practiceAreaMap = new Map<string, string[]>();
-
-  if (lawyerIds.length > 0) {
-    const { data: practiceAreaData } = await supabase
-      .from("lawyer_practice_areas")
-      .select(`
-        lawyer_id,
-        practice_areas!inner(name)
-      `)
-      .in("lawyer_id", lawyerIds);
-
-    if (practiceAreaData) {
-      for (const row of practiceAreaData) {
-        const existing = practiceAreaMap.get(row.lawyer_id) ?? [];
-        // @ts-expect-error - Supabase types don't handle nested selects well
-        existing.push(row.practice_areas.name);
-        practiceAreaMap.set(row.lawyer_id, existing);
-      }
-    }
-  }
-
+  const lawyerResults = await getFeaturedLawyerCards(4);
   return lawyerResults.map((lawyer) => ({
     id: lawyer.id,
     name: lawyer.name,
     slug: lawyer.slug,
     photo: lawyer.photo,
-    firmName: lawyer.firm_name,
+    firmName: lawyer.firmName,
     city: lawyer.city,
-    state: lawyer.state,
-    practiceAreas: practiceAreaMap.get(lawyer.id) ?? [],
-    averageRating: lawyer.average_rating ? parseFloat(lawyer.average_rating) : null,
-    reviewCount: lawyer.review_count ?? 0,
-    isVerified: lawyer.is_verified,
-    isFeatured: lawyer.subscription_tier === "featured",
+    state: lawyer.state ?? "Malaysia",
+    practiceAreas: lawyer.practiceAreas,
+    averageRating: lawyer.averageRating ? parseFloat(lawyer.averageRating) : null,
+    reviewCount: lawyer.reviewCount,
+    isVerified: lawyer.isVerified,
+    isFeatured: lawyer.subscriptionTier === "featured",
   }));
 }
 

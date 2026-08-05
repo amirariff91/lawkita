@@ -1,16 +1,38 @@
-import { createServerSupabaseClient } from "@/lib/supabase/client";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNotNull,
+  or,
+  sql,
+} from "drizzle-orm";
+import { db } from "@/lib/db";
+import {
+  firms,
+  lawyerFirmHistory,
+  lawyerPracticeAreas,
+  lawyers,
+  practiceAreas,
+} from "@/lib/db/schema";
 import type { LawyerCardData } from "@/types/lawyer";
 
 export interface FirmWithStats {
   id: string;
   name: string;
   slug: string;
+  description?: string | null;
+  logo?: string | null;
   address: string | null;
   state: string | null;
   city: string | null;
-  phone: string | null;
-  email: string | null;
-  website: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  isClaimed?: boolean;
+  subscriptionTier?: "free" | "firm_premium";
   lawyerCount: number;
   avgYearsExperience: number | null;
   practiceAreas: string[];
@@ -26,11 +48,9 @@ export interface FirmCardData {
   city: string | null;
   lawyerCount: number;
   avgYearsExperience: number | null;
+  subscriptionTier?: "free" | "firm_premium";
 }
 
-/**
- * Normalizes an address for deduplication matching
- */
 export function normalizeAddress(address: string | null | undefined): string {
   if (!address) return "";
   return address
@@ -46,79 +66,17 @@ export function normalizeAddress(address: string | null | undefined): string {
     .trim();
 }
 
-/**
- * Get firm by slug with full details and lawyers
- */
-export async function getFirmBySlug(slug: string): Promise<FirmWithStats | null> {
-  const supabase = createServerSupabaseClient();
+function toNumber(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
-  // Get firm details
-  const { data: firm, error } = await supabase
-    .from("firms")
-    .select("*")
-    .eq("slug", slug)
-    .single();
-
-  if (error || !firm) {
-    return null;
-  }
-
-  // Get lawyers for this firm
-  const { data: lawyers } = await supabase
-    .from("lawyers")
-    .select(`
-      id,
-      slug,
-      name,
-      photo,
-      bio,
-      state,
-      city,
-      firm_name,
-      is_verified,
-      is_claimed,
-      subscription_tier,
-      years_at_bar,
-      review_count,
-      average_rating,
-      response_rate,
-      bar_status,
-      bar_membership_number,
-      last_scraped_at
-    `)
-    .eq("primary_firm_id", firm.id)
-    .eq("is_active", true)
-    .order("years_at_bar", { ascending: false });
-
-  const lawyerIds = lawyers?.map((l) => l.id) ?? [];
-
-  // Get practice areas for lawyers
-  const practiceAreaMap: Map<string, string[]> = new Map();
-  const allPracticeAreas = new Set<string>();
-
-  if (lawyerIds.length > 0) {
-    const { data: practiceAreaData } = await supabase
-      .from("lawyer_practice_areas")
-      .select(`
-        lawyer_id,
-        practice_areas!inner(name)
-      `)
-      .in("lawyer_id", lawyerIds);
-
-    if (practiceAreaData) {
-      for (const row of practiceAreaData) {
-        const existing = practiceAreaMap.get(row.lawyer_id) ?? [];
-        // @ts-expect-error - Supabase types
-        const areaName = row.practice_areas.name;
-        existing.push(areaName);
-        allPracticeAreas.add(areaName);
-        practiceAreaMap.set(row.lawyer_id, existing);
-      }
-    }
-  }
-
-  // Map lawyers to LawyerCardData
-  const lawyerCards: LawyerCardData[] = (lawyers ?? []).map((lawyer) => ({
+function toLawyerCard(
+  lawyer: typeof lawyers.$inferSelect,
+  practiceAreaMap: Map<string, string[]>
+): LawyerCardData {
+  return {
     id: lawyer.id,
     slug: lawyer.slug,
     name: lawyer.name,
@@ -126,184 +84,189 @@ export async function getFirmBySlug(slug: string): Promise<FirmWithStats | null>
     bio: lawyer.bio,
     state: lawyer.state,
     city: lawyer.city,
-    firmName: lawyer.firm_name,
-    isVerified: lawyer.is_verified,
-    isClaimed: lawyer.is_claimed,
-    subscriptionTier: lawyer.subscription_tier as "free" | "premium" | "featured",
-    yearsAtBar: lawyer.years_at_bar,
-    reviewCount: lawyer.review_count ?? 0,
-    averageRating: lawyer.average_rating,
-    responseRate: lawyer.response_rate,
+    firmName: lawyer.firmName,
+    isVerified: lawyer.isVerified,
+    isClaimed: lawyer.isClaimed,
+    subscriptionTier: lawyer.subscriptionTier,
+    yearsAtBar: lawyer.yearsAtBar,
+    reviewCount: lawyer.reviewCount ?? 0,
+    averageRating: lawyer.averageRating,
+    responseRate: lawyer.responseRate,
     practiceAreas: practiceAreaMap.get(lawyer.id) ?? [],
-    barStatus: lawyer.bar_status as LawyerCardData["barStatus"],
-    barMembershipNumber: lawyer.bar_membership_number,
-    lastScrapedAt: lawyer.last_scraped_at ? new Date(lawyer.last_scraped_at) : null,
-  }));
+    barStatus: lawyer.barStatus,
+    barMembershipNumber: lawyer.barMembershipNumber,
+    lastScrapedAt: lawyer.lastScrapedAt,
+  };
+}
 
-  // Calculate average years of experience
-  const validYears = lawyerCards
-    .map((l) => l.yearsAtBar)
-    .filter((y): y is number => y !== null);
-  const avgYears = validYears.length > 0
-    ? validYears.reduce((a, b) => a + b, 0) / validYears.length
-    : null;
+async function getFirmLawyers(firmId: string): Promise<{
+  lawyers: LawyerCardData[];
+  practiceAreas: string[];
+}> {
+  const lawyerRows = await db
+    .select()
+    .from(lawyers)
+    .where(and(eq(lawyers.primaryFirmId, firmId), eq(lawyers.isActive, true)))
+    .orderBy(sql`${lawyers.yearsAtBar} DESC NULLS LAST`);
+  const practiceAreaMap = new Map<string, string[]>();
+  const allPracticeAreas = new Set<string>();
+
+  if (lawyerRows.length > 0) {
+    const areaRows = await db
+      .select({ lawyerId: lawyerPracticeAreas.lawyerId, name: practiceAreas.name })
+      .from(lawyerPracticeAreas)
+      .innerJoin(
+        practiceAreas,
+        eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id)
+      )
+      .where(inArray(lawyerPracticeAreas.lawyerId, lawyerRows.map((row) => row.id)));
+
+    for (const row of areaRows) {
+      const names = practiceAreaMap.get(row.lawyerId) ?? [];
+      names.push(row.name);
+      practiceAreaMap.set(row.lawyerId, names);
+      allPracticeAreas.add(row.name);
+    }
+  }
+
+  return {
+    lawyers: lawyerRows.map((row) => toLawyerCard(row, practiceAreaMap)),
+    practiceAreas: [...allPracticeAreas],
+  };
+}
+
+export async function getFirmBySlug(slug: string): Promise<FirmWithStats | null> {
+  const [firm] = await db
+    .select()
+    .from(firms)
+    .where(eq(firms.slug, slug))
+    .limit(1);
+  if (!firm) return null;
+
+  const firmLawyers = await getFirmLawyers(firm.id);
+  const years = firmLawyers.lawyers
+    .map((lawyer) => lawyer.yearsAtBar)
+    .filter((year): year is number => year !== null);
 
   return {
     id: firm.id,
     name: firm.name,
     slug: firm.slug,
+    description: firm.description,
+    logo: firm.logo,
     address: firm.address,
     state: firm.state,
     city: firm.city,
     phone: firm.phone,
     email: firm.email,
     website: firm.website,
-    lawyerCount: lawyerCards.length,
-    avgYearsExperience: avgYears,
-    practiceAreas: Array.from(allPracticeAreas),
-    lawyers: lawyerCards,
+    isClaimed: firm.isClaimed,
+    subscriptionTier: firm.subscriptionTier ?? "free",
+    lawyerCount: firmLawyers.lawyers.length,
+    avgYearsExperience: years.length
+      ? years.reduce((total, year) => total + year, 0) / years.length
+      : null,
+    practiceAreas: firmLawyers.practiceAreas,
+    lawyers: firmLawyers.lawyers,
   };
 }
 
-/**
- * Get or create a firm based on name and address
- * Uses normalized address for deduplication
- */
 export async function getOrCreateFirm(
   firmName: string,
   firmAddress: string | null,
   state: string | null,
   city: string | null
 ): Promise<{ id: string; slug: string; isNew: boolean }> {
-  const supabase = createServerSupabaseClient();
-  const normalizedAddr = normalizeAddress(firmAddress);
+  const normalizedAddress = normalizeAddress(firmAddress);
 
-  // Try to find existing firm by normalized address
-  if (normalizedAddr) {
-    const { data: existingFirm } = await supabase
-      .from("firms")
-      .select("id, slug")
-      .eq("normalized_address", normalizedAddr)
-      .single();
-
-    if (existingFirm) {
-      return { id: existingFirm.id, slug: existingFirm.slug, isNew: false };
-    }
+  if (normalizedAddress) {
+    const [existingFirm] = await db
+      .select({ id: firms.id, slug: firms.slug })
+      .from(firms)
+      .where(eq(firms.normalizedAddress, normalizedAddress))
+      .limit(1);
+    if (existingFirm) return { ...existingFirm, isNew: false };
   }
 
-  // Try to find by exact name match in same city
   if (city) {
-    const { data: existingFirm } = await supabase
-      .from("firms")
-      .select("id, slug")
-      .eq("name", firmName)
-      .eq("city", city)
-      .single();
-
-    if (existingFirm) {
-      return { id: existingFirm.id, slug: existingFirm.slug, isNew: false };
-    }
+    const [existingFirm] = await db
+      .select({ id: firms.id, slug: firms.slug })
+      .from(firms)
+      .where(and(eq(firms.name, firmName), eq(firms.city, city)))
+      .limit(1);
+    if (existingFirm) return { ...existingFirm, isNew: false };
   }
 
-  // Create new firm
   const slug = generateFirmSlug(firmName, city);
-
-  const { data: newFirm, error } = await supabase
-    .from("firms")
-    .insert({
-      name: firmName,
-      slug,
-      address: firmAddress,
-      normalized_address: normalizedAddr || null,
-      state,
-      city,
-    })
-    .select("id, slug")
-    .single();
-
-  if (error) {
-    // Handle slug conflict by adding a random suffix
-    const slugWithSuffix = `${slug}-${Date.now().toString(36)}`;
-    const { data: retryFirm, error: retryError } = await supabase
-      .from("firms")
-      .insert({
+  try {
+    const [newFirm] = await db
+      .insert(firms)
+      .values({
         name: firmName,
-        slug: slugWithSuffix,
+        slug,
         address: firmAddress,
-        normalized_address: normalizedAddr || null,
+        normalizedAddress: normalizedAddress || null,
         state,
         city,
       })
-      .select("id, slug")
-      .single();
-
-    if (retryError) {
-      throw new Error(`Failed to create firm: ${retryError.message}`);
-    }
-
-    return { id: retryFirm.id, slug: retryFirm.slug, isNew: true };
+      .returning({ id: firms.id, slug: firms.slug });
+    return { ...newFirm, isNew: true };
+  } catch {
+    const slugWithSuffix = `${slug}-${Date.now().toString(36)}`;
+    const [retryFirm] = await db
+      .insert(firms)
+      .values({
+        name: firmName,
+        slug: slugWithSuffix,
+        address: firmAddress,
+        normalizedAddress: normalizedAddress || null,
+        state,
+        city,
+      })
+      .returning({ id: firms.id, slug: firms.slug });
+    return { ...retryFirm, isNew: true };
   }
-
-  return { id: newFirm.id, slug: newFirm.slug, isNew: true };
 }
 
-/**
- * Generate a URL-friendly slug for a firm
- */
 function generateFirmSlug(name: string, city: string | null): string {
   const baseSlug = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 50);
+  if (!city) return baseSlug;
 
-  if (city) {
-    const citySlug = city
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 20);
-    return `${baseSlug}-${citySlug}`;
-  }
-
-  return baseSlug;
+  const citySlug = city
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 20);
+  return `${baseSlug}-${citySlug}`;
 }
 
-/**
- * Get lawyer's firm history
- */
 export async function getLawyerFirmHistory(
   lawyerId: string
 ): Promise<{ firmName: string; firmSlug: string | null; isCurrent: boolean }[]> {
-  const supabase = createServerSupabaseClient();
+  const rows = await db
+    .select({
+      firmName: lawyerFirmHistory.firmName,
+      firmSlug: firms.slug,
+      isCurrent: lawyerFirmHistory.isCurrent,
+    })
+    .from(lawyerFirmHistory)
+    .leftJoin(firms, eq(lawyerFirmHistory.firmId, firms.id))
+    .where(eq(lawyerFirmHistory.lawyerId, lawyerId))
+    .orderBy(desc(lawyerFirmHistory.isCurrent), desc(lawyerFirmHistory.lastSeen));
 
-  const { data: history } = await supabase
-    .from("lawyer_firm_history")
-    .select(`
-      firm_name,
-      firm_id,
-      is_current,
-      firms(slug)
-    `)
-    .eq("lawyer_id", lawyerId)
-    .order("is_current", { ascending: false })
-    .order("last_seen", { ascending: false });
-
-  if (!history) return [];
-
-  return history.map((h) => ({
-    firmName: h.firm_name,
-    // @ts-expect-error - Supabase types
-    firmSlug: h.firms?.slug ?? null,
-    isCurrent: h.is_current,
+  return rows.map((row) => ({
+    firmName: row.firmName,
+    firmSlug: row.firmSlug,
+    isCurrent: row.isCurrent,
   }));
 }
 
 export type FirmSortOption = "lawyers" | "experience" | "name";
 
-/**
- * Search firms with pagination
- */
 export async function searchFirms(params: {
   query?: string;
   state?: string;
@@ -318,222 +281,148 @@ export async function searchFirms(params: {
   page: number;
   totalPages: number;
 }> {
-  const { query, state, city, practiceArea, sort = "lawyers", page = 1, limit = 20 } = params;
+  const page = Math.max(1, params.page ?? 1);
+  const limit = Math.max(1, params.limit ?? 20);
   const offset = (page - 1) * limit;
-  const supabase = createServerSupabaseClient();
+  const conditions = [];
 
-  // If filtering by practice area, get firm IDs that have lawyers in that practice area
-  let practiceAreaFirmIds: Set<string> | null = null;
-  if (practiceArea) {
-    const { data: practiceAreaRecord } = await supabase
-      .from("practice_areas")
-      .select("id")
-      .eq("slug", practiceArea)
-      .single();
+  if (params.practiceArea) {
+    const [area] = await db
+      .select({ id: practiceAreas.id })
+      .from(practiceAreas)
+      .where(eq(practiceAreas.slug, params.practiceArea))
+      .limit(1);
+    if (!area) return { firms: [], total: 0, page, totalPages: 0 };
 
-    if (practiceAreaRecord) {
-      // Get lawyer IDs in this practice area
-      const { data: lawyerIdsInArea } = await supabase
-        .from("lawyer_practice_areas")
-        .select("lawyer_id")
-        .eq("practice_area_id", practiceAreaRecord.id);
-
-      const lawyerIds = lawyerIdsInArea?.map((l) => l.lawyer_id) ?? [];
-
-      if (lawyerIds.length > 0) {
-        // Get firm IDs for these lawyers
-        const { data: firmIdsData } = await supabase
-          .from("lawyers")
-          .select("primary_firm_id")
-          .in("id", lawyerIds)
-          .not("primary_firm_id", "is", null);
-
-        practiceAreaFirmIds = new Set(
-          firmIdsData?.map((l) => l.primary_firm_id).filter(Boolean) as string[] ?? []
-        );
-      } else {
-        practiceAreaFirmIds = new Set();
-      }
-    } else {
-      // Practice area not found - return empty results
-      return { firms: [], total: 0, page, totalPages: 0 };
-    }
+    const firmIds = await db
+      .selectDistinct({ firmId: lawyers.primaryFirmId })
+      .from(lawyers)
+      .innerJoin(
+        lawyerPracticeAreas,
+        eq(lawyers.id, lawyerPracticeAreas.lawyerId)
+      )
+      .where(
+        and(
+          eq(lawyerPracticeAreas.practiceAreaId, area.id),
+          isNotNull(lawyers.primaryFirmId)
+        )
+      );
+    const ids = firmIds
+      .map((row) => row.firmId)
+      .filter((id): id is string => id !== null);
+    if (ids.length === 0) return { firms: [], total: 0, page, totalPages: 0 };
+    conditions.push(inArray(firms.id, ids));
   }
 
-  let queryBuilder = supabase
-    .from("firms")
-    .select("id, name, slug, address, state, city, lawyer_count, avg_years_experience", {
-      count: "exact",
-    });
-
-  // Filter by practice area firm IDs
-  if (practiceAreaFirmIds !== null) {
-    if (practiceAreaFirmIds.size === 0) {
-      return { firms: [], total: 0, page, totalPages: 0 };
-    }
-    queryBuilder = queryBuilder.in("id", Array.from(practiceAreaFirmIds));
+  if (params.query) {
+    const pattern = `%${params.query}%`;
+    conditions.push(or(ilike(firms.name, pattern), ilike(firms.address, pattern))!);
   }
+  if (params.state) conditions.push(eq(firms.state, params.state));
+  if (params.city) conditions.push(eq(firms.city, params.city));
 
-  if (query) {
-    queryBuilder = queryBuilder.or(`name.ilike.%${query}%,address.ilike.%${query}%`);
-  }
+  const where = and(...conditions);
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(firms)
+    .where(where);
+  const query = db.select().from(firms).where(where);
 
-  if (state) {
-    queryBuilder = queryBuilder.eq("state", state);
-  }
-
-  if (city) {
-    queryBuilder = queryBuilder.eq("city", city);
-  }
-
-  // Apply sorting
-  switch (sort) {
+  switch (params.sort ?? "lawyers") {
     case "experience":
-      queryBuilder = queryBuilder.order("avg_years_experience", { ascending: false, nullsFirst: false });
+      query.orderBy(sql`${firms.avgYearsExperience} DESC NULLS LAST`);
       break;
     case "name":
-      queryBuilder = queryBuilder.order("name", { ascending: true });
+      query.orderBy(firms.name);
       break;
     case "lawyers":
     default:
-      queryBuilder = queryBuilder.order("lawyer_count", { ascending: false, nullsFirst: false });
+      query.orderBy(sql`${firms.lawyerCount} DESC NULLS LAST`);
       break;
   }
 
-  queryBuilder = queryBuilder.range(offset, offset + limit - 1);
+  const rows = await query.limit(limit).offset(offset);
+  const numericTotal = Number(total);
 
-  const { data, count, error } = await queryBuilder;
-
-  if (error) {
-    console.error("Error searching firms:", error);
-    return { firms: [], total: 0, page, totalPages: 0 };
-  }
-
-  const total = count ?? 0;
-  const totalPages = Math.ceil(total / limit);
-
-  const firms: FirmCardData[] = (data ?? []).map((firm) => ({
-    id: firm.id,
-    name: firm.name,
-    slug: firm.slug,
-    address: firm.address,
-    state: firm.state,
-    city: firm.city,
-    lawyerCount: firm.lawyer_count ?? 0,
-    avgYearsExperience: firm.avg_years_experience
-      ? parseFloat(firm.avg_years_experience)
-      : null,
-  }));
-
-  return { firms, total, page, totalPages };
+  return {
+    firms: rows.map((firm) => ({
+      id: firm.id,
+      name: firm.name,
+      slug: firm.slug,
+      address: firm.address,
+      state: firm.state,
+      city: firm.city,
+      lawyerCount: firm.lawyerCount ?? 0,
+      avgYearsExperience: toNumber(firm.avgYearsExperience),
+      subscriptionTier: firm.subscriptionTier ?? "free",
+    })),
+    total: numericTotal,
+    page,
+    totalPages: Math.ceil(numericTotal / limit),
+  };
 }
 
-/**
- * Update firm contact info by aggregating from its lawyers
- * Uses the most common phone/email from active lawyers at the firm
- */
 export async function updateFirmContactInfo(firmId: string): Promise<void> {
-  const supabase = createServerSupabaseClient();
+  const lawyerRows = await db
+    .select({ phone: lawyers.phone, email: lawyers.email })
+    .from(lawyers)
+    .where(and(eq(lawyers.primaryFirmId, firmId), eq(lawyers.isActive, true)));
+  if (lawyerRows.length === 0) return;
 
-  // Get all active lawyers at this firm
-  const { data: lawyers } = await supabase
-    .from("lawyers")
-    .select("phone, email")
-    .eq("primary_firm_id", firmId)
-    .eq("is_active", true);
+  const mostCommon = (values: (string | null)[]) => {
+    const counts = new Map<string, number>();
+    for (const value of values) {
+      if (value) counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  };
+  const [firm] = await db
+    .select({ phone: firms.phone, email: firms.email })
+    .from(firms)
+    .where(eq(firms.id, firmId))
+    .limit(1);
+  if (!firm) return;
 
-  if (!lawyers || lawyers.length === 0) {
-    return;
-  }
-
-  // Find most common phone (excluding nulls)
-  const phones = lawyers.map((l) => l.phone).filter(Boolean) as string[];
-  const phoneCounts = new Map<string, number>();
-  for (const phone of phones) {
-    phoneCounts.set(phone, (phoneCounts.get(phone) ?? 0) + 1);
-  }
-  const mostCommonPhone = [...phoneCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-
-  // Find most common email (excluding nulls)
-  const emails = lawyers.map((l) => l.email).filter(Boolean) as string[];
-  const emailCounts = new Map<string, number>();
-  for (const email of emails) {
-    emailCounts.set(email, (emailCounts.get(email) ?? 0) + 1);
-  }
-  const mostCommonEmail = [...emailCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-
-  // Update firm with aggregated contact info (only if firm doesn't already have them)
-  const { data: firm } = await supabase
-    .from("firms")
-    .select("phone, email")
-    .eq("id", firmId)
-    .single();
-
-  const updates: Record<string, string | null> = {};
-  if (!firm?.phone && mostCommonPhone) {
-    updates.phone = mostCommonPhone;
-  }
-  if (!firm?.email && mostCommonEmail) {
-    updates.email = mostCommonEmail;
-  }
-
-  if (Object.keys(updates).length > 0) {
-    await supabase.from("firms").update(updates).eq("id", firmId);
+  const phone = !firm.phone ? mostCommon(lawyerRows.map((row) => row.phone)) : null;
+  const email = !firm.email ? mostCommon(lawyerRows.map((row) => row.email)) : null;
+  if (phone || email) {
+    await db
+      .update(firms)
+      .set({ ...(phone ? { phone } : {}), ...(email ? { email } : {}), updatedAt: new Date() })
+      .where(eq(firms.id, firmId));
   }
 }
 
-/**
- * Update cached lawyer count and average years experience for a firm
- */
 export async function updateFirmCachedStats(firmId: string): Promise<void> {
-  const supabase = createServerSupabaseClient();
+  const rows = await db
+    .select({ yearsAtBar: lawyers.yearsAtBar })
+    .from(lawyers)
+    .where(and(eq(lawyers.primaryFirmId, firmId), eq(lawyers.isActive, true)));
+  const years = rows
+    .map((row) => row.yearsAtBar)
+    .filter((year): year is number => year !== null);
 
-  // Get all active lawyers at this firm
-  const { data: lawyers } = await supabase
-    .from("lawyers")
-    .select("years_at_bar")
-    .eq("primary_firm_id", firmId)
-    .eq("is_active", true);
-
-  const lawyerCount = lawyers?.length ?? 0;
-  const yearsArray = lawyers
-    ?.map((l) => l.years_at_bar)
-    .filter((y): y is number => y !== null) ?? [];
-  const avgYearsExperience =
-    yearsArray.length > 0
-      ? yearsArray.reduce((a, b) => a + b, 0) / yearsArray.length
-      : null;
-
-  await supabase
-    .from("firms")
-    .update({
-      lawyer_count: lawyerCount,
-      avg_years_experience: avgYearsExperience,
-      updated_at: new Date().toISOString(),
+  await db
+    .update(firms)
+    .set({
+      lawyerCount: rows.length,
+      avgYearsExperience: years.length
+        ? String(years.reduce((total, year) => total + year, 0) / years.length)
+        : null,
+      updatedAt: new Date(),
     })
-    .eq("id", firmId);
+    .where(eq(firms.id, firmId));
 }
 
-/**
- * Get firm by ID
- */
 export async function getFirmById(firmId: string): Promise<FirmWithStats | null> {
-  const supabase = createServerSupabaseClient();
-
-  const { data: firm } = await supabase
-    .from("firms")
-    .select("slug")
-    .eq("id", firmId)
-    .single();
-
-  if (!firm) return null;
-
-  return getFirmBySlug(firm.slug);
+  const [firm] = await db
+    .select({ slug: firms.slug })
+    .from(firms)
+    .where(eq(firms.id, firmId))
+    .limit(1);
+  return firm ? getFirmBySlug(firm.slug) : null;
 }
 
-/**
- * Get firm for dashboard (with ownership info)
- */
 export interface FirmDashboardData {
   id: string;
   name: string;
@@ -553,90 +442,48 @@ export interface FirmDashboardData {
   avgYearsExperience: number | null;
 }
 
+function toDashboardFirm(firm: typeof firms.$inferSelect): FirmDashboardData {
+  return {
+    id: firm.id,
+    name: firm.name,
+    slug: firm.slug,
+    description: firm.description,
+    logo: firm.logo,
+    address: firm.address,
+    state: firm.state,
+    city: firm.city,
+    phone: firm.phone,
+    email: firm.email,
+    website: firm.website,
+    isClaimed: firm.isClaimed,
+    subscriptionTier: firm.subscriptionTier ?? "free",
+    subscriptionExpiresAt: firm.subscriptionExpiresAt,
+    lawyerCount: firm.lawyerCount ?? 0,
+    avgYearsExperience: toNumber(firm.avgYearsExperience),
+  };
+}
+
 export async function getFirmForDashboard(
   firmId: string,
   userId: string
 ): Promise<FirmDashboardData | null> {
-  const supabase = createServerSupabaseClient();
-
-  const { data: firm, error } = await supabase
-    .from("firms")
-    .select("*")
-    .eq("id", firmId)
-    .eq("owner_id", userId)
-    .single();
-
-  if (error || !firm) {
-    return null;
-  }
-
-  return {
-    id: firm.id,
-    name: firm.name,
-    slug: firm.slug,
-    description: firm.description,
-    logo: firm.logo,
-    address: firm.address,
-    state: firm.state,
-    city: firm.city,
-    phone: firm.phone,
-    email: firm.email,
-    website: firm.website,
-    isClaimed: firm.is_claimed,
-    subscriptionTier: firm.subscription_tier as "free" | "firm_premium",
-    subscriptionExpiresAt: firm.subscription_expires_at
-      ? new Date(firm.subscription_expires_at)
-      : null,
-    lawyerCount: firm.lawyer_count ?? 0,
-    avgYearsExperience: firm.avg_years_experience
-      ? parseFloat(firm.avg_years_experience)
-      : null,
-  };
+  const [firm] = await db
+    .select()
+    .from(firms)
+    .where(and(eq(firms.id, firmId), eq(firms.ownerId, userId)))
+    .limit(1);
+  return firm ? toDashboardFirm(firm) : null;
 }
 
-/**
- * Get user's claimed firm (if any)
- */
 export async function getUserFirm(userId: string): Promise<FirmDashboardData | null> {
-  const supabase = createServerSupabaseClient();
-
-  const { data: firm, error } = await supabase
-    .from("firms")
-    .select("*")
-    .eq("owner_id", userId)
-    .single();
-
-  if (error || !firm) {
-    return null;
-  }
-
-  return {
-    id: firm.id,
-    name: firm.name,
-    slug: firm.slug,
-    description: firm.description,
-    logo: firm.logo,
-    address: firm.address,
-    state: firm.state,
-    city: firm.city,
-    phone: firm.phone,
-    email: firm.email,
-    website: firm.website,
-    isClaimed: firm.is_claimed,
-    subscriptionTier: firm.subscription_tier as "free" | "firm_premium",
-    subscriptionExpiresAt: firm.subscription_expires_at
-      ? new Date(firm.subscription_expires_at)
-      : null,
-    lawyerCount: firm.lawyer_count ?? 0,
-    avgYearsExperience: firm.avg_years_experience
-      ? parseFloat(firm.avg_years_experience)
-      : null,
-  };
+  const [firm] = await db
+    .select()
+    .from(firms)
+    .where(eq(firms.ownerId, userId))
+    .limit(1);
+  return firm ? toDashboardFirm(firm) : null;
 }
 
-/**
- * Update firm profile
- */
 export async function updateFirmProfile(
   firmId: string,
   userId: string,
@@ -652,30 +499,14 @@ export async function updateFirmProfile(
     logo?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = createServerSupabaseClient();
+  const [firm] = await db
+    .select({ id: firms.id, ownerId: firms.ownerId })
+    .from(firms)
+    .where(eq(firms.id, firmId))
+    .limit(1);
+  if (!firm) return { success: false, error: "Firm not found" };
+  if (firm.ownerId !== userId) return { success: false, error: "Not authorized" };
 
-  // Verify ownership
-  const { data: firm } = await supabase
-    .from("firms")
-    .select("id, owner_id")
-    .eq("id", firmId)
-    .single();
-
-  if (!firm || firm.owner_id !== userId) {
-    return { success: false, error: "Not authorized" };
-  }
-
-  const { error } = await supabase
-    .from("firms")
-    .update({
-      ...data,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", firmId);
-
-  if (error) {
-    return { success: false, error: error.message };
-  }
-
+  await db.update(firms).set({ ...data, updatedAt: new Date() }).where(eq(firms.id, firmId));
   return { success: true };
 }

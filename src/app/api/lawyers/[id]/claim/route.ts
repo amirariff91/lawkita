@@ -17,7 +17,7 @@ const claimSchema = z.object({
   barMembershipNumber: z.string().min(1, "Bar membership number is required"),
   firmEmail: z.string().email().optional().or(z.literal("")),
   verificationMethod: z.enum(["bar_lookup", "email", "document"]),
-  verificationDocument: z.string().optional(), // Supabase storage URL
+  verificationDocument: z.string().optional(), // Object storage URL
   phoneNumber: z.string().optional(), // For WhatsApp verification
 });
 

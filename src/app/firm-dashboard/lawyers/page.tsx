@@ -3,7 +3,9 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { getUserFirm } from "@/lib/db/queries/firms";
-import { createServerSupabaseClient } from "@/lib/supabase/client";
+import { db } from "@/lib/db";
+import { lawyers } from "@/lib/db/schema";
+import { and, desc, eq } from "drizzle-orm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,39 +27,36 @@ export default async function FirmLawyersPage() {
     redirect("/firms");
   }
 
-  const supabase = createServerSupabaseClient();
-
   // Get all lawyers at this firm
-  const { data: lawyers } = await supabase
-    .from("lawyers")
-    .select(`
-      id,
-      slug,
-      name,
-      photo,
-      state,
-      city,
-      is_verified,
-      is_claimed,
-      years_at_bar,
-      subscription_tier
-    `)
-    .eq("primary_firm_id", firm.id)
-    .eq("is_active", true)
-    .order("years_at_bar", { ascending: false });
+  const firmLawyers = await db
+    .select({
+      id: lawyers.id,
+      slug: lawyers.slug,
+      name: lawyers.name,
+      photo: lawyers.photo,
+      state: lawyers.state,
+      city: lawyers.city,
+      is_verified: lawyers.isVerified,
+      is_claimed: lawyers.isClaimed,
+      years_at_bar: lawyers.yearsAtBar,
+      subscription_tier: lawyers.subscriptionTier,
+    })
+    .from(lawyers)
+    .where(and(eq(lawyers.primaryFirmId, firm.id), eq(lawyers.isActive, true)))
+    .orderBy(desc(lawyers.yearsAtBar));
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Lawyers at {firm.name}</h1>
         <p className="text-muted-foreground mt-1">
-          {lawyers?.length ?? 0} lawyers associated with your firm
+          {firmLawyers.length} lawyers associated with your firm
         </p>
       </div>
 
-      {lawyers && lawyers.length > 0 ? (
+      {firmLawyers.length > 0 ? (
         <div className="grid gap-4">
-          {lawyers.map((lawyer) => {
+          {firmLawyers.map((lawyer) => {
             const initials = lawyer.name
               .split(" ")
               .map((n: string) => n[0])

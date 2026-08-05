@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --ext .ts,.tsx",
+    "test": "bun test",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "type-check": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
@@ -14,7 +15,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "bun run src/lib/db/seed.ts",
-    "db:seed:1mdb": "bun run src/lib/db/seed/import.ts"
+    "db:seed:1mdb": "bun run src/lib/db/seed/import.ts",
+    "worker:case-lawyer-scraper": "bun run src/workers/case-lawyer-scraper.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
@@ -38,7 +40,6 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
-    "@supabase/supabase-js": "^2.93.1",
     "@types/cheerio": "^1.0.0",
     "better-auth": "^1.4.17",
     "cheerio": "^1.2.0",
