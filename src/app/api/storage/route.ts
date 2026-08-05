@@ -6,6 +6,7 @@ import { claims, firmClaims, firms, lawyers, user } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { createStorageProvider } from "@/lib/storage/backend";
+import { parseLimitedMultipartFormData, UploadBodyTooLargeError } from "@/lib/storage/multipart";
 import {
   STORAGE_BUCKETS,
   STORAGE_LIMITS,
@@ -23,10 +24,11 @@ const deleteSchema = z.object({
   key: z.string().min(1).max(500),
 });
 
-const reviewUploadSchema = z.object({
-  bucket: z.literal("documents"),
-  purpose: z.literal("review-document"),
+const uploadSchema = z.object({
+  bucket: z.enum(STORAGE_BUCKETS),
+  purpose: z.enum(["review-document", "claim-document", "firm-claim-document", "firm-logo"]),
   resourceId: z.string().uuid(),
+  upsert: z.enum(["true", "false"]).optional(),
 });
 
 const MAX_MULTIPART_OVERHEAD = 1024 * 1024;
@@ -92,44 +94,101 @@ async function canDeleteObject(key: string, userId: string, role: string | null)
   return false;
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const contentLength = Number(request.headers.get("content-length"));
-    if (
-      Number.isFinite(contentLength) &&
-      contentLength > STORAGE_LIMITS.documents + MAX_MULTIPART_OVERHEAD
-    ) {
-      return NextResponse.json(
-        { error: "File size must be less than 10MB" },
-        { status: 413 }
-      );
+async function authorizeUpload(purpose: StoragePurpose, resourceId: string): Promise<void> {
+  if (purpose === "review-document") {
+    const lawyer = await db.query.lawyers.findFirst({
+      where: eq(lawyers.id, resourceId),
+      columns: { id: true },
+    });
+    if (!lawyer) {
+      throw new Response(JSON.stringify({ error: "Lawyer not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
     }
+    return;
+  }
 
-    const formData = await request.formData();
-    const parsed = reviewUploadSchema.safeParse({
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) {
+    throw new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (purpose === "firm-logo") {
+    const firm = await db.query.firms.findFirst({
+      where: eq(firms.id, resourceId),
+      columns: { ownerId: true },
+    });
+    if (!firm || firm.ownerId !== session.user.id) {
+      throw new Response(JSON.stringify({ error: "Not authorized" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return;
+  }
+
+  const resource =
+    purpose === "claim-document"
+      ? await db.query.lawyers.findFirst({
+          where: eq(lawyers.id, resourceId),
+          columns: { id: true },
+        })
+      : await db.query.firms.findFirst({
+          where: eq(firms.id, resourceId),
+          columns: { id: true },
+        });
+
+  if (!resource) {
+    throw new Response(
+      JSON.stringify({
+        error: purpose === "claim-document" ? "Lawyer not found" : "Firm not found",
+      }),
+      { status: 404, headers: { "Content-Type": "application/json" } }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  let formData: FormData;
+  try {
+    formData = await parseLimitedMultipartFormData(
+      request,
+      STORAGE_LIMITS.documents + MAX_MULTIPART_OVERHEAD
+    );
+  } catch (error) {
+    if (error instanceof UploadBodyTooLargeError) {
+      return NextResponse.json({ error: "File size must be less than 10MB" }, { status: 413 });
+    }
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Invalid multipart upload" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const parsed = uploadSchema.safeParse({
       bucket: formData.get("bucket"),
       purpose: formData.get("purpose"),
       resourceId: formData.get("resourceId"),
+      upsert: formData.get("upsert") || undefined,
     });
     const file = formData.get("file");
 
     if (!parsed.success || !(file instanceof File)) {
       return NextResponse.json(
-        { error: parsed.error?.issues[0]?.message || "Invalid review document upload" },
+        { error: parsed.error?.issues[0]?.message || "Invalid file upload" },
         { status: 400 }
       );
     }
 
     const input = parsed.data;
-    const lawyer = await db.query.lawyers.findFirst({
-      where: eq(lawyers.id, input.resourceId),
-      columns: { id: true },
-    });
-    if (!lawyer) {
-      return NextResponse.json({ error: "Lawyer not found" }, { status: 404 });
-    }
+    await authorizeUpload(input.purpose, input.resourceId);
 
-    const bytes = new Uint8Array(await file.arrayBuffer());
+    const signatureBytes = new Uint8Array(await file.slice(0, 1029).arrayBuffer());
     try {
       assertStorageRequest({
         ...input,
@@ -139,7 +198,8 @@ export async function POST(request: NextRequest) {
       assertUploadedFile({
         bucket: input.bucket,
         contentType: file.type,
-        bytes,
+        bytes: signatureBytes,
+        size: file.size,
       });
     } catch (error) {
       return NextResponse.json(
@@ -158,11 +218,12 @@ export async function POST(request: NextRequest) {
       bucket: input.bucket,
       key,
       contentType: file.type,
+      upsert: input.upsert === "true",
     });
     const uploadResponse = await fetch(upload.uploadUrl, {
       method: "PUT",
       headers: upload.uploadHeaders,
-      body: bytes,
+      body: file,
     });
 
     if (!uploadResponse.ok) {
@@ -171,7 +232,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ publicUrl: upload.publicUrl });
   } catch (error) {
-    console.error("Failed to upload review document:", error);
+    if (error instanceof Response) return error;
+
+    console.error("Failed to upload storage file:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Storage is unavailable" },
       { status: 500 }
@@ -198,9 +261,9 @@ export async function DELETE(request: NextRequest) {
     const parts = getKeyParts(key);
     const validKey = Boolean(
       parts &&
-        ((bucket === "images" && parts.purpose === "firm-logo") ||
-          (bucket === "documents" && parts.purpose !== "firm-logo")) &&
-        isStorageKeyForPurpose(key, parts.purpose, parts.resourceId)
+      ((bucket === "images" && parts.purpose === "firm-logo") ||
+        (bucket === "documents" && parts.purpose !== "firm-logo")) &&
+      isStorageKeyForPurpose(key, parts.purpose, parts.resourceId)
     );
 
     if (!validKey) {

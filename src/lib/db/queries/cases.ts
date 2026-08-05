@@ -1,20 +1,6 @@
-import {
-  and,
-  count,
-  desc,
-  eq,
-  ilike,
-  inArray,
-  sql,
-} from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import {
-  cases,
-  caseLawyers,
-  caseMediaReferences,
-  caseTimeline,
-  lawyers,
-} from "@/lib/db/schema";
+import { cases, caseLawyers, caseMediaReferences, caseTimeline, lawyers } from "@/lib/db/schema";
 import type {
   CaseCardData,
   CaseCardDataWithLawyers,
@@ -28,6 +14,8 @@ import type {
   TimelineEvent,
   CaseLawyerWithDetails,
 } from "@/types/case";
+import { resolveCasesQueryBackend } from "./cases-backend";
+import * as legacyCases from "./cases-legacy";
 
 export interface CaseSearchResultWithLawyers {
   cases: CaseCardDataWithLawyers[];
@@ -83,11 +71,13 @@ function caseConditions(params: CaseSearchParams) {
 
   if (params.query) {
     const pattern = `%${params.query}%`;
-    conditions.push(sql`(
+    conditions.push(
+      sql`(
       ${ilike(cases.title, pattern)} OR
       ${ilike(cases.subtitle, pattern)} OR
       ${ilike(cases.description, pattern)}
-    )` as typeof conditions[number]);
+    )` as (typeof conditions)[number]
+    );
   }
 
   if (params.category) conditions.push(eq(cases.category, params.category));
@@ -95,25 +85,24 @@ function caseConditions(params: CaseSearchParams) {
   if (params.featured) conditions.push(eq(cases.isFeatured, true));
   if (params.tag) {
     conditions.push(
-      sql`${cases.tags} @> ${JSON.stringify([params.tag])}::jsonb` as typeof conditions[number]
+      sql`${cases.tags} @> ${JSON.stringify([params.tag])}::jsonb` as (typeof conditions)[number]
     );
   }
 
   return and(...conditions);
 }
 
-export async function searchCases(
-  params: CaseSearchParams
-): Promise<CaseSearchResult> {
+export async function searchCases(params: CaseSearchParams): Promise<CaseSearchResult> {
+  if (resolveCasesQueryBackend() === "legacy") {
+    return legacyCases.searchCases(params);
+  }
+
   const page = Math.max(1, params.page ?? 1);
   const limit = Math.max(1, params.limit ?? 12);
   const offset = (page - 1) * limit;
   const where = caseConditions(params);
 
-  const [{ total }] = await db
-    .select({ total: count() })
-    .from(cases)
-    .where(where);
+  const [{ total }] = await db.select({ total: count() }).from(cases).where(where);
 
   const caseResults = await db
     .select({
@@ -141,24 +130,25 @@ export async function searchCases(
     .offset(offset);
 
   return {
-    ...pageResult(
-      caseResults.map(toCaseCard),
-      Number(total),
-      page,
-      limit
-    ),
+    ...pageResult(caseResults.map(toCaseCard), Number(total), page, limit),
     cases: caseResults.map(toCaseCard),
   };
 }
 
 export async function getFeaturedCases(limit = 6): Promise<CaseCardData[]> {
+  if (resolveCasesQueryBackend() === "legacy") {
+    return legacyCases.getFeaturedCases(limit);
+  }
+
   const result = await searchCases({ featured: true, limit });
   return result.cases;
 }
 
-export async function getCaseBySlug(
-  slug: string
-): Promise<CaseWithRelations | null> {
+export async function getCaseBySlug(slug: string): Promise<CaseWithRelations | null> {
+  if (resolveCasesQueryBackend() === "legacy") {
+    return legacyCases.getCaseBySlug(slug);
+  }
+
   const [caseData] = await db
     .select()
     .from(cases)
@@ -192,7 +182,7 @@ export async function getCaseBySlug(
       .select()
       .from(caseMediaReferences)
       .where(eq(caseMediaReferences.caseId, caseData.id))
-      .orderBy(desc(caseMediaReferences.publishedAt))
+      .orderBy(desc(caseMediaReferences.publishedAt)),
   ]);
 
   const timeline: TimelineEvent[] = timelineData.map((event) => ({
@@ -228,10 +218,11 @@ export async function getCaseBySlug(
 }
 
 export async function getAllCaseTags(): Promise<string[]> {
-  const rows = await db
-    .select({ tags: cases.tags })
-    .from(cases)
-    .where(eq(cases.isPublished, true));
+  if (resolveCasesQueryBackend() === "legacy") {
+    return legacyCases.getAllCaseTags();
+  }
+
+  const rows = await db.select({ tags: cases.tags }).from(cases).where(eq(cases.isPublished, true));
   const tags = new Set<string>();
 
   for (const row of rows) {
@@ -244,6 +235,10 @@ export async function getAllCaseTags(): Promise<string[]> {
 export async function getCaseCountsByCategory(): Promise<
   { category: CaseCategory; count: number }[]
 > {
+  if (resolveCasesQueryBackend() === "legacy") {
+    return legacyCases.getCaseCountsByCategory();
+  }
+
   const rows = await db
     .select({ category: cases.category })
     .from(cases)
@@ -258,9 +253,11 @@ export async function getCaseCountsByCategory(): Promise<
   return [...counts].map(([category, count]) => ({ category, count }));
 }
 
-export async function getCaseCountsByStatus(): Promise<
-  { status: CaseStatus; count: number }[]
-> {
+export async function getCaseCountsByStatus(): Promise<{ status: CaseStatus; count: number }[]> {
+  if (resolveCasesQueryBackend() === "legacy") {
+    return legacyCases.getCaseCountsByStatus();
+  }
+
   const rows = await db
     .select({ status: cases.status })
     .from(cases)
@@ -285,6 +282,10 @@ const ROLE_PRIORITY: Record<LawyerRole, number> = {
 export async function searchCasesWithLawyers(
   params: CaseSearchParams
 ): Promise<CaseSearchResultWithLawyers> {
+  if (resolveCasesQueryBackend() === "legacy") {
+    return legacyCases.searchCasesWithLawyers(params);
+  }
+
   const baseResult = await searchCases(params);
   if (baseResult.cases.length === 0) return { ...baseResult, cases: [] };
 
@@ -300,12 +301,7 @@ export async function searchCasesWithLawyers(
     })
     .from(caseLawyers)
     .innerJoin(lawyers, eq(caseLawyers.lawyerId, lawyers.id))
-    .where(
-      and(
-        inArray(caseLawyers.caseId, caseIds),
-        eq(lawyers.caseAssociationOptOut, false)
-      )
-    );
+    .where(and(inArray(caseLawyers.caseId, caseIds), eq(lawyers.caseAssociationOptOut, false)));
 
   const lawyersByCaseId = new Map<string, CaseLawyerPreview[]>();
   for (const row of lawyerRows) {
@@ -330,9 +326,11 @@ export async function searchCasesWithLawyers(
   return { ...baseResult, cases: casesWithLawyers };
 }
 
-export async function getFeaturedCasesWithLawyers(
-  limit = 6
-): Promise<CaseCardDataWithLawyers[]> {
+export async function getFeaturedCasesWithLawyers(limit = 6): Promise<CaseCardDataWithLawyers[]> {
+  if (resolveCasesQueryBackend() === "legacy") {
+    return legacyCases.getFeaturedCasesWithLawyers(limit);
+  }
+
   const result = await searchCasesWithLawyers({ featured: true, limit });
   return result.cases;
 }

@@ -1,11 +1,6 @@
 import { and, count, eq, gte, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import {
-  firms,
-  lawyerPracticeAreas,
-  lawyers,
-  practiceAreas,
-} from "@/lib/db/schema";
+import { firms, lawyerPracticeAreas, lawyers, practiceAreas } from "@/lib/db/schema";
 
 export interface GeographicStats {
   state: string;
@@ -61,19 +56,14 @@ export async function getOverallStats(): Promise<OverallStats> {
       db.select({ count: count() }).from(lawyers).where(eq(lawyers.isVerified, true)),
       db.select({ count: count() }).from(lawyers).where(eq(lawyers.isClaimed, true)),
       db.select({ count: count() }).from(firms),
-      db
-        .select({ count: count() })
-        .from(practiceAreas)
-        .where(eq(practiceAreas.isUserFacing, true)),
+      db.select({ count: count() }).from(practiceAreas).where(eq(practiceAreas.isUserFacing, true)),
       db
         .select({ years: lawyers.yearsAtBar })
         .from(lawyers)
         .where(and(eq(lawyers.isActive, true), isNotNull(lawyers.yearsAtBar))),
     ]);
 
-  const validYears = years
-    .map((row) => row.years)
-    .filter((year): year is number => year !== null);
+  const validYears = years.map((row) => row.years).filter((year): year is number => year !== null);
   const average = validYears.length
     ? validYears.reduce((sum, year) => sum + year, 0) / validYears.length
     : 0;
@@ -102,14 +92,8 @@ export async function getGeographicDistribution(filters?: {
     ? await db
         .select({ state: lawyers.state })
         .from(lawyers)
-        .innerJoin(
-          lawyerPracticeAreas,
-          eq(lawyers.id, lawyerPracticeAreas.lawyerId)
-        )
-        .innerJoin(
-          practiceAreas,
-          eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id)
-        )
+        .innerJoin(lawyerPracticeAreas, eq(lawyers.id, lawyerPracticeAreas.lawyerId))
+        .innerJoin(practiceAreas, eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id))
         .where(and(...conditions))
     : await db
         .select({ state: lawyers.state })
@@ -147,14 +131,8 @@ export async function getExperienceDistribution(filters?: {
     ? await db
         .select({ years: lawyers.yearsAtBar })
         .from(lawyers)
-        .innerJoin(
-          lawyerPracticeAreas,
-          eq(lawyers.id, lawyerPracticeAreas.lawyerId)
-        )
-        .innerJoin(
-          practiceAreas,
-          eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id)
-        )
+        .innerJoin(lawyerPracticeAreas, eq(lawyers.id, lawyerPracticeAreas.lawyerId))
+        .innerJoin(practiceAreas, eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id))
         .where(and(...conditions))
     : await db
         .select({ years: lawyers.yearsAtBar })
@@ -188,15 +166,14 @@ export async function getPracticeAreaStats(filters?: {
   limit?: number;
 }): Promise<PracticeAreaStats[]> {
   const conditions = [eq(practiceAreas.isUserFacing, true)];
-  if (filters?.state) conditions.push(eq(lawyers.state, filters.state));
+  if (filters?.state) {
+    conditions.push(eq(lawyers.state, filters.state), eq(lawyers.isActive, true));
+  }
 
   const rows = await db
     .select({ slug: practiceAreas.slug, name: practiceAreas.name })
     .from(lawyerPracticeAreas)
-    .innerJoin(
-      practiceAreas,
-      eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id)
-    )
+    .innerJoin(practiceAreas, eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id))
     .innerJoin(lawyers, eq(lawyerPracticeAreas.lawyerId, lawyers.id))
     .where(and(...conditions));
   const counts = new Map<string, { name: string; count: number }>();

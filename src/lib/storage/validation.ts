@@ -91,9 +91,7 @@ function assertStorageFileConstraints(input: {
   }
 
   if (input.size > STORAGE_LIMITS[input.bucket]) {
-    throw new Error(
-      `File size must be less than ${STORAGE_LIMITS[input.bucket] / 1024 / 1024}MB`
-    );
+    throw new Error(`File size must be less than ${STORAGE_LIMITS[input.bucket] / 1024 / 1024}MB`);
   }
 }
 
@@ -126,11 +124,12 @@ export function assertUploadedFile(input: {
   bucket: StorageBucket;
   contentType: string;
   bytes: Uint8Array;
+  size?: number;
 }): void {
   assertStorageFileConstraints({
     bucket: input.bucket,
     contentType: input.contentType,
-    size: input.bytes.byteLength,
+    size: input.size ?? input.bytes.byteLength,
   });
 
   if (detectUploadedContentType(input.bytes) !== input.contentType) {
@@ -147,8 +146,7 @@ export function buildStorageKey(input: {
 }): string {
   const prefix = getStoragePrefix(input.purpose);
   const extension = getFileExtension(input.filename, input.contentType);
-  const objectId =
-    input.objectId ?? (input.purpose === "firm-logo" ? "logo" : crypto.randomUUID());
+  const objectId = input.objectId ?? (input.purpose === "firm-logo" ? "logo" : crypto.randomUUID());
 
   return `${prefix}/${input.resourceId}/${objectId}.${extension}`;
 }

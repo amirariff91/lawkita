@@ -5,6 +5,15 @@ export interface LegacyUploadResponse {
   token?: string;
 }
 
+export function getLegacySigningHeaders(token: string, upsert = false): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+    apikey: token,
+    "Content-Type": "application/json",
+    "x-upsert": String(upsert),
+  };
+}
+
 export function resolveLegacyUploadUrl(
   storageApiUrl: string,
   response: LegacyUploadResponse

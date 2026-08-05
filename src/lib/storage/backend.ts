@@ -1,11 +1,9 @@
 import "server-only";
 
 import { createHash, createHmac } from "node:crypto";
+import { type StorageBucket, STORAGE_BUCKETS } from "./validation";
 import {
-  type StorageBucket,
-  STORAGE_BUCKETS,
-} from "./validation";
-import {
+  getLegacySigningHeaders,
   resolveLegacyUploadUrl,
   type LegacyUploadResponse,
 } from "./legacy";
@@ -28,6 +26,7 @@ export interface ObjectStorage {
     contentType: string;
     upsert?: boolean;
   }): Promise<PresignedUpload>;
+  probe(): Promise<void>;
   deleteObject(input: { bucket: StorageBucket; key: string }): Promise<void>;
 }
 
@@ -58,8 +57,9 @@ function hmac(key: string | Buffer, value: string): Buffer {
 }
 
 function encodeQuery(value: string): string {
-  return encodeURIComponent(value).replace(/[!'()*]/g, (character) =>
-    `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`
   );
 }
 
@@ -72,9 +72,7 @@ function canonicalQuery(parameters: Record<string, string>): string {
 
 function canonicalPath(bucket: string, key: string, forcePathStyle: boolean): string {
   const encodedKey = encodeObjectPath(key);
-  return forcePathStyle
-    ? `/${encodeURIComponent(bucket)}/${encodedKey}`
-    : `/${encodedKey}`;
+  return forcePathStyle ? `/${encodeURIComponent(bucket)}/${encodedKey}` : `/${encodedKey}`;
 }
 
 function getS3Host(endpoint: string, bucket: string, forcePathStyle: boolean): string {
@@ -88,7 +86,7 @@ function getS3Origin(endpoint: string, bucket: string, forcePathStyle: boolean):
 }
 
 function signAwsRequest(input: {
-  method: "PUT" | "DELETE";
+  method: "PUT" | "HEAD" | "DELETE";
   endpoint: string;
   bucket: string;
   key: string;
@@ -99,7 +97,10 @@ function signAwsRequest(input: {
   expiresIn?: number;
 }): { url: string; headers: Record<string, string> } {
   const now = new Date();
-  const amzDate = now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  const amzDate = now
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
   const shortDate = amzDate.slice(0, 8);
   const service = "s3";
   const host = getS3Host(input.endpoint, input.bucket, input.forcePathStyle);
@@ -134,12 +135,9 @@ function signAwsRequest(input: {
     signedHeaders.join(";"),
     payloadHash,
   ].join("\n");
-  const stringToSign = [
-    "AWS4-HMAC-SHA256",
-    amzDate,
-    credentialScope,
-    hash(canonicalRequest),
-  ].join("\n");
+  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, credentialScope, hash(canonicalRequest)].join(
+    "\n"
+  );
   const signingKey = hmac(
     hmac(hmac(hmac(`AWS4${input.secretAccessKey}`, shortDate), input.region), service),
     "aws4_request"
@@ -208,11 +206,7 @@ function getLegacyConfiguration(): { endpoint: string; token: string } {
   return { endpoint: trimTrailingSlash(endpoint), token };
 }
 
-function getGarageObjectUrl(
-  publicBaseUrl: string,
-  bucket: StorageBucket,
-  key: string
-): string {
+function getGarageObjectUrl(publicBaseUrl: string, bucket: StorageBucket, key: string): string {
   return `${publicBaseUrl}/${encodeURIComponent(getBucketName(bucket))}/${encodeObjectPath(key)}`;
 }
 
@@ -263,6 +257,27 @@ class GarageStorage implements ObjectStorage {
     };
   }
 
+  async probe(): Promise<void> {
+    const signed = signAwsRequest({
+      method: "HEAD",
+      endpoint: this.endpoint,
+      bucket: getBucketName("documents"),
+      key: "",
+      region: this.region,
+      accessKeyId: this.accessKeyId,
+      secretAccessKey: this.secretAccessKey,
+      forcePathStyle: this.forcePathStyle,
+    });
+    const response = await fetch(signed.url, {
+      method: "HEAD",
+      headers: signed.headers,
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error(`Garage storage probe failed with status ${response.status}`);
+    }
+  }
+
   async deleteObject(input: { bucket: StorageBucket; key: string }): Promise<void> {
     const signed = signAwsRequest({
       method: "DELETE",
@@ -299,11 +314,7 @@ class LegacyStorage implements ObjectStorage {
     const signUrl = `${storageApiUrl}/object/upload/sign/${encodeURIComponent(bucket)}/${encodeObjectPath(input.key)}`;
     const response = await fetch(signUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        apikey: token,
-        "Content-Type": "application/json",
-      },
+      headers: getLegacySigningHeaders(token, input.upsert),
       body: JSON.stringify({
         ...(input.upsert ? { upsert: true } : {}),
       }),
@@ -328,16 +339,33 @@ class LegacyStorage implements ObjectStorage {
     };
   }
 
-  async deleteObject(input: { bucket: StorageBucket; key: string }): Promise<void> {
+  async probe(): Promise<void> {
     const { endpoint, token } = getLegacyConfiguration();
-    const bucket = getBucketName(input.bucket);
-    const response = await fetch(`${endpoint}/storage/v1/object/${encodeURIComponent(bucket)}/${encodeObjectPath(input.key)}`, {
-      method: "DELETE",
+    const response = await fetch(`${endpoint}/storage/v1/bucket`, {
       headers: {
         Authorization: `Bearer ${token}`,
         apikey: token,
       },
+      cache: "no-store",
     });
+    if (!response.ok) {
+      throw new Error(`Legacy storage probe failed with status ${response.status}`);
+    }
+  }
+
+  async deleteObject(input: { bucket: StorageBucket; key: string }): Promise<void> {
+    const { endpoint, token } = getLegacyConfiguration();
+    const bucket = getBucketName(input.bucket);
+    const response = await fetch(
+      `${endpoint}/storage/v1/object/${encodeURIComponent(bucket)}/${encodeObjectPath(input.key)}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: token,
+        },
+      }
+    );
 
     if (!response.ok && response.status !== 404) {
       throw new Error(`Legacy storage deletion failed with status ${response.status}`);

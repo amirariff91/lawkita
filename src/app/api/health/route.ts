@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { getStorageConfigurationStatus } from "@/lib/storage/backend";
+import { createStorageProvider, getStorageConfigurationStatus } from "@/lib/storage/backend";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +23,14 @@ export async function GET() {
   }
 
   const storage = getStorageConfigurationStatus();
-  checks.storage = storage.configured ? "ok" : "error";
+  if (storage.configured) {
+    try {
+      await createStorageProvider().probe();
+      checks.storage = "ok";
+    } catch (error) {
+      console.error("Health check storage failure:", error);
+    }
+  }
 
   const healthy = checks.database === "ok" && checks.storage === "ok";
 

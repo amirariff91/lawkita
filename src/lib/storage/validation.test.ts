@@ -68,9 +68,9 @@ describe("storage validation", () => {
     const key = `firms/${resourceId}/987e6543-e21b-12d3-a456-426614174999.png`;
     expect(isStorageKeyForPurpose(key, "firm-logo", resourceId)).toBe(true);
     expect(isStorageKeyForPurpose(`../${key}`, "firm-logo", resourceId)).toBe(false);
-    expect(
-      isStorageKeyForPurpose(key, "firm-logo", "123e4567-e89b-12d3-a456-426614174001")
-    ).toBe(false);
+    expect(isStorageKeyForPurpose(key, "firm-logo", "123e4567-e89b-12d3-a456-426614174001")).toBe(
+      false
+    );
   });
 
   test("accepts an uploaded file only when its bytes match its MIME type", () => {
@@ -100,6 +100,17 @@ describe("storage validation", () => {
         bucket: "documents",
         contentType: "application/pdf",
         bytes: oversizedPdf,
+      })
+    ).toThrow("10MB");
+  });
+
+  test("validates the full received size while inspecting only signature bytes", () => {
+    expect(() =>
+      assertUploadedFile({
+        bucket: "documents",
+        contentType: "application/pdf",
+        bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]),
+        size: 10 * 1024 * 1024 + 1,
       })
     ).toThrow("10MB");
   });
