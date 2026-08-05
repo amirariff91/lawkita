@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getLawyerBySlug } from "@/lib/db/queries/lawyers";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export async function GET(
   request: Request,

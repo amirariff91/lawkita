@@ -15,6 +15,30 @@ export async function uploadStorageFile(input: {
 }): Promise<string> {
   input.onProgress?.(15);
 
+  if (input.purpose === "review-document") {
+    const formData = new FormData();
+    formData.set("bucket", input.bucket);
+    formData.set("purpose", input.purpose);
+    formData.set("resourceId", input.resourceId);
+    formData.set("file", input.file);
+
+    input.onProgress?.(35);
+    const response = await fetch("/api/storage", {
+      method: "POST",
+      body: formData,
+    });
+    const result = (await response.json().catch(() => null)) as
+      | { publicUrl?: string; error?: string }
+      | null;
+
+    if (!response.ok || !result?.publicUrl) {
+      throw new Error(result?.error || "Failed to upload review document");
+    }
+
+    input.onProgress?.(100);
+    return result.publicUrl;
+  }
+
   const response = await fetch("/api/storage/presign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -10,6 +10,8 @@ import {
 } from "@/lib/constants/practice-areas";
 import { getLawyerCountsByPracticeArea } from "@/lib/db/queries/lawyers";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Practice Areas | LawKita",
   description:

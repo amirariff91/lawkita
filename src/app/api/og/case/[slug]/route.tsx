@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getCaseBySlug } from "@/lib/db/queries/cases";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 const categoryColors: Record<string, { bg: string; text: string }> = {
   corruption: { bg: "#fee2e2", text: "#991b1b" },

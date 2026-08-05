@@ -19,6 +19,13 @@ const ALLOWED_CONTENT_TYPES: Record<StorageBucket, readonly string[]> = {
   documents: ["image/jpeg", "image/png", "image/webp", "application/pdf"],
 };
 
+const CONTENT_TYPE_EXTENSIONS: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
 const PURPOSE_BUCKETS: Record<StoragePurpose, StorageBucket> = {
   "review-document": "documents",
   "claim-document": "documents",
@@ -27,6 +34,9 @@ const PURPOSE_BUCKETS: Record<StoragePurpose, StorageBucket> = {
 };
 
 export function getFileExtension(filename: string, contentType: string): string {
+  const contentTypeExtension = CONTENT_TYPE_EXTENSIONS[contentType];
+  if (contentTypeExtension) return contentTypeExtension;
+
   const filenameExtension = filename
     .trim()
     .split(".")
@@ -38,14 +48,7 @@ export function getFileExtension(filename: string, contentType: string): string 
     return filenameExtension;
   }
 
-  const contentTypeExtension: Record<string, string> = {
-    "application/pdf": "pdf",
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-  };
-
-  return contentTypeExtension[contentType] ?? "bin";
+  return "bin";
 }
 
 export function getStoragePrefix(purpose: StoragePurpose): string {
@@ -71,6 +74,14 @@ export function assertStorageRequest(input: {
     throw new Error("The requested storage bucket is not valid for this upload");
   }
 
+  assertStorageFileConstraints(input);
+}
+
+function assertStorageFileConstraints(input: {
+  bucket: StorageBucket;
+  contentType: string;
+  size: number;
+}): void {
   if (!ALLOWED_CONTENT_TYPES[input.bucket].includes(input.contentType)) {
     throw new Error("This file type is not supported");
   }
@@ -83,6 +94,47 @@ export function assertStorageRequest(input: {
     throw new Error(
       `File size must be less than ${STORAGE_LIMITS[input.bucket] / 1024 / 1024}MB`
     );
+  }
+}
+
+function hasBytesAt(bytes: Uint8Array, offset: number, expected: number[]): boolean {
+  return expected.every((value, index) => bytes[offset + index] === value);
+}
+
+export function detectUploadedContentType(bytes: Uint8Array): string | null {
+  if (hasBytesAt(bytes, 0, [0xff, 0xd8, 0xff])) return "image/jpeg";
+  if (hasBytesAt(bytes, 0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
+    return "image/png";
+  }
+  if (
+    hasBytesAt(bytes, 0, [0x52, 0x49, 0x46, 0x46]) &&
+    hasBytesAt(bytes, 8, [0x57, 0x45, 0x42, 0x50])
+  ) {
+    return "image/webp";
+  }
+
+  const pdfHeader = [0x25, 0x50, 0x44, 0x46, 0x2d];
+  const pdfSearchLimit = Math.min(bytes.length - pdfHeader.length, 1024);
+  for (let offset = 0; offset <= pdfSearchLimit; offset += 1) {
+    if (hasBytesAt(bytes, offset, pdfHeader)) return "application/pdf";
+  }
+
+  return null;
+}
+
+export function assertUploadedFile(input: {
+  bucket: StorageBucket;
+  contentType: string;
+  bytes: Uint8Array;
+}): void {
+  assertStorageFileConstraints({
+    bucket: input.bucket,
+    contentType: input.contentType,
+    size: input.bytes.byteLength,
+  });
+
+  if (detectUploadedContentType(input.bytes) !== input.contentType) {
+    throw new Error("The uploaded file content does not match its declared file type");
   }
 }
 

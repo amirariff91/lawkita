@@ -98,6 +98,13 @@ export async function POST(request: NextRequest) {
     }
 
     const input = parsed.data;
+    if (input.purpose === "review-document") {
+      return NextResponse.json(
+        { error: "Review documents must be uploaded through the verified upload endpoint" },
+        { status: 400 }
+      );
+    }
+
     await requireSessionForProtectedUpload(input.purpose, input.resourceId);
     assertStorageRequest(input);
 

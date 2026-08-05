@@ -25,6 +25,8 @@ import { HeroSection } from "@/components/home/hero-section";
 import { StatsSection } from "@/components/home/stats-section";
 import { FeaturedLawyers } from "@/components/home/featured-lawyers";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "LawKita - Find the Right Lawyer in Malaysia",
   description:

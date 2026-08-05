@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsInteger } from "nuqs/server";
 
+export const dynamic = "force-dynamic";
+
 const searchParamsCache = createSearchParamsCache({
   page: parseAsInteger.withDefault(1),
 });

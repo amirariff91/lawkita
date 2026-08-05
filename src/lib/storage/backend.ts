@@ -5,6 +5,10 @@ import {
   type StorageBucket,
   STORAGE_BUCKETS,
 } from "./validation";
+import {
+  resolveLegacyUploadUrl,
+  type LegacyUploadResponse,
+} from "./legacy";
 
 export type StorageBackend = "garage" | "legacy";
 
@@ -291,7 +295,8 @@ class LegacyStorage implements ObjectStorage {
   }): Promise<PresignedUpload> {
     const { endpoint, token } = getLegacyConfiguration();
     const bucket = getBucketName(input.bucket);
-    const signUrl = `${endpoint}/storage/v1/object/upload/sign/${encodeURIComponent(bucket)}/${encodeObjectPath(input.key)}`;
+    const storageApiUrl = `${endpoint}/storage/v1`;
+    const signUrl = `${storageApiUrl}/object/upload/sign/${encodeURIComponent(bucket)}/${encodeObjectPath(input.key)}`;
     const response = await fetch(signUrl, {
       method: "POST",
       headers: {
@@ -308,10 +313,8 @@ class LegacyStorage implements ObjectStorage {
       throw new Error(`Legacy storage signing failed with status ${response.status}`);
     }
 
-    const result = (await response.json()) as { signedURL?: string; token?: string };
-    const uploadUrl = result.signedURL?.startsWith("http")
-      ? result.signedURL
-      : `${endpoint}${result.signedURL || `/storage/v1/object/upload/sign/${bucket}/${encodeObjectPath(input.key)}`}`;
+    const result = (await response.json()) as LegacyUploadResponse;
+    const uploadUrl = resolveLegacyUploadUrl(storageApiUrl, result);
 
     return {
       backend: this.backend,

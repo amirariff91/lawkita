@@ -8,6 +8,10 @@ import { z } from "zod";
 import { createStorageProvider } from "@/lib/storage/backend";
 import {
   STORAGE_BUCKETS,
+  STORAGE_LIMITS,
+  assertStorageRequest,
+  assertUploadedFile,
+  buildStorageKey,
   isStorageKeyForPurpose,
   type StoragePurpose,
 } from "@/lib/storage/validation";
@@ -18,6 +22,14 @@ const deleteSchema = z.object({
   bucket: z.enum(STORAGE_BUCKETS),
   key: z.string().min(1).max(500),
 });
+
+const reviewUploadSchema = z.object({
+  bucket: z.literal("documents"),
+  purpose: z.literal("review-document"),
+  resourceId: z.string().uuid(),
+});
+
+const MAX_MULTIPART_OVERHEAD = 1024 * 1024;
 
 function getKeyParts(key: string): {
   purpose: StoragePurpose;
@@ -78,6 +90,93 @@ async function canDeleteObject(key: string, userId: string, role: string | null)
   }
 
   return false;
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const contentLength = Number(request.headers.get("content-length"));
+    if (
+      Number.isFinite(contentLength) &&
+      contentLength > STORAGE_LIMITS.documents + MAX_MULTIPART_OVERHEAD
+    ) {
+      return NextResponse.json(
+        { error: "File size must be less than 10MB" },
+        { status: 413 }
+      );
+    }
+
+    const formData = await request.formData();
+    const parsed = reviewUploadSchema.safeParse({
+      bucket: formData.get("bucket"),
+      purpose: formData.get("purpose"),
+      resourceId: formData.get("resourceId"),
+    });
+    const file = formData.get("file");
+
+    if (!parsed.success || !(file instanceof File)) {
+      return NextResponse.json(
+        { error: parsed.error?.issues[0]?.message || "Invalid review document upload" },
+        { status: 400 }
+      );
+    }
+
+    const input = parsed.data;
+    const lawyer = await db.query.lawyers.findFirst({
+      where: eq(lawyers.id, input.resourceId),
+      columns: { id: true },
+    });
+    if (!lawyer) {
+      return NextResponse.json({ error: "Lawyer not found" }, { status: 404 });
+    }
+
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    try {
+      assertStorageRequest({
+        ...input,
+        contentType: file.type,
+        size: file.size,
+      });
+      assertUploadedFile({
+        bucket: input.bucket,
+        contentType: file.type,
+        bytes,
+      });
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Invalid review document" },
+        { status: 400 }
+      );
+    }
+
+    const key = buildStorageKey({
+      purpose: input.purpose,
+      resourceId: input.resourceId,
+      filename: file.name,
+      contentType: file.type,
+    });
+    const upload = await createStorageProvider().createPresignedUpload({
+      bucket: input.bucket,
+      key,
+      contentType: file.type,
+    });
+    const uploadResponse = await fetch(upload.uploadUrl, {
+      method: "PUT",
+      headers: upload.uploadHeaders,
+      body: bytes,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Storage upload failed with status ${uploadResponse.status}`);
+    }
+
+    return NextResponse.json({ publicUrl: upload.publicUrl });
+  } catch (error) {
+    console.error("Failed to upload review document:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Storage is unavailable" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE(request: NextRequest) {

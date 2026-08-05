@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   assertStorageRequest,
+  assertUploadedFile,
   buildStorageKey,
   isStorageKeyForPurpose,
 } from "./validation";
@@ -70,5 +71,36 @@ describe("storage validation", () => {
     expect(
       isStorageKeyForPurpose(key, "firm-logo", "123e4567-e89b-12d3-a456-426614174001")
     ).toBe(false);
+  });
+
+  test("accepts an uploaded file only when its bytes match its MIME type", () => {
+    expect(() =>
+      assertUploadedFile({
+        bucket: "documents",
+        contentType: "application/pdf",
+        bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]),
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      assertUploadedFile({
+        bucket: "documents",
+        contentType: "application/pdf",
+        bytes: new TextEncoder().encode("not a pdf"),
+      })
+    ).toThrow("does not match");
+  });
+
+  test("checks the received byte length instead of a client-provided size", () => {
+    const oversizedPdf = new Uint8Array(10 * 1024 * 1024 + 1);
+    oversizedPdf.set([0x25, 0x50, 0x44, 0x46, 0x2d]);
+
+    expect(() =>
+      assertUploadedFile({
+        bucket: "documents",
+        contentType: "application/pdf",
+        bytes: oversizedPdf,
+      })
+    ).toThrow("10MB");
   });
 });
