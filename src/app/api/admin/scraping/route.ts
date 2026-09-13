@@ -31,7 +31,7 @@ async function isAdmin(userId: string): Promise<boolean> {
  * - source: "bar_council" (required)
  * - states: string[] (optional, defaults to all states)
  * - maxPages: number (optional, defaults to 100)
- * - dryRun: boolean (optional, defaults to false)
+- dryRun: boolean (optional, defaults to true)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -45,6 +45,20 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { source, states, maxPages, dryRun } = body;
+    const shouldDryRun = dryRun !== false;
+
+    if (
+      maxPages !== undefined &&
+      (typeof maxPages !== "number" ||
+        !Number.isFinite(maxPages) ||
+        maxPages <= 0)
+    ) {
+      return NextResponse.json(
+        { error: "maxPages must be a positive number" },
+        { status: 400 }
+      );
+    }
+
 
     // Handle news crawler source
     if (source === "news") {
@@ -130,13 +144,13 @@ export async function POST(request: NextRequest) {
     // Start scraping (this runs in the background)
     const result = await scrapeBarCouncilDirectory({
       states: validStates,
-      maxPages: maxPages || 100,
-      dryRun: dryRun || false,
+      maxPages: maxPages ?? 100,
+      dryRun: shouldDryRun,
     });
 
     return NextResponse.json({
       success: result.success,
-      message: dryRun ? "Dry run completed" : "Scraping completed",
+      message: shouldDryRun ? "Dry run completed" : "Scraping completed",
       stats: {
         totalProcessed: result.totalProcessed,
         created: result.created,

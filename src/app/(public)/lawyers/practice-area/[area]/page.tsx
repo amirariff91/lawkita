@@ -42,7 +42,7 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: `${process.env.NEXT_PUBLIC_APP_URL}/lawyers/practice-area/${area}`,
+      canonical: `/lawyers/practice-area/${area}`,
     },
     openGraph: {
       title,

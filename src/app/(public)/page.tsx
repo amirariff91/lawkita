@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   description:
     "Search 1,900+ verified Malaysian lawyers by location, practice area, and ratings. Read reviews, compare experience, and find legal help today.",
   alternates: {
-    canonical: process.env.NEXT_PUBLIC_APP_URL,
+    canonical: "/",
   },
   twitter: {
     card: "summary_large_image",

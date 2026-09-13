@@ -1,4 +1,4 @@
-import { and, count, eq, gte, isNotNull } from "drizzle-orm";
+import { and, count, eq, gte, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { firms, lawyerPracticeAreas, lawyers, practiceAreas } from "@/lib/db/schema";
 
@@ -82,24 +82,31 @@ export async function getOverallStats(): Promise<OverallStats> {
 export async function getGeographicDistribution(filters?: {
   practiceArea?: string;
 }): Promise<GeographicStats[]> {
-  const conditions = [eq(lawyers.isActive, true), isNotNull(lawyers.state)];
+  let practiceAreaLawyerIds: string[] | null = null;
 
   if (filters?.practiceArea) {
-    conditions.push(eq(practiceAreas.slug, filters.practiceArea));
+    const associations = await db
+      .select({ lawyerId: lawyerPracticeAreas.lawyerId })
+      .from(lawyerPracticeAreas)
+      .innerJoin(
+        practiceAreas,
+        eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id)
+      )
+      .where(eq(practiceAreas.slug, filters.practiceArea));
+
+    practiceAreaLawyerIds = associations.map((row) => row.lawyerId);
+    if (practiceAreaLawyerIds.length === 0) return [];
   }
 
-  const rows = filters?.practiceArea
-    ? await db
-        .select({ state: lawyers.state })
-        .from(lawyers)
-        .innerJoin(lawyerPracticeAreas, eq(lawyers.id, lawyerPracticeAreas.lawyerId))
-        .innerJoin(practiceAreas, eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id))
-        .where(and(...conditions))
-    : await db
-        .select({ state: lawyers.state })
-        .from(lawyers)
-        .where(and(...conditions));
+  const conditions = [eq(lawyers.isActive, true), isNotNull(lawyers.state)];
+  if (practiceAreaLawyerIds) {
+    conditions.push(inArray(lawyers.id, practiceAreaLawyerIds));
+  }
 
+  const rows = await db
+    .select({ state: lawyers.state })
+    .from(lawyers)
+    .where(and(...conditions));
   return groupByState(rows.map((row) => row.state));
 }
 

@@ -284,8 +284,13 @@ export async function getLawyerBySlug(
         })
         .from(caseLawyers)
         .innerJoin(cases, eq(caseLawyers.caseId, cases.id))
+        .innerJoin(lawyers, eq(caseLawyers.lawyerId, lawyers.id))
         .where(
-          and(eq(caseLawyers.lawyerId, lawyer.id), eq(cases.isPublished, true))
+          and(
+            eq(caseLawyers.lawyerId, lawyer.id),
+            eq(cases.isPublished, true),
+            eq(lawyers.caseAssociationOptOut, false)
+          )
         ),
     ]);
 

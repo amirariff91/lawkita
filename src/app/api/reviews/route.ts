@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { reviews, lawyers } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { recalculateLawyerReviewMetrics } from "@/lib/db/review-metrics";
 import { z } from "zod";
 import {
   verifyInvoiceReceipt,
@@ -138,15 +139,10 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    // If auto-published, update lawyer metrics
+    // If auto-published, recalculate metrics from all currently-published
+    // reviews instead of incrementing a cached count.
     if (isAutoPublished) {
-      await db
-        .update(lawyers)
-        .set({
-          reviewCount: sql`COALESCE(${lawyers.reviewCount}, 0) + 1`,
-          updatedAt: new Date(),
-        })
-        .where(eq(lawyers.id, data.lawyerId));
+      await recalculateLawyerReviewMetrics(data.lawyerId);
 
       // Send published notification
       await sendReviewPublishedNotification({
