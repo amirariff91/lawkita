@@ -285,7 +285,7 @@ export async function GET(
               color: "#737373",
             }}
           >
-            lawkita.my/cases/{slug}
+            lawkita.com/cases/{slug}
           </span>
           <span
             style={{

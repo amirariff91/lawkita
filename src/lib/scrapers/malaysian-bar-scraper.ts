@@ -285,6 +285,18 @@ async function trackFirmHistory(
     });
   }
 }
+// Scraper-owned Bar-registry facts are authoritative on existing rows.
+// Contact fields are fill-gap only so claimed or manually edited profiles are
+// not overwritten by a later directory scrape.
+function hasScrapedValue(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  return typeof value !== "string" || value.trim().length > 0;
+}
+
+function canFillLawyerField(value: unknown, isClaimed: boolean): boolean {
+  if (value === null) return true;
+  return !isClaimed && typeof value === "string" && value.trim().length === 0;
+}
 
 /**
  * Save a scraped lawyer to the database
@@ -309,8 +321,11 @@ export async function saveLawyer(
     columns: {
       id: true,
       name: true,
-      barMembershipNumber: true,
-      lastScrapedAt: true,
+      address: true,
+      phone: true,
+      email: true,
+      state: true,
+      city: true,
       firmName: true,
       isClaimed: true,
     },
@@ -362,29 +377,77 @@ export async function saveLawyer(
   };
 
   if (existing) {
-    // Update existing lawyer
+    // Existing rows keep ownership, verification, and source data intact.
+    const isClaimed = existing.isClaimed;
+    const updateData: Partial<typeof lawyers.$inferInsert> = {
+      barAdmissionDate: scrapedLawyerData.barAdmissionDate ?? undefined,
+      barStatus: scrapedLawyerData.barStatus,
+      yearsAtBar: scrapedLawyerData.yearsAtBar ?? undefined,
+      isActive: scrapedLawyerData.isActive,
+      lastScrapedAt: scrapedLawyerData.lastScrapedAt,
+      updatedAt: scrapedLawyerData.updatedAt,
+    };
+
+    // Contact fields fill genuine gaps only. Claimed rows never replace an
+    // empty string because only a database NULL is an unambiguous gap.
+    if (
+      hasScrapedValue(scrapedLawyerData.name) &&
+      canFillLawyerField(existing.name, isClaimed)
+    ) {
+      updateData.name = scrapedLawyerData.name;
+    }
+    if (
+      hasScrapedValue(scrapedLawyerData.address) &&
+      canFillLawyerField(existing.address, isClaimed)
+    ) {
+      updateData.address = scrapedLawyerData.address;
+    }
+    if (
+      hasScrapedValue(scrapedLawyerData.phone) &&
+      canFillLawyerField(existing.phone, isClaimed)
+    ) {
+      updateData.phone = scrapedLawyerData.phone;
+    }
+    if (
+      hasScrapedValue(scrapedLawyerData.email) &&
+      canFillLawyerField(existing.email, isClaimed)
+    ) {
+      updateData.email = scrapedLawyerData.email;
+    }
+    if (
+      hasScrapedValue(scrapedLawyerData.state) &&
+      canFillLawyerField(existing.state, isClaimed)
+    ) {
+      updateData.state = scrapedLawyerData.state;
+    }
+    if (
+      hasScrapedValue(scrapedLawyerData.city) &&
+      canFillLawyerField(existing.city, isClaimed)
+    ) {
+      updateData.city = scrapedLawyerData.city;
+    }
+
+    // Firm name and primary_firm_id are one coherent update. A failed firm
+    // lookup leaves both existing values untouched, including the primary ID.
+    const canWriteFirm =
+      !isClaimed || canFillLawyerField(existing.firmName, isClaimed);
+    const firmWasWritten =
+      canWriteFirm &&
+      hasScrapedValue(scrapedLawyerData.firmName) &&
+      firmId !== null;
+    if (firmWasWritten) {
+      updateData.firmName = scrapedLawyerData.firmName;
+      updateData.primaryFirmId = firmId;
+    }
+
     await db
       .update(lawyers)
-      .set(
-        existing.isClaimed
-          ? {
-              name: scrapedLawyerData.name,
-              barMembershipNumber: scrapedLawyerData.barMembershipNumber,
-              barAdmissionDate: scrapedLawyerData.barAdmissionDate,
-              barStatus: scrapedLawyerData.barStatus,
-              yearsAtBar: scrapedLawyerData.yearsAtBar,
-              isVerified: scrapedLawyerData.isVerified,
-              isActive: scrapedLawyerData.isActive,
-              lastScrapedAt: scrapedLawyerData.lastScrapedAt,
-              scrapedData: scrapedLawyerData.scrapedData,
-              updatedAt: scrapedLawyerData.updatedAt,
-            }
-          : scrapedLawyerData
-      )
+      .set(updateData)
       .where(eq(lawyers.id, existing.id));
 
-    // Track firm history if firm changed
-    if (lawyer.firmName && existing.firmName !== lawyer.firmName) {
+    // Record history only when the corresponding firm pair was actually
+    // written to the lawyer row.
+    if (firmWasWritten && lawyer.firmName && existing.firmName !== lawyer.firmName) {
       await trackFirmHistory(
         existing.id,
         lawyer.firmName,

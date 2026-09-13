@@ -14,7 +14,7 @@ const roleJobTitles: Record<LawyerRole, string> = {
 };
 
 export function CaseJsonLd({ caseData, url }: CaseJsonLdProps) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.my";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com";
 
   // Article schema (for editorial content)
   const articleSchema = {

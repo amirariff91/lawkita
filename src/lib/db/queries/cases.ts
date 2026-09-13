@@ -177,7 +177,12 @@ export async function getCaseBySlug(slug: string): Promise<CaseWithRelations | n
       })
       .from(caseLawyers)
       .innerJoin(lawyers, eq(caseLawyers.lawyerId, lawyers.id))
-      .where(eq(caseLawyers.caseId, caseData.id)),
+      .where(
+        and(
+          eq(caseLawyers.caseId, caseData.id),
+          eq(lawyers.caseAssociationOptOut, false)
+        )
+      ),
     db
       .select()
       .from(caseMediaReferences)
