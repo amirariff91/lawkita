@@ -2,7 +2,7 @@
  * SEO Utilities for generating OG images and metadata
  */
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.my";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com";
 
 /**
  * Generate the URL for a lawyer's OG image

@@ -98,7 +98,7 @@ export default async function LawyerProfilePage({
     notFound();
   }
 
-  const url = `${process.env.NEXT_PUBLIC_APP_URL || ""}/lawyers/${slug}`;
+  const url = `${process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com"}/lawyers/${slug}`;
 
   return (
     <>

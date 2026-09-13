@@ -153,6 +153,41 @@ export async function sendPasswordResetEmail(
   });
 }
 
+interface ClaimVerificationEmailData {
+  lawyerName: string;
+  verificationCode: string;
+  claimId: string;
+}
+
+export async function sendClaimVerificationEmail(
+  email: string,
+  data: ClaimVerificationEmailData
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  const html = wrapTemplate(`
+    <div class="header">
+      <h1>Profile Verification Code</h1>
+    </div>
+    <div class="content">
+      <p>We received a claim request for the profile of <strong>${data.lawyerName}</strong> on LawKita.</p>
+      <p>Enter this verification code to confirm ownership:</p>
+      <div class="info-box">
+        <p style="font-size: 24px; font-weight: 700; letter-spacing: 4px; text-align: center;">${data.verificationCode}</p>
+        <p>This code expires in 24 hours.</p>
+      </div>
+      <p style="color: #64748b; font-size: 14px;">
+        Claim ID: ${data.claimId}. If you did not request this verification, you can safely ignore this email.
+      </p>
+    </div>
+  `);
+
+  return sendEmail({
+    to: { email },
+    subject: `Profile Verification Code - ${data.lawyerName}`,
+    html,
+    text: `Your LawKita verification code for ${data.lawyerName} is ${data.verificationCode}. This code expires in 24 hours. Claim ID: ${data.claimId}.`,
+  });
+}
+
 // ============================================================================
 // Enquiry Notifications
 // ============================================================================

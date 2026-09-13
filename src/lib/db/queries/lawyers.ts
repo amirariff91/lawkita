@@ -268,17 +268,22 @@ export async function getLawyerBySlug(
     .select("id, title, issuing_body, issued_at")
     .eq("lawyer_id", lawyer.id);
 
-  // Get cases
-  const { data: casesData } = await supabase
-    .from("case_lawyers")
-    .select(`
+  // Get cases. Opted-out lawyers show none. (is_verified gating is deferred
+  // pending a live-DB check of case_lawyers.is_verified coverage — see docs.)
+  const casesData = lawyer.case_association_opt_out
+    ? []
+    : (
+        await supabase
+          .from("case_lawyers")
+          .select(`
       case_id,
       role,
       role_description,
       cases!inner(id, slug, title, category, status, is_published)
     `)
-    .eq("lawyer_id", lawyer.id)
-    .eq("cases.is_published", true);
+          .eq("lawyer_id", lawyer.id)
+          .eq("cases.is_published", true)
+      ).data;
 
   // Transform to match the expected type
   return {

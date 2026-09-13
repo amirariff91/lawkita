@@ -185,7 +185,10 @@ export async function getCaseBySlug(
       is_verified,
       lawyers!inner(slug, name, photo, firm_name, is_verified)
     `)
-    .eq("case_id", caseData.id);
+    .eq("case_id", caseData.id)
+    // Exclude opted-out lawyers. (is_verified gating deferred pending a
+    // live-DB check of case_lawyers.is_verified coverage — see docs.)
+    .eq("lawyers.case_association_opt_out", false);
 
   const caseLawyersList: CaseLawyerWithDetails[] = (lawyersData ?? []).map((l) => ({
     lawyerId: l.lawyer_id,

@@ -397,6 +397,40 @@ async function trackFirmHistory(
   }
 }
 
+// Scraper-owned Bar-registry facts: authoritative, synced even over existing
+// values (a status change / suspension must reflect on claimed profiles too).
+// Deliberately excludes is_claimed, user_id, scraped_data, and is_verified.
+// bar_membership_number is deliberately NOT synced: it is immutable identity,
+// and the existing-row match can fall back to name (collision risk), so
+// overwriting it could clobber the wrong lawyer's number. Set on insert only.
+const LAWYER_ALWAYS_SYNC_FIELDS = [
+  "bar_admission_date",
+  "bar_status",
+  "years_at_bar",
+  "is_active",
+] as const;
+
+// Claimant-editable / contact fields: never overwrite an existing non-empty
+// value (protects claimed and manually-corrected profiles).
+const LAWYER_FILL_GAP_FIELDS = [
+  "name",
+  "address",
+  "phone",
+  "email",
+  "state",
+  "city",
+] as const;
+
+function hasScrapedValue(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  return typeof value !== "string" || value.trim().length > 0;
+}
+
+function canFillLawyerField(value: unknown, isClaimed: boolean): boolean {
+  if (value === null) return true;
+  return !isClaimed && typeof value === "string" && value.trim().length === 0;
+}
+
 /**
  * Save a scraped lawyer to the database
  */
@@ -414,7 +448,9 @@ export async function saveLawyer(
   // Check if lawyer already exists (by bar number or name)
   const { data: existing } = await supabase
     .from("lawyers")
-    .select("id, name, bar_membership_number, last_scraped_at, firm_name")
+    .select(
+      "id, name, bar_membership_number, firm_name, primary_firm_id, address, phone, email, state, city, bar_admission_date, bar_status, years_at_bar, is_verified, is_claimed, is_active, last_scraped_at"
+    )
     .or(
       `bar_membership_number.eq.${lawyer.barMembershipNumber || ""},name.ilike.${lawyer.name}`
     )
@@ -469,18 +505,60 @@ export async function saveLawyer(
   };
 
   if (existing) {
-    // Update existing lawyer
+    // Existing profiles: sync authoritative Bar-registry facts, fill gaps for
+    // claimant-editable/contact fields, and NEVER touch is_claimed, user_id,
+    // scraped_data, or is_verified. Always record the re-scrape metadata.
+    const isClaimed = existing.is_claimed === true;
+    const updateData: Record<string, unknown> = {
+      last_scraped_at: lawyerData.last_scraped_at ?? new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // Bar-registry facts: authoritative, overwrite even on claimed rows.
+    for (const field of LAWYER_ALWAYS_SYNC_FIELDS) {
+      const value = lawyerData[field];
+      if (hasScrapedValue(value)) {
+        updateData[field] = value;
+      }
+    }
+
+    // Contact / claimant-editable fields: fill genuine gaps only.
+    for (const field of LAWYER_FILL_GAP_FIELDS) {
+      const value = lawyerData[field];
+      if (hasScrapedValue(value) && canFillLawyerField(existing[field], isClaimed)) {
+        updateData[field] = value;
+      }
+    }
+
+    // Firm linkage: keep name + id COHERENT (never link to one firm while the
+    // displayed name is another). Unclaimed rows sync from the scrape; claimed
+    // rows are only filled when the owner left the firm name blank — and then
+    // name and id are written together, never split. A failed lookup (firmId
+    // null) never removes an existing link.
+    const canWriteFirm = !isClaimed || canFillLawyerField(existing.firm_name, isClaimed);
+    if (canWriteFirm && hasScrapedValue(lawyerData.firm_name)) {
+      updateData.firm_name = lawyerData.firm_name;
+    }
+    if (canWriteFirm && firmId !== null) {
+      updateData.primary_firm_id = firmId;
+    }
+
     const { error } = await supabase
       .from("lawyers")
-      .update(lawyerData)
+      .update(updateData)
       .eq("id", existing.id);
 
     if (error) {
       throw new Error(`Failed to update lawyer: ${error.message}`);
     }
 
-    // Track firm history if firm changed
-    if (lawyer.firmName && existing.firm_name !== lawyer.firmName) {
+    // Track firm history only when we actually wrote the firm change — never
+    // record a move the preserved (claimed) profile row won't reflect.
+    if (
+      updateData.firm_name !== undefined &&
+      lawyer.firmName &&
+      existing.firm_name !== lawyer.firmName
+    ) {
       await trackFirmHistory(
         supabase,
         existing.id,

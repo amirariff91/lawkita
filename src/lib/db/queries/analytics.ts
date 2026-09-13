@@ -126,7 +126,10 @@ export async function getGeographicDistribution(filters?: {
       .select("lawyer_id, practice_areas!inner(slug)")
       .eq("practice_areas.slug", filters.practiceArea);
 
-    if (lawyerIds && lawyerIds.length > 0) {
+    if (lawyerIds) {
+      if (lawyerIds.length === 0) {
+        return [];
+      }
       query = query.in("id", lawyerIds.map((l) => l.lawyer_id));
     }
   }
