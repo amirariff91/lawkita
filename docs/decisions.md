@@ -16,6 +16,17 @@ A14 6-month flux: search, payments, court records, DB consolidation ·
 A15 _chat = local research; PRD historical · A16 review auto-publish policy
 undecided · A17 canonical domain = lawkita.com.
 
+## 2026-09-12 — Public lawyer data is visibility-gated
+SHIPPED: public case associations exclude lawyers who opt out
+(`case_association_opt_out`); lawyer review metrics are recomputed from
+currently published reviews after every publish/unpublish transition; empty
+practice-area matches return no analytics distribution. DEFERRED: gating public
+associations on `case_lawyers.is_verified` — held pending a live-DB check of
+verified-row coverage, because shipping it while curated associations are
+unverified would blank every case page (see docs/unknowns.md). Reason: public
+profiles and JSON-LD must not expose hidden-review ratings, and must not expose
+unverified associations once the `is_verified` gate is safe to enable.
+
 ## 2026-07-08 — Canonical domain is lawkita.com
 Owner-confirmed [A17]. The code's `https://lawkita.my` fallbacks
 (src/lib/utils/seo.ts, sitemap.ts, robots.ts) are wrong; production relies on

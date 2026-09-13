@@ -1,6 +1,6 @@
 import type { FirmWithStats } from "@/lib/db/queries/firms";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.my";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com";
 
 interface FirmJsonLdProps {
   firm: FirmWithStats;

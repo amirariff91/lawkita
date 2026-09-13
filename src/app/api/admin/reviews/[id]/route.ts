@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import { reviews, lawyers, user, auditLogs } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { recalculateLawyerReviewMetrics } from "@/lib/db/review-metrics";
+import { reviews, user, auditLogs } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { sendReviewPublishedNotification } from "@/lib/integrations";
 
@@ -127,34 +128,17 @@ export async function PATCH(
       })
       .where(eq(reviews.id, id));
 
-    // If approved, update lawyer review count
-    if (action === "approve" && !review.isPublished) {
-      await db
-        .update(lawyers)
-        .set({
-          reviewCount: sql`COALESCE(${lawyers.reviewCount}, 0) + 1`,
-          updatedAt: new Date(),
-        })
-        .where(eq(lawyers.id, review.lawyerId));
+    // Recalculate metrics from all currently published reviews after every transition
+    await recalculateLawyerReviewMetrics(review.lawyerId);
 
-      // Send notification to reviewer
+    // Send notification to reviewer
+    if (action === "approve" && !review.isPublished) {
       await sendReviewPublishedNotification({
         reviewerEmail: review.reviewerEmail,
         reviewerName: review.reviewerName || "",
         lawyerName: review.lawyer?.name || "",
         lawyerSlug: review.lawyer?.slug || "",
       });
-    }
-
-    // If rejected and was previously published, decrement count
-    if (action === "reject" && review.isPublished) {
-      await db
-        .update(lawyers)
-        .set({
-          reviewCount: sql`GREATEST(COALESCE(${lawyers.reviewCount}, 0) - 1, 0)`,
-          updatedAt: new Date(),
-        })
-        .where(eq(lawyers.id, review.lawyerId));
     }
 
     // Create audit log

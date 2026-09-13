@@ -412,7 +412,7 @@ input[type="button"] {
   font-style: italic;
   font-size: 1.25rem;
   line-height: 1.6;
-  border-left: 3px solid var(--primary);
+  border-left: 2px solid var(--border);
   padding-left: 1.5rem;
   color: var(--muted-foreground);
 }

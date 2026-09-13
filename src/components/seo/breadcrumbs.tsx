@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ChevronRight, Home } from "lucide-react";
 import { getBreadcrumbSchema } from "@/lib/utils/seo";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.my";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com";
 
 export interface BreadcrumbItem {
   label: string;

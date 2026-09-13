@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { firmClaims, firms, user, auditLogs } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { sendFirmClaimStatusNotification } from "@/lib/integrations/resend-firms";
 
@@ -16,6 +16,19 @@ async function isAdmin(userId: string): Promise<boolean> {
     columns: { role: true },
   });
   return currentUser?.role === "admin";
+}
+class AlreadyClaimedError extends Error {
+  constructor() {
+    super("already claimed");
+    this.name = "AlreadyClaimedError";
+  }
+}
+
+class ClaimNotApprovableError extends Error {
+  constructor() {
+    super("claim is not approvable");
+    this.name = "ClaimNotApprovableError";
+  }
 }
 
 // GET: Fetch firm claim details
@@ -122,28 +135,78 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     };
 
     if (action === "approve") {
-      // Update claim to verified
-      await db
-        .update(firmClaims)
-        .set({
-          status: "verified",
-          reviewedBy: session.user.id,
-          reviewedAt: new Date(),
-          adminNotes: adminNotes || claim.adminNotes,
-          updatedAt: new Date(),
-        })
-        .where(eq(firmClaims.id, id));
+      try {
+        await db.transaction(async (tx) => {
+          const [currentClaim] = await tx
+            .select({ status: firmClaims.status })
+            .from(firmClaims)
+            .where(eq(firmClaims.id, id))
+            .limit(1);
 
-      // Update firm to claimed and set owner
-      await db
-        .update(firms)
-        .set({
-          isClaimed: true,
-          ownerId: claim.userId,
-          claimedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(firms.id, claim.firmId));
+          if (!currentClaim || currentClaim.status !== "pending") {
+            throw new ClaimNotApprovableError();
+          }
+
+          beforeData.status = currentClaim.status;
+
+          const updatedClaims = await tx
+            .update(firmClaims)
+            .set({
+              status: "verified",
+              reviewedBy: session.user.id,
+              reviewedAt: new Date(),
+              adminNotes: adminNotes || claim.adminNotes,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(firmClaims.id, id),
+                eq(firmClaims.status, currentClaim.status)
+              )
+            )
+            .returning({ id: firmClaims.id });
+
+          if (updatedClaims.length === 0) {
+            throw new ClaimNotApprovableError();
+          }
+
+          const updatedFirms = await tx
+            .update(firms)
+            .set({
+              isClaimed: true,
+              ownerId: claim.userId,
+              claimedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(firms.id, claim.firmId),
+                eq(firms.isClaimed, false)
+              )
+            )
+            .returning({ id: firms.id });
+
+          if (updatedFirms.length === 0) {
+            throw new AlreadyClaimedError();
+          }
+        });
+      } catch (error) {
+        if (error instanceof AlreadyClaimedError) {
+          return NextResponse.json(
+            { error: "already claimed" },
+            { status: 409 }
+          );
+        }
+
+        if (error instanceof ClaimNotApprovableError) {
+          return NextResponse.json(
+            { error: "Claim is not in an approvable pending state" },
+            { status: 409 }
+          );
+        }
+
+        throw error;
+      }
 
       // Send notification
       await sendFirmClaimStatusNotification({
@@ -170,7 +233,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         message: "Firm claim approved successfully",
       });
     }
-
     if (action === "reject") {
       if (!rejectionReason) {
         return NextResponse.json({ error: "Rejection reason required" }, { status: 400 });

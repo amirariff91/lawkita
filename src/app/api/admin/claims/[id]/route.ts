@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { claims, lawyers, user, auditLogs } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import {
   sendClaimStatusNotification,
@@ -18,6 +18,19 @@ async function isAdmin(userId: string): Promise<boolean> {
     columns: { role: true },
   });
   return currentUser?.role === "admin";
+}
+class AlreadyClaimedError extends Error {
+  constructor() {
+    super("already claimed");
+    this.name = "AlreadyClaimedError";
+  }
+}
+
+class ClaimNotApprovableError extends Error {
+  constructor() {
+    super("claim is not approvable");
+    this.name = "ClaimNotApprovableError";
+  }
 }
 
 // GET: Fetch claim details
@@ -156,30 +169,84 @@ export async function PATCH(
     }
 
     if (action === "approve") {
-      // Update claim to verified
-      await db
-        .update(claims)
-        .set({
-          status: "verified",
-          reviewedBy: session.user.id,
-          reviewedAt: new Date(),
-          adminNotes: adminNotes || claim.adminNotes,
-          updatedAt: new Date(),
-        })
-        .where(eq(claims.id, id));
+      try {
+        await db.transaction(async (tx) => {
+          const [currentClaim] = await tx
+            .select({ status: claims.status })
+            .from(claims)
+            .where(eq(claims.id, id))
+            .limit(1);
 
-      // Update lawyer profile to claimed
-      await db
-        .update(lawyers)
-        .set({
-          isClaimed: true,
-          isVerified: true,
-          userId: claim.userId,
-          claimedAt: new Date(),
-          verifiedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(lawyers.id, claim.lawyerId));
+          if (
+            !currentClaim ||
+            (currentClaim.status !== "pending" &&
+              currentClaim.status !== "email_sent")
+          ) {
+            throw new ClaimNotApprovableError();
+          }
+
+          beforeData.status = currentClaim.status;
+
+          const updatedClaims = await tx
+            .update(claims)
+            .set({
+              status: "verified",
+              reviewedBy: session.user.id,
+              reviewedAt: new Date(),
+              adminNotes: adminNotes || claim.adminNotes,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(claims.id, id),
+                eq(claims.status, currentClaim.status)
+              )
+            )
+            .returning({ id: claims.id });
+
+          if (updatedClaims.length === 0) {
+            throw new ClaimNotApprovableError();
+          }
+
+          const updatedLawyers = await tx
+            .update(lawyers)
+            .set({
+              isClaimed: true,
+              isVerified: true,
+              userId: claim.userId,
+              claimedAt: new Date(),
+              verifiedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(lawyers.id, claim.lawyerId),
+                eq(lawyers.isClaimed, false)
+              )
+            )
+            .returning({ id: lawyers.id });
+
+          if (updatedLawyers.length === 0) {
+            throw new AlreadyClaimedError();
+          }
+        });
+      } catch (error) {
+        if (error instanceof AlreadyClaimedError) {
+          return NextResponse.json(
+            { error: "already claimed" },
+            { status: 409 }
+          );
+        }
+
+        if (error instanceof ClaimNotApprovableError) {
+          return NextResponse.json(
+            { error: "Claim is not in an approvable pending state" },
+            { status: 409 }
+          );
+        }
+
+        throw error;
+      }
 
       // Send notifications
       await sendClaimStatusNotification({

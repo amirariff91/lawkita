@@ -17,6 +17,34 @@ const updateLawyerSchema = z.object({
   state: z.string().optional(),
   practiceAreaIds: z.array(z.string().uuid()).optional(),
 });
+const publicLawyerColumns = {
+  id: true,
+  slug: true,
+  name: true,
+  email: true,
+  phone: true,
+  photo: true,
+  bio: true,
+  barMembershipNumber: true,
+  barAdmissionDate: true,
+  barStatus: true,
+  state: true,
+  city: true,
+  address: true,
+  primaryFirmId: true,
+  firmName: true,
+  isVerified: true,
+  isClaimed: true,
+  isActive: true,
+  subscriptionTier: true,
+  yearsAtBar: true,
+  courtAppearances: true,
+  reviewCount: true,
+  averageRating: true,
+  responseRate: true,
+  avgResponseTimeHours: true,
+  caseAssociationOptOut: true,
+} as const;
 
 export async function PATCH(
   request: NextRequest,
@@ -71,35 +99,40 @@ export async function PATCH(
       );
     }
 
-    // Update lawyer profile
+    // Update lawyer profile + practice areas atomically, so a failed
+    // practice-area replace can't leave the profile half-updated.
     const { practiceAreaIds, ...lawyerData } = data;
 
-    await db
-      .update(lawyers)
-      .set({
-        ...lawyerData,
-        email: lawyerData.email || null,
-        updatedAt: new Date(),
-      })
-      .where(eq(lawyers.id, lawyerId));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(lawyers)
+        .set({
+          ...lawyerData,
+          // Only touch email when the caller actually sent it — a partial
+          // PATCH that omits email must not wipe the stored contact.
+          ...(lawyerData.email !== undefined
+            ? { email: lawyerData.email || null }
+            : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(lawyers.id, lawyerId));
 
-    // Update practice areas if provided
-    if (practiceAreaIds) {
-      // Delete existing practice areas
-      await db
-        .delete(lawyerPracticeAreas)
-        .where(eq(lawyerPracticeAreas.lawyerId, lawyerId));
+      // Replace practice areas if provided
+      if (practiceAreaIds) {
+        await tx
+          .delete(lawyerPracticeAreas)
+          .where(eq(lawyerPracticeAreas.lawyerId, lawyerId));
 
-      // Insert new practice areas
-      if (practiceAreaIds.length > 0) {
-        await db.insert(lawyerPracticeAreas).values(
-          practiceAreaIds.map((practiceAreaId) => ({
-            lawyerId,
-            practiceAreaId,
-          }))
-        );
+        if (practiceAreaIds.length > 0) {
+          await tx.insert(lawyerPracticeAreas).values(
+            practiceAreaIds.map((practiceAreaId) => ({
+              lawyerId,
+              practiceAreaId,
+            }))
+          );
+        }
       }
-    }
+    });
 
     return NextResponse.json({
       success: true,
@@ -123,6 +156,7 @@ export async function GET(
 
     const lawyer = await db.query.lawyers.findFirst({
       where: eq(lawyers.id, lawyerId),
+      columns: publicLawyerColumns,
       with: {
         practiceAreas: {
           with: {

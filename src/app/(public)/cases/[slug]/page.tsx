@@ -112,7 +112,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
     notFound();
   }
 
-  const url = `${process.env.NEXT_PUBLIC_APP_URL || ""}/cases/${slug}`;
+  const url = `${process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com"}/cases/${slug}`;
   const statusInfo = statusConfig[caseData.status];
 
   return (
@@ -168,7 +168,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
           {/* Verdict Card (if concluded) */}
           {(caseData.status === "concluded" || caseData.status === "appeal") &&
             caseData.outcome && (
-              <Card className="border-l-4 border-l-primary">
+              <Card className="border-primary/40 bg-primary/[0.03]">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Gavel className="size-5" />
