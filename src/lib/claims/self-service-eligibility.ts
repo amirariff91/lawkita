@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export type SelfServiceChannel = "whatsapp" | "email";
 
 export type SelfServiceEligibility =
@@ -38,8 +40,26 @@ export function canonicalPhone(phone: string | null | undefined): string | null 
   return digits;
 }
 
+/**
+ * Email with ASCII whitespace removed and case folded. The SQL side in
+ * self-service-contact.ts strips the exact same character class.
+ */
 export function canonicalEmail(email: string | null | undefined): string | null {
-  return email?.trim().toLowerCase() || null;
+  return (email ?? "").replace(/[ \t\n\r\f\v]/g, "").toLowerCase() || null;
+}
+
+export function canonicalDestination(candidate: SelfServiceCandidate): string | null {
+  return candidate.channel === "whatsapp"
+    ? canonicalPhone(candidate.value)
+    : canonicalEmail(candidate.value);
+}
+
+/** Opaque 16-hex tag binding a code to the contact it was sent to. */
+export function destinationTag(candidate: SelfServiceCandidate): string {
+  return createHash("sha256")
+    .update(`${candidate.channel}:${canonicalDestination(candidate) ?? ""}`)
+    .digest("hex")
+    .slice(0, 16);
 }
 
 export function normalizeBarMembershipNumber(

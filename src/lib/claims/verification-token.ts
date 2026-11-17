@@ -5,17 +5,37 @@ export const SELF_SERVICE_MAX_ATTEMPTS = 5;
 export const SELF_SERVICE_CODE_TTL_MS = 30 * 60 * 1000;
 export const SELF_SERVICE_REISSUE_COOLDOWN_MS = 60 * 1000;
 
-export function formatSelfServiceToken(code: string, attempts: number): string {
-  return `${SELF_SERVICE_VERIFICATION_TOKEN_PREFIX}${code}:${attempts}`;
+/**
+ * `destination` is an opaque tag for the contact the code was sent to. A
+ * token can only be redeemed while that same contact is still the one the
+ * claim gate resolves, so a code sent to a phone cannot be redeemed against
+ * an email (or after the record's contact changed).
+ */
+export function formatSelfServiceToken(
+  code: string,
+  attempts: number,
+  destination?: string | null
+): string {
+  const base = `${SELF_SERVICE_VERIFICATION_TOKEN_PREFIX}${code}:${attempts}`;
+  return destination ? `${base}@${destination}` : base;
 }
 
 export function parseSelfServiceToken(
   token: string | null | undefined
-): { code: string; attempts: number } | null {
+): { code: string; attempts: number; destination?: string } | null {
   if (!token || !token.startsWith(SELF_SERVICE_VERIFICATION_TOKEN_PREFIX)) {
     return null;
   }
-  const rest = token.slice(SELF_SERVICE_VERIFICATION_TOKEN_PREFIX.length);
+  const full = token.slice(SELF_SERVICE_VERIFICATION_TOKEN_PREFIX.length);
+  const at = full.lastIndexOf("@");
+  const tag = at === -1 ? "" : full.slice(at + 1);
+  if (at !== -1 && /^[0-9a-f]{16}$/.test(tag)) {
+    const parsed = parseSelfServiceToken(
+      SELF_SERVICE_VERIFICATION_TOKEN_PREFIX + full.slice(0, at)
+    );
+    return parsed ? { ...parsed, destination: tag } : null;
+  }
+  const rest = full;
   if (!rest) {
     return null;
   }

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   canonicalEmail,
   canonicalPhone,
+  destinationTag,
   getSelfServiceCandidates,
   getSelfServiceEligibility,
   isSelfServiceWithoutBarNumberEnabled,
@@ -154,5 +155,19 @@ describe("self-service claim eligibility", () => {
     expect(isSelfServiceWithoutBarNumberEnabled({})).toBe(false);
     expect(isSelfServiceWithoutBarNumberEnabled({ CLAIM_SELF_SERVICE_WITHOUT_BAR_NUMBER: "1" })).toBe(false);
     expect(isSelfServiceWithoutBarNumberEnabled({ CLAIM_SELF_SERVICE_WITHOUT_BAR_NUMBER: "true" })).toBe(true);
+  });
+
+  test("email canonical form strips tabs and newlines like the SQL side", () => {
+    expect(canonicalEmail("info@firm.example\t")).toBe("info@firm.example");
+    expect(canonicalEmail("\n Info@Firm.Example \r")).toBe("info@firm.example");
+  });
+
+  test("destination tags differ by channel and match across format variants", () => {
+    const a = destinationTag({ channel: "whatsapp", value: "012-345 6789" });
+    const b = destinationTag({ channel: "whatsapp", value: "+60 12 345 6789" });
+    const c = destinationTag({ channel: "email", value: "a@b.example" });
+    expect(a).toBe(b);
+    expect(a).not.toBe(c);
+    expect(a).toMatch(/^[0-9a-f]{16}$/);
   });
 });

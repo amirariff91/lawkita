@@ -25,7 +25,10 @@ import {
   isVerificationCodeMatch,
   parseSelfServiceToken,
 } from "@/lib/claims/verification-token";
-import { normalizeBarMembershipNumber } from "@/lib/claims/self-service-eligibility";
+import {
+  destinationTag,
+  normalizeBarMembershipNumber,
+} from "@/lib/claims/self-service-eligibility";
 import { resolveSelfServiceContact } from "@/lib/claims/self-service-contact";
 
 class AlreadyClaimedError extends Error {
@@ -215,9 +218,17 @@ export async function POST(
       // Re-issue only when no code is outstanding (none ever issued, or the
       // last one was exhausted) or the last self-service code expired. A
       // token from another path (e.g. admin-sent WhatsApp code) is left alone.
+      const currentDestination = selfServiceContact
+        ? destinationTag(selfServiceContact)
+        : null;
+      // A code is bound to the contact it was sent to. If that is no longer
+      // the contact the gate resolves, the old code is dead: issue a new one.
+      const destinationStillValid =
+        parsedExisting !== null &&
+        parsedExisting.destination === currentDestination;
       const reissueEligible =
         !existingClaim.emailVerificationToken ||
-        (parsedExisting !== null && tokenExpired);
+        (parsedExisting !== null && (tokenExpired || !destinationStillValid));
       // PATCH validates this claim's Bar number against the record, so a
       // code is only useful if that number is itself self-service eligible.
       const claimBarNumberMatches =
@@ -230,6 +241,7 @@ export async function POST(
       // page): let the form resume code entry without sending another.
       if (
         parsedExisting !== null &&
+        destinationStillValid &&
         !tokenExpired &&
         selfServiceContact &&
         claimBarNumberMatches
@@ -317,7 +329,11 @@ export async function POST(
         const stored = await db
           .update(claims)
           .set({
-            emailVerificationToken: formatSelfServiceToken(reissuedCode, 0),
+            emailVerificationToken: formatSelfServiceToken(
+              reissuedCode,
+              0,
+              destinationTag(selfServiceContact)
+            ),
             emailVerificationExpires: new Date(
               now.getTime() + SELF_SERVICE_CODE_TTL_MS
             ),
@@ -458,7 +474,11 @@ export async function POST(
         await db
           .update(claims)
           .set({
-            emailVerificationToken: formatSelfServiceToken(verificationCode, 0),
+            emailVerificationToken: formatSelfServiceToken(
+              verificationCode,
+              0,
+              destinationTag(selfServiceContact)
+            ),
             emailVerificationExpires: new Date(
               Date.now() + SELF_SERVICE_CODE_TTL_MS
             ),
@@ -616,7 +636,11 @@ export async function PATCH(
       if (isAttemptLimitReached(current.attempts)) break;
 
       const nextAttempts = attemptsAfterFailure(current.attempts);
-      const nextToken = formatSelfServiceToken(current.code, nextAttempts);
+      const nextToken = formatSelfServiceToken(
+        current.code,
+        nextAttempts,
+        current.destination
+      );
       const swapped = await db
         .update(claims)
         .set({ emailVerificationToken: nextToken, updatedAt: new Date() })
@@ -632,7 +656,7 @@ export async function PATCH(
       if (swapped.length > 0) {
         reserved = true;
         currentToken = nextToken;
-        current = { code: current.code, attempts: nextAttempts };
+        current = { ...current, attempts: nextAttempts };
         break;
       }
 
@@ -677,6 +701,15 @@ export async function PATCH(
       return NextResponse.json(
         { error: "Please try again in a moment" },
         { status: 429 }
+      );
+    }
+
+    // The code must have been sent to the contact the gate resolves NOW.
+    // Unbound (older) tokens and tokens for another contact need a new code.
+    if (current.destination !== destinationTag(selfServiceContact)) {
+      return NextResponse.json(
+        { error: "This code is no longer valid. Please request a new code." },
+        { status: 403 }
       );
     }
 

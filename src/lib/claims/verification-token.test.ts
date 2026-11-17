@@ -84,4 +84,18 @@ describe("self-service verification token", () => {
     expect(isReissueRateLimited(new Date("2026-11-17T11:59:00Z"), now)).toBe(false);
     expect(isReissueRateLimited(new Date("2026-11-17T11:58:00Z"), now)).toBe(false);
   });
+
+  test("destination tag round-trips and survives attempt increments", () => {
+    const token = formatSelfServiceToken("ABC234", 0, "0123456789abcdef");
+    expect(token).toBe("self-service:ABC234:0@0123456789abcdef");
+    const parsed = parseSelfServiceToken(token);
+    expect(parsed).toEqual({ code: "ABC234", attempts: 0, destination: "0123456789abcdef" });
+    expect(
+      parseSelfServiceToken(formatSelfServiceToken(parsed!.code, 3, parsed!.destination))
+    ).toEqual({ code: "ABC234", attempts: 3, destination: "0123456789abcdef" });
+  });
+
+  test("tokens without a destination tag parse with no destination", () => {
+    expect(parseSelfServiceToken("self-service:ABC234:2")?.destination).toBeUndefined();
+  });
 });
