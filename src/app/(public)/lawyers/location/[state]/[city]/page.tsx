@@ -5,7 +5,7 @@ import { getLawyersByLocation } from "@/lib/db/queries/lawyers";
 import { getStateBySlug, getCityBySlug } from "@/lib/constants/locations";
 import { LawyerGrid, LawyerGridSkeleton, PaginationLink } from "@/components/lawyers";
 import { Breadcrumbs } from "@/components/seo";
-import { getLocationPageSchema } from "@/lib/utils/seo";
+import { getLocationPageSchema, isHubPageIndexable } from "@/lib/utils/seo";
 import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsInteger } from "nuqs/server";
 
@@ -33,10 +33,15 @@ export async function generateMetadata({
 
   const title = `Lawyers in ${city.name}, ${state.name}`;
   const description = `Find verified lawyers in ${city.name}, ${state.name}. Browse by practice area and experience level. Read reviews and connect with local legal professionals.`;
+  const { total } = await getLawyersByLocation(state.name, city.name, 20, 1);
+  const robots = isHubPageIndexable(total)
+    ? undefined
+    : { index: false, follow: true };
 
   return {
     title,
     description,
+    robots,
     alternates: {
       canonical: `/lawyers/location/${stateSlug}/${citySlug}`,
     },

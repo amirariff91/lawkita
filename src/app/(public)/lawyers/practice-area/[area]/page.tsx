@@ -5,7 +5,7 @@ import { getLawyersByPracticeArea } from "@/lib/db/queries/lawyers";
 import { getPracticeAreaBySlug } from "@/lib/constants/practice-areas";
 import { LawyerGrid, LawyerGridSkeleton, PaginationLink } from "@/components/lawyers";
 import { Breadcrumbs } from "@/components/seo";
-import { getPracticeAreaPageSchema } from "@/lib/utils/seo";
+import { getPracticeAreaPageSchema, isHubPageIndexable } from "@/lib/utils/seo";
 import { Badge } from "@/components/ui/badge";
 import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsInteger } from "nuqs/server";
@@ -38,9 +38,15 @@ export async function generateMetadata({
     practiceArea.description ||
     `Find experienced ${practiceArea.name.toLowerCase()} lawyers across Malaysia. Compare reviews, experience, and credentials.`;
 
+  const { total } = await getLawyersByPracticeArea(area, 20, 1);
+  const robots = isHubPageIndexable(total)
+    ? undefined
+    : { index: false, follow: true };
+
   return {
     title,
     description,
+    robots,
     alternates: {
       canonical: `/lawyers/practice-area/${area}`,
     },

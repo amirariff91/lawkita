@@ -3,6 +3,17 @@
  */
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com";
+/**
+ * Programmatic hub pages (practice area / state / city) are only worth
+ * indexing once they list enough lawyers. Below this threshold they are
+ * `noindex, follow` and excluded from the sitemap.
+ */
+export const MIN_LAWYERS_FOR_INDEXING = 10;
+
+/** Whether a hub page listing `lawyerCount` active lawyers may be indexed. */
+export function isHubPageIndexable(lawyerCount: number): boolean {
+  return lawyerCount >= MIN_LAWYERS_FOR_INDEXING;
+}
 
 /**
  * Generate the URL for a lawyer's OG image

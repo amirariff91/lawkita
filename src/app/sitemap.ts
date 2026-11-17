@@ -1,7 +1,16 @@
 import { MetadataRoute } from "next";
 import { db } from "@/lib/db";
-import { lawyers, cases, practiceAreas, states, cities, firms } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import {
+  lawyers,
+  cases,
+  practiceAreas,
+  lawyerPracticeAreas,
+  states,
+  cities,
+  firms,
+} from "@/lib/db/schema";
+import { and, count, desc, eq, isNotNull } from "drizzle-orm";
+import { isHubPageIndexable } from "@/lib/utils/seo";
 
 // Generate sitemap at runtime, not build time (requires DB connection)
 export const dynamic = "force-dynamic";
@@ -154,22 +163,108 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .from(practiceAreas)
     .where(eq(practiceAreas.isUserFacing, true));
 
+  // Hub counts, mirroring how the listing pages match lawyers:
+  // - Practice areas: active lawyers via the lawyer_practice_areas join,
+  //   keyed by practiceAreas.slug (searchLawyers matches the slug).
+  // - States: active lawyers grouped by the stored lawyers.state value and
+  //   compared against the state NAME, as the state page queries with
+  //   getLawyersByLocation(state.name, ...).
+  // - Cities: active lawyers grouped by (lawyers.state, lawyers.city) and
+  //   compared against the state/city NAMES, because the city page queries
+  //   with names (getLawyersByLocation(state.name, city.name, ...)).
+  // A failing count query yields null and includes every entry, preserving
+  // the previous behaviour instead of failing the whole sitemap.
+  const practiceAreaCounts = await db
+    .select({ slug: practiceAreas.slug, count: count() })
+    .from(practiceAreas)
+    .innerJoin(
+      lawyerPracticeAreas,
+      eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id)
+    )
+    .innerJoin(lawyers, eq(lawyerPracticeAreas.lawyerId, lawyers.id))
+    .where(
+      and(eq(lawyers.isActive, true), eq(practiceAreas.isUserFacing, true))
+    )
+    .groupBy(practiceAreas.slug)
+    .catch((error: unknown) => {
+      console.error("sitemap: practice area counts query failed", error);
+      return null as { slug: string; count: number }[] | null;
+    });
+  const practiceAreaCountBySlug = new Map(
+    (practiceAreaCounts ?? []).map((row) => [row.slug, Number(row.count)])
+  );
+
+  const stateCounts = await db
+    .select({ state: lawyers.state, count: count() })
+    .from(lawyers)
+    .where(and(eq(lawyers.isActive, true), isNotNull(lawyers.state)))
+    .groupBy(lawyers.state)
+    .catch((error: unknown) => {
+      console.error("sitemap: state counts query failed", error);
+      return null as { state: string | null; count: number }[] | null;
+    });
+  const stateCountByName = new Map(
+    (stateCounts ?? []).map((row) => [row.state ?? "", Number(row.count)])
+  );
+
+  const cityCounts = await db
+    .select({
+      state: lawyers.state,
+      city: lawyers.city,
+      count: count(),
+    })
+    .from(lawyers)
+    .where(
+      and(
+        eq(lawyers.isActive, true),
+        isNotNull(lawyers.state),
+        isNotNull(lawyers.city)
+      )
+    )
+    .groupBy(lawyers.state, lawyers.city)
+    .catch((error: unknown) => {
+      console.error("sitemap: city counts query failed", error);
+      return null as {
+        state: string | null;
+        city: string | null;
+        count: number;
+      }[] | null;
+    });
+  const cityCountByName = new Map(
+    (cityCounts ?? []).map((row) => [
+      `${row.state ?? ""}|${row.city ?? ""}`,
+      Number(row.count),
+    ])
+  );
+
   for (const area of allPracticeAreas) {
+    if (
+      practiceAreaCounts !== null &&
+      !isHubPageIndexable(practiceAreaCountBySlug.get(area.slug) ?? 0)
+    ) {
+      continue;
+    }
     entries.push({
       url: `${BASE_URL}/lawyers/practice-area/${area.slug}`,
-      lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.7,
     });
   }
 
   // Location pages - States
-  const allStates = await db.select({ slug: states.slug }).from(states);
+  const allStates = await db
+    .select({ slug: states.slug, name: states.name })
+    .from(states);
 
   for (const state of allStates) {
+    if (
+      stateCounts !== null &&
+      !isHubPageIndexable(stateCountByName.get(state.name) ?? 0)
+    ) {
+      continue;
+    }
     entries.push({
       url: `${BASE_URL}/lawyers/location/${state.slug}`,
-      lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.7,
     });
@@ -180,14 +275,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .select({
       citySlug: cities.slug,
       stateSlug: states.slug,
+      cityName: cities.name,
+      stateName: states.name,
     })
     .from(cities)
     .innerJoin(states, eq(cities.stateId, states.id));
 
   for (const city of allCities) {
+    if (
+      cityCounts !== null &&
+      !isHubPageIndexable(
+        cityCountByName.get(`${city.stateName}|${city.cityName}`) ?? 0
+      )
+    ) {
+      continue;
+    }
     entries.push({
       url: `${BASE_URL}/lawyers/location/${city.stateSlug}/${city.citySlug}`,
-      lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.6,
     });

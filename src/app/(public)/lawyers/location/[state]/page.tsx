@@ -7,7 +7,7 @@ import { getLawyersByLocation } from "@/lib/db/queries/lawyers";
 import { getStateBySlug, getCitiesForState } from "@/lib/constants/locations";
 import { LawyerGrid, LawyerGridSkeleton, PaginationLink } from "@/components/lawyers";
 import { Breadcrumbs } from "@/components/seo";
-import { getLocationPageSchema } from "@/lib/utils/seo";
+import { getLocationPageSchema, isHubPageIndexable } from "@/lib/utils/seo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { SearchParams } from "nuqs/server";
@@ -36,10 +36,15 @@ export async function generateMetadata({
 
   const title = `Lawyers in ${state.name}, Malaysia`;
   const description = `Find verified lawyers in ${state.name}. Browse by city, practice area, and experience level. Read reviews and connect with legal professionals.`;
+  const { total } = await getLawyersByLocation(state.name, undefined, 20, 1);
+  const robots = isHubPageIndexable(total)
+    ? undefined
+    : { index: false, follow: true };
 
   return {
     title,
     description,
+    robots,
     alternates: {
       canonical: `/lawyers/location/${stateSlug}`,
     },
@@ -66,7 +71,8 @@ async function StateContent({
   const state = getStateBySlug(stateSlug);
   const cities = getCitiesForState(stateSlug);
 
-  const result = await getLawyersByLocation(stateSlug, undefined, 20, page);
+  // lawyers.state stores the state NAME ("Selangor"), not the slug.
+  const result = await getLawyersByLocation(state?.name ?? stateSlug, undefined, 20, page);
 
   const getPageUrl = (pageNum: number) => {
     if (pageNum === 1) {
