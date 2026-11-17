@@ -9,6 +9,37 @@ export interface SelfServiceEligibilityInput {
   submittedBarMembershipNumber: string | null | undefined;
   phone: string | null | undefined;
   email: string | null | undefined;
+  /**
+   * Whether a record with NO stored Bar number may self-serve at all.
+   * Off by default: scraped contacts are usually firm switchboards, so
+   * control of the contact proves "someone at the firm", not the lawyer.
+   */
+  allowWithoutStoredNumber?: boolean;
+}
+
+export interface SelfServiceCandidate {
+  channel: SelfServiceChannel;
+  value: string;
+}
+
+/** Deployment switch for the no-stored-number path (default off). */
+export function isSelfServiceWithoutBarNumberEnabled(
+  environment: Record<string, string | undefined> = process.env
+): boolean {
+  return environment.CLAIM_SELF_SERVICE_WITHOUT_BAR_NUMBER === "true";
+}
+
+/** Phone as WhatsApp delivery sees it: digits only, Malaysian 0/local -> 60. */
+export function canonicalPhone(phone: string | null | undefined): string | null {
+  let digits = (phone ?? "").replace(/\D/g, "");
+  if (!digits) return null;
+  if (digits.startsWith("0")) digits = "6" + digits;
+  else if (!digits.startsWith("6") && digits.length <= 10) digits = "60" + digits;
+  return digits;
+}
+
+export function canonicalEmail(email: string | null | undefined): string | null {
+  return email?.trim().toLowerCase() || null;
 }
 
 export function normalizeBarMembershipNumber(
@@ -28,9 +59,9 @@ export function normalizeBarMembershipNumber(
  *   anything the claimant supplies, so phone/email here must come from the
  *   lawyer record. Phone (WhatsApp) takes priority over email.
  */
-export function getSelfServiceEligibility(
+export function getSelfServiceCandidates(
   input: SelfServiceEligibilityInput
-): SelfServiceEligibility {
+): SelfServiceCandidate[] {
   const stored = normalizeBarMembershipNumber(
     input.storedBarMembershipNumber
   );
@@ -39,23 +70,22 @@ export function getSelfServiceEligibility(
   );
 
   // Every claim must carry a Bar number; an empty submission never verifies.
-  if (!submitted) {
-    return { eligible: false };
-  }
+  if (!submitted) return [];
+  if (stored && stored !== submitted) return [];
+  if (!stored && !input.allowWithoutStoredNumber) return [];
 
-  if (stored && stored !== submitted) {
-    return { eligible: false };
-  }
-
+  // Ordered by preference: phone (WhatsApp) first, then email.
+  const candidates: SelfServiceCandidate[] = [];
   const onRecordPhone = input.phone?.trim() || null;
-  if (onRecordPhone) {
-    return { eligible: true, channel: "whatsapp", value: onRecordPhone };
-  }
-
+  if (onRecordPhone) candidates.push({ channel: "whatsapp", value: onRecordPhone });
   const onRecordEmail = input.email?.trim() || null;
-  if (onRecordEmail) {
-    return { eligible: true, channel: "email", value: onRecordEmail };
-  }
+  if (onRecordEmail) candidates.push({ channel: "email", value: onRecordEmail });
+  return candidates;
+}
 
-  return { eligible: false };
+export function getSelfServiceEligibility(
+  input: SelfServiceEligibilityInput
+): SelfServiceEligibility {
+  const [first] = getSelfServiceCandidates(input);
+  return first ? { eligible: true, ...first } : { eligible: false };
 }

@@ -33,7 +33,11 @@ export async function generateMetadata({
 
   const title = `Lawyers in ${city.name}, ${state.name}`;
   const description = `Find verified lawyers in ${city.name}, ${state.name}. Browse by practice area and experience level. Read reviews and connect with local legal professionals.`;
-  const { total } = await getLawyersByLocation(state.name, city.name, 20, 1);
+  // Count only (limit 1). If the count fails, stay indexable rather than
+  // failing the page, matching the sitemap's fallback.
+  const total = await getLawyersByLocation(state.name, city.name, 1, 1)
+    .then((result) => result.total)
+    .catch(() => Number.POSITIVE_INFINITY);
   const robots = isHubPageIndexable(total)
     ? undefined
     : { index: false, follow: true };

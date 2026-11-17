@@ -82,7 +82,7 @@ export async function PATCH(
     // Check if user owns this lawyer profile
     const lawyer = await db.query.lawyers.findFirst({
       where: eq(lawyers.id, lawyerId),
-      columns: { id: true, userId: true },
+      columns: { id: true, userId: true, isClaimed: true },
     });
 
     if (!lawyer) {
@@ -92,7 +92,8 @@ export async function PATCH(
       );
     }
 
-    if (lawyer.userId !== session.user.id) {
+    // An un-claimed profile has no owner, even if a stale userId remains.
+    if (!lawyer.isClaimed || lawyer.userId !== session.user.id) {
       return NextResponse.json(
         { error: "You can only edit your own profile" },
         { status: 403 }

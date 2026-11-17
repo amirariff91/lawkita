@@ -36,7 +36,11 @@ export async function generateMetadata({
 
   const title = `Lawyers in ${state.name}, Malaysia`;
   const description = `Find verified lawyers in ${state.name}. Browse by city, practice area, and experience level. Read reviews and connect with legal professionals.`;
-  const { total } = await getLawyersByLocation(state.name, undefined, 20, 1);
+  // Count only (limit 1). If the count fails, stay indexable rather than
+  // failing the page, matching the sitemap's fallback.
+  const total = await getLawyersByLocation(state.name, undefined, 1, 1)
+    .then((result) => result.total)
+    .catch(() => Number.POSITIVE_INFINITY);
   const robots = isHubPageIndexable(total)
     ? undefined
     : { index: false, follow: true };
