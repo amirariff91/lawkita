@@ -10,11 +10,14 @@ import { lawyerSearchParamsCache } from "@/lib/search/search-params";
 import type { ExperienceLevel, SortOption } from "@/types/lawyer";
 
 export const metadata: Metadata = {
-  title: "Find a Lawyer | LawKita",
+  title: "Find a Lawyer",
   description:
     "Search and connect with verified lawyers across Malaysia. Filter by practice area, location, and experience level.",
+  alternates: {
+    canonical: "/lawyers",
+  },
   openGraph: {
-    title: "Find a Lawyer | LawKita",
+    title: "Find a Lawyer",
     description:
       "Search and connect with verified lawyers across Malaysia. Filter by practice area, location, and experience level.",
   },

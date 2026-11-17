@@ -23,11 +23,14 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Legal Industry Insights | LawKita",
+  title: "Legal Industry Insights",
   description:
     "Explore statistics and trends about lawyers in Malaysia. Geographic distribution, experience levels, practice areas, and admission trends.",
+  alternates: {
+    canonical: "/insights",
+  },
   openGraph: {
-    title: "Legal Industry Insights | LawKita",
+    title: "Legal Industry Insights",
     description:
       "Explore statistics and trends about lawyers in Malaysia. Geographic distribution, experience levels, practice areas, and admission trends.",
   },

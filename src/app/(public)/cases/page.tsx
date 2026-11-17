@@ -8,11 +8,14 @@ import { createSearchParamsCache, parseAsString, parseAsInteger } from "nuqs/ser
 import type { CaseCategory, CaseStatus } from "@/types/case";
 
 export const metadata: Metadata = {
-  title: "Famous Cases Explorer | LawKita",
+  title: "Famous Cases Explorer",
   description:
     "Explore high-profile Malaysian legal cases. Discover case timelines, involved lawyers, and verdicts in corruption, political, corporate, and criminal cases.",
+  alternates: {
+    canonical: "/cases",
+  },
   openGraph: {
-    title: "Famous Cases Explorer | LawKita",
+    title: "Famous Cases Explorer",
     description:
       "Explore high-profile Malaysian legal cases. Discover case timelines, involved lawyers, and verdicts.",
   },

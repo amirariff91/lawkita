@@ -27,11 +27,11 @@ export async function generateMetadata({
 
   if (!state || !city) {
     return {
-      title: "Location Not Found | LawKita",
+      title: "Location Not Found",
     };
   }
 
-  const title = `Lawyers in ${city.name}, ${state.name} | LawKita`;
+  const title = `Lawyers in ${city.name}, ${state.name}`;
   const description = `Find verified lawyers in ${city.name}, ${state.name}. Browse by practice area and experience level. Read reviews and connect with local legal professionals.`;
 
   return {

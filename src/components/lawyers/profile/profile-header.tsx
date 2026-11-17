@@ -130,11 +130,19 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
               )}
             </div>
           )}
-
           {lawyer.firmName && (
             <div className="flex items-center gap-2 text-muted-foreground mt-2">
               <Building2 className="size-4 shrink-0" aria-hidden="true" />
-              <span>{lawyer.firmName}</span>
+              {lawyer.firmSlug ? (
+                <Link
+                  href={`/firms/${lawyer.firmSlug}`}
+                  className="hover:text-foreground hover:underline transition-colors"
+                >
+                  {lawyer.firmName}
+                </Link>
+              ) : (
+                <span>{lawyer.firmName}</span>
+              )}
             </div>
           )}
 

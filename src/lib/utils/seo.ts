@@ -72,7 +72,7 @@ export function getLawyerMetaTitle(
   const parts = [name];
   if (firmName) parts.push(firmName);
   if (city) parts.push(city);
-  return `${parts.join(" - ")} | LawKita`;
+  return parts.join(" - ");
 }
 
 /**

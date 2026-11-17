@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Search, UserCheck, MessageSquare, Scale, Shield, Users, Heart, Lightbulb } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "About Us | LawKita",
+  title: "About Us",
   description: "Learn about LawKita's mission to make legal services more accessible to Malaysians by connecting them with qualified lawyers.",
+  alternates: {
+    canonical: "/about",
+  },
 };
 
 const steps = [

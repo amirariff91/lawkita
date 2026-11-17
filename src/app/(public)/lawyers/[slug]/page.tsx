@@ -37,7 +37,7 @@ export async function generateMetadata({
 
   if (!lawyer) {
     return {
-      title: "Lawyer Not Found | LawKita",
+      title: "Lawyer Not Found",
     };
   }
 

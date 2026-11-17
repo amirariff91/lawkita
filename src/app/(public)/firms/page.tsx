@@ -9,11 +9,14 @@ import type { SearchParams } from "nuqs/server";
 import { firmSearchParamsCache } from "@/lib/search/firm-search-params";
 
 export const metadata: Metadata = {
-  title: "Law Firms | LawKita",
+  title: "Law Firms",
   description:
     "Browse law firms across Malaysia. Find the right firm for your legal needs.",
+  alternates: {
+    canonical: "/firms",
+  },
   openGraph: {
-    title: "Law Firms | LawKita",
+    title: "Law Firms",
     description:
       "Browse law firms across Malaysia. Find the right firm for your legal needs.",
   },

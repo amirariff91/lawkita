@@ -29,11 +29,11 @@ export async function generateMetadata({
 
   if (!practiceArea) {
     return {
-      title: "Practice Area Not Found | LawKita",
+      title: "Practice Area Not Found",
     };
   }
 
-  const title = `${practiceArea.name} Lawyers in Malaysia | LawKita`;
+  const title = `${practiceArea.name} Lawyers in Malaysia`;
   const description =
     practiceArea.description ||
     `Find experienced ${practiceArea.name.toLowerCase()} lawyers across Malaysia. Compare reviews, experience, and credentials.`;

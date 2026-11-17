@@ -312,7 +312,7 @@ const EJUDGMENT_BASE_URL = "https://efiling.kehakiman.gov.my";
 const EJUDGMENT_SEARCH_URL = `${EJUDGMENT_BASE_URL}/ejudgment/search`;
 
 // User agent for requests
-const USER_AGENT = "LawKita Legal Directory Bot/1.0 (+https://lawkita.my/bot)";
+const USER_AGENT = "LawKita Legal Directory Bot/1.0 (+https://lawkita.com/bot)";
 
 /**
  * Main scraper function to fetch and parse e-Judgment data

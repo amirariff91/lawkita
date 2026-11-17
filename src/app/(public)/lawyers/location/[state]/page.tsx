@@ -30,11 +30,11 @@ export async function generateMetadata({
 
   if (!state) {
     return {
-      title: "State Not Found | LawKita",
+      title: "State Not Found",
     };
   }
 
-  const title = `Lawyers in ${state.name}, Malaysia | LawKita`;
+  const title = `Lawyers in ${state.name}, Malaysia`;
   const description = `Find verified lawyers in ${state.name}. Browse by city, practice area, and experience level. Read reviews and connect with legal professionals.`;
 
   return {

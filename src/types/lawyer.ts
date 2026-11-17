@@ -9,6 +9,7 @@ export type Review = typeof reviews.$inferSelect;
 
 // Extended lawyer type with relations
 export interface LawyerWithRelations extends Lawyer {
+  firmSlug: string | null;
   practiceAreas: {
     practiceArea: PracticeArea;
     experienceLevel: "beginner" | "intermediate" | "expert" | null;

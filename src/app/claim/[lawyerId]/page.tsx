@@ -42,12 +42,12 @@ export async function generateMetadata({
 
   if (!lawyer) {
     return {
-      title: "Lawyer Not Found | LawKita",
+      title: "Lawyer Not Found",
     };
   }
 
   return {
-    title: `Claim Profile - ${lawyer.name} | LawKita`,
+    title: `Claim Profile - ${lawyer.name}`,
     description: `Claim and verify your profile as ${lawyer.name} on LawKita, Malaysia's lawyer directory.`,
   };
 }

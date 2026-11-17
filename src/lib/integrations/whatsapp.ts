@@ -168,7 +168,7 @@ If you did not request this verification, please reply CANCEL or ignore this mes
 
 ---
 LawKita - Malaysia's Trusted Lawyer Directory
-lawkita.my`;
+lawkita.com`;
 
   return sendWhatsAppMessage(phoneNumber, message);
 }
@@ -186,7 +186,7 @@ You can now:
 • Respond to client enquiries
 • View your analytics
 
-Log in at: lawkita.my/dashboard
+Log in at: lawkita.com/dashboard
 
 ---
 LawKita - Malaysia's Trusted Lawyer Directory`;
@@ -207,7 +207,7 @@ Reason: ${reason}
 
 To resolve this:
 1. Submit a new claim with correct documentation
-2. Contact support@lawkita.my
+2. Contact support@lawkita.com
 
 ---
 LawKita - Malaysia's Trusted Lawyer Directory`;
@@ -242,7 +242,7 @@ You have a new enquiry on LawKita:
 • Case Type: ${data.caseType}
 • Urgency: ${data.urgency}
 
-View details: lawkita.my/dashboard/enquiries
+View details: lawkita.com/dashboard/enquiries
 
 ---
 LawKita`;

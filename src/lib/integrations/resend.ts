@@ -28,9 +28,11 @@ interface ResendError {
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com";
+
 async function sendEmail(options: SendEmailOptions): Promise<{ success: boolean; id?: string; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@lawkita.my";
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@lawkita.com";
 
   if (!apiKey) {
     console.warn("RESEND_API_KEY not configured, skipping email");
@@ -105,7 +107,7 @@ function wrapTemplate(content: string): string {
         ${content}
         <div class="footer">
           <p>LawKita - Malaysia's Trusted Lawyer Directory</p>
-          <p><a href="https://lawkita.my">lawkita.my</a></p>
+          <p><a href="${APP_URL}">lawkita.com</a></p>
         </div>
       </div>
     </body>
@@ -235,7 +237,7 @@ export async function sendEnquiryNotification(
         ${data.description.replace(/\n/g, "<br>")}
       </div>
 
-      <a href="https://lawkita.my/dashboard/enquiries" class="button">View in Dashboard</a>
+      <a href="${APP_URL}/dashboard/enquiries" class="button">View in Dashboard</a>
 
       <p style="color: #64748b; font-size: 14px;">
         Responding quickly improves your profile visibility. Aim to respond within 24 hours.
@@ -290,7 +292,7 @@ export async function sendClaimSubmittedNotification(
       </ol>
 
       <p style="color: #64748b; font-size: 14px;">
-        If you did not submit this claim, please contact us immediately at support@lawkita.my
+        If you did not submit this claim, please contact us immediately at support@lawkita.com
       </p>
     </div>
   `);
@@ -326,7 +328,7 @@ export async function sendClaimStatusNotification(
         <p>🎉 Great news! Your claim for the profile of <strong>${data.lawyerName}</strong> has been verified.</p>
         <p>You now have full access to manage your profile on LawKita.</p>
 
-        <a href="https://lawkita.my/dashboard" class="button">Go to Dashboard</a>
+        <a href="${APP_URL}/dashboard" class="button">Go to Dashboard</a>
 
         <p><strong>What you can do now:</strong></p>
         <ul>
@@ -347,7 +349,7 @@ export async function sendClaimStatusNotification(
         <p>If you believe this is an error, you can:</p>
         <ul>
           <li>Submit a new claim with additional documentation</li>
-          <li>Contact us at support@lawkita.my for assistance</li>
+          <li>Contact us at support@lawkita.com for assistance</li>
         </ul>
       `}
     </div>
@@ -420,7 +422,7 @@ export async function sendReviewPublishedNotification(
       <p>Hi ${data.reviewerName || "there"},</p>
       <p>Your review for <strong>${data.lawyerName}</strong> has been verified and published!</p>
 
-      <a href="https://lawkita.my/lawyers/${data.lawyerSlug}" class="button">View Review</a>
+      <a href="${APP_URL}/lawyers/${data.lawyerSlug}" class="button">View Review</a>
 
       <p style="color: #64748b; font-size: 14px;">
         Thank you for contributing to Malaysia's most trusted lawyer directory.
@@ -449,7 +451,7 @@ interface ContactFormData {
 export async function sendContactFormNotification(
   data: ContactFormData
 ): Promise<{ success: boolean; id?: string; error?: string }> {
-  const adminEmail = process.env.ADMIN_EMAIL || "support@lawkita.my";
+  const adminEmail = process.env.ADMIN_EMAIL || "support@lawkita.com";
 
   const html = wrapTemplate(`
     <div class="header">
@@ -526,7 +528,7 @@ interface AdminNotificationData {
 export async function sendAdminNotification(
   data: AdminNotificationData
 ): Promise<{ success: boolean; id?: string; error?: string }> {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@lawkita.my";
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@lawkita.com";
 
   const typeLabels = {
     claim: "New Claim to Review",
@@ -545,7 +547,7 @@ export async function sendAdminNotification(
         <p>${data.summary}</p>
       </div>
 
-      <a href="https://lawkita.my/admin/${data.type}s/${data.entityId}" class="button">Review Now</a>
+      <a href="${APP_URL}/admin/${data.type}s/${data.entityId}" class="button">Review Now</a>
     </div>
   `);
 

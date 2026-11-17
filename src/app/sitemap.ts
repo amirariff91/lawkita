@@ -1,6 +1,6 @@
 import { MetadataRoute } from "next";
 import { db } from "@/lib/db";
-import { lawyers, cases, practiceAreas, states, cities } from "@/lib/db/schema";
+import { lawyers, cases, practiceAreas, states, cities, firms } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 // Generate sitemap at runtime, not build time (requires DB connection)
@@ -33,6 +33,48 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: `${BASE_URL}/lawyers/practice-area`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
+    {
+      url: `${BASE_URL}/firms`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
+      url: `${BASE_URL}/about`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+    {
+      url: `${BASE_URL}/contact`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+    {
+      url: `${BASE_URL}/pricing`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${BASE_URL}/privacy`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.3,
+    },
+    {
+      url: `${BASE_URL}/terms`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.3,
+    },
+    {
+      url: `${BASE_URL}/insights`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.7,
@@ -79,6 +121,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
+
+  // Law firm profiles
+  const allFirms = await db
+    .select({
+      slug: firms.slug,
+      updatedAt: firms.updatedAt,
+    })
+    .from(firms)
+    .orderBy(desc(firms.updatedAt));
+
+  for (const firm of allFirms) {
+    entries.push({
+      url: `${BASE_URL}/firms/${firm.slug}`,
+      lastModified: firm.updatedAt,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    });
+  }
   // Practice areas
   const allPracticeAreas = await db
     .select({

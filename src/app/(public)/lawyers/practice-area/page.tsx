@@ -13,9 +13,12 @@ import { getLawyerCountsByPracticeArea } from "@/lib/db/queries/lawyers";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Practice Areas | LawKita",
+  title: "Practice Areas",
   description:
     "Browse lawyers by practice area. Find specialists in criminal law, family law, corporate law, property, intellectual property, and more across Malaysia.",
+  alternates: {
+    canonical: "/lawyers/practice-area",
+  },
 };
 
 // Map icon names to simple display (we'll use lucide icons in a real implementation)

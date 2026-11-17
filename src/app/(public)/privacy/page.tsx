@@ -2,8 +2,11 @@ import { Metadata } from "next";
 import { PageHeader } from "@/components/static";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | LawKita",
+  title: "Privacy Policy",
   description: "Learn how LawKita collects, uses, and protects your personal data in compliance with Malaysia's Personal Data Protection Act 2010 (PDPA).",
+  alternates: {
+    canonical: "/privacy",
+  },
 };
 
 export default function PrivacyPage() {
@@ -25,7 +28,7 @@ export default function PrivacyPage() {
             LawKita (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is committed to protecting your personal data in
             accordance with the Personal Data Protection Act 2010 (PDPA) of Malaysia. This Privacy
             Policy explains how we collect, use, disclose, and safeguard your information when you
-            visit our website lawkita.my and use our services.
+            visit our website lawkita.com and use our services.
           </p>
 
           <h2>2. Information We Collect</h2>
@@ -95,7 +98,7 @@ export default function PrivacyPage() {
             <li><strong>Deletion:</strong> Request deletion of your data (subject to legal retention requirements)</li>
           </ul>
           <p>
-            To exercise these rights, please contact us at privacy@lawkita.my.
+            To exercise these rights, please contact us at privacy@lawkita.com.
           </p>
 
           <h2>7. Data Retention</h2>
@@ -138,7 +141,7 @@ export default function PrivacyPage() {
             If you have questions about this Privacy Policy or our data practices, please contact us:
           </p>
           <ul>
-            <li>Email: privacy@lawkita.my</li>
+            <li>Email: privacy@lawkita.com</li>
             <li>Address: Kuala Lumpur, Malaysia</li>
           </ul>
 

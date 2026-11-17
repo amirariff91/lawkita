@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { AuthCard, ForgotPasswordForm } from "@/components/auth";
 
 export const metadata: Metadata = {
-  title: "Forgot Password | LawKita",
+  title: "Forgot Password",
   description: "Reset your LawKita account password.",
 };
 
