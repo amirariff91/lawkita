@@ -384,7 +384,7 @@ export async function POST(
     // change needed (a partial unique index would be the long-term fix).
     const claim = await db.transaction(async (tx) => {
       await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtext(${lawyerId}), hashtext(${session.user.id}))`
+        sql`SELECT pg_advisory_xact_lock(hashtext(${lawyer.id}), hashtext(${session.user.id}))`
       );
       const concurrent = await tx.query.claims.findFirst({
         where: and(

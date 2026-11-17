@@ -29,10 +29,14 @@ export async function generateMetadata({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<Metadata> {
   const params = await searchParams;
-  // Filtered or searched views canonicalise to the bare list.
-  const filtered = Object.entries(params).some(
-    ([key, value]) => key !== "page" && value !== undefined && value !== ""
-  );
+  // Filtered or searched views canonicalise to the bare list. Only real
+  // filters count: sort order, tracking params and defaults do not.
+  const filterKeys = ["query", "category", "status", "tag"];
+  const filtered = filterKeys.some((key) => {
+    const value = params[key];
+    const first = Array.isArray(value) ? value[0] : value;
+    return first !== undefined && first !== "" && first !== "false";
+  });
   if (filtered) {
     return { ...baseMetadata, alternates: { ...baseMetadata.alternates, canonical: "/cases" } };
   }

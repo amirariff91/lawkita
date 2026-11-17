@@ -153,7 +153,11 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
       if (doesResponseSayCodeSent(data)) {
         setVerificationCode("");
         setVerificationError("");
-        setVerificationInfo("");
+        setVerificationInfo(
+          (data as { resumed?: boolean }).resumed
+            ? "We already sent you a code that is still valid. Enter it below, or request a new one after it expires (30 minutes)."
+            : ""
+        );
         setStatus("awaiting_code");
       } else {
         setStatus("success");
