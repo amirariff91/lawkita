@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getLawyerBySlug, getSimilarLawyers } from "@/lib/db/queries/lawyers";
+import { calculateProfileCompleteness } from "@/lib/utils/profile";
 import { getLawyerFirmHistory } from "@/lib/db/queries/firms";
 import {
   ProfileHeader,
@@ -12,7 +13,7 @@ import {
   CasesSection,
   LawyerJsonLd,
   ClaimProfileCard,
-  CompletenessIndicator,
+  OwnerCompleteness,
   SimilarLawyers,
   FirmHistory,
 } from "@/components/lawyers/profile";
@@ -150,11 +151,12 @@ export default async function LawyerProfilePage({
           {/* Similar Lawyers */}
           <SimilarLawyers lawyers={similarLawyers} currentLawyerName={lawyer.name} />
 
-          {/* Profile Completeness (for unclaimed profiles) */}
-          {!lawyer.isClaimed && (
-            <div className="rounded-lg border bg-card p-6">
-              <CompletenessIndicator lawyer={lawyer} showDetails />
-            </div>
+          {/* Profile Completeness (owner only) */}
+          {lawyer.userId && (
+            <OwnerCompleteness
+              ownerUserId={lawyer.userId}
+              completeness={calculateProfileCompleteness(lawyer)}
+            />
           )}
 
           {/* Claim Profile CTA (for unclaimed profiles) */}

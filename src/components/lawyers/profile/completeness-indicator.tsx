@@ -9,22 +9,23 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  calculateProfileCompleteness,
   getCompletenessLabel,
 } from "@/lib/utils";
 import { CheckCircle2, Circle, Info } from "lucide-react";
-import type { LawyerWithRelations } from "@/types/lawyer";
+import type { ProfileCompletenessResult } from "@/lib/utils/profile";
 
 interface CompletenessIndicatorProps {
-  lawyer: LawyerWithRelations;
+  // Precomputed on the server so the full lawyer row is never serialised
+  // into the client payload.
+  completeness: ProfileCompletenessResult;
   showDetails?: boolean;
 }
 
 export function CompletenessIndicator({
-  lawyer,
+  completeness,
   showDetails = false,
 }: CompletenessIndicatorProps) {
-  const { score, missingFields, breakdown } = calculateProfileCompleteness(lawyer);
+  const { score, missingFields, breakdown } = completeness;
   const { label, variant } = getCompletenessLabel(score);
 
   return (
