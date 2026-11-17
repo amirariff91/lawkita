@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { claims, lawyers, user } from "@/lib/db/schema";
-import { eq, and, desc, lt } from "drizzle-orm";
+import { eq, and, desc, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import {
@@ -250,6 +250,7 @@ export async function POST(
             existingClaim.verificationMethod ?? data.verificationMethod,
           verificationResult: null,
           verificationSent: true,
+          resumed: true,
           nextSteps:
             "A verification code has already been sent to the contact on record. Enter it to complete verification.",
         });
@@ -316,8 +317,12 @@ export async function POST(
         console.error("Error resending claim verification code:", error);
       }
 
+      let reissueStored = false;
       if (reissueSent) {
-        await db
+        // Store only if nothing touched the claim since we took the
+        // cooldown (same updatedAt stamp): an admin action or status change
+        // in between wins, and the response then reports no code.
+        const stored = await db
           .update(claims)
           .set({
             emailVerificationToken: formatSelfServiceToken(reissuedCode, 0),
@@ -329,9 +334,12 @@ export async function POST(
           .where(
             and(
               eq(claims.id, existingClaim.id),
-              eq(claims.status, "pending")
+              eq(claims.status, "pending"),
+              eq(claims.updatedAt, now)
             )
-          );
+          )
+          .returning({ id: claims.id });
+        reissueStored = stored.length > 0;
       }
 
       return NextResponse.json({
@@ -341,8 +349,8 @@ export async function POST(
         verificationMethod:
           existingClaim.verificationMethod ?? data.verificationMethod,
         verificationResult: null,
-        verificationSent: reissueSent,
-        nextSteps: reissueSent
+        verificationSent: reissueStored,
+        nextSteps: reissueStored
           ? "A verification code has been sent to the contact on record. Enter it to complete verification."
           : "Your claim requires admin review. Our team will verify your information and contact you if needed.",
       });
@@ -370,7 +378,25 @@ export async function POST(
     expiresAt.setDate(expiresAt.getDate() + 30);
 
     // Create claim
-    const [claim] = await db
+    // Serialise claim creation per (lawyer, user) with a transaction-scoped
+    // advisory lock, then re-check, so parallel first submissions cannot
+    // create duplicate pending claims or send duplicate codes. No schema
+    // change needed (a partial unique index would be the long-term fix).
+    const claim = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${lawyerId}), hashtext(${session.user.id}))`
+      );
+      const concurrent = await tx.query.claims.findFirst({
+        where: and(
+          eq(claims.lawyerId, lawyerId),
+          eq(claims.userId, session.user.id),
+          eq(claims.status, "pending")
+        ),
+        columns: { id: true },
+      });
+      if (concurrent) return null;
+
+      const [inserted] = await tx
       .insert(claims)
       .values({
         lawyerId,
@@ -385,6 +411,15 @@ export async function POST(
         expiresAt,
       })
       .returning();
+      return inserted;
+    });
+
+    if (!claim) {
+      return NextResponse.json(
+        { error: "A claim for this profile is already being processed. Please wait a moment and try again." },
+        { status: 429 }
+      );
+    }
 
     // Get user info for notifications
     const claimUser = await db.query.user.findFirst({

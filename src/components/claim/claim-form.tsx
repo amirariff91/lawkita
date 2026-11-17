@@ -202,7 +202,11 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
       const data = await submitClaimRequest(null);
       if (doesResponseSayCodeSent(data)) {
         setVerificationCode("");
-        setVerificationInfo("A new code has been sent to the contact on record.");
+        setVerificationInfo(
+          (data as { resumed?: boolean }).resumed
+            ? "Your earlier code is still valid. Check the message we sent to the contact on record; you can request a new code after it expires (30 minutes)."
+            : "A new code has been sent to the contact on record."
+        );
       } else {
         setVerificationError("Failed to send a new code. Please try again.");
       }

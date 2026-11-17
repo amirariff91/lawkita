@@ -22,13 +22,21 @@ const baseMetadata: Metadata = {
 };
 
 // Paginated pages are distinct result sets, so each page > 1 is its own
-// canonical. Filter/search variations still canonicalise to the bare list.
+// canonical. Filtered/searched views canonicalise to the bare list.
 export async function generateMetadata({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<Metadata> {
-  const raw = (await searchParams).page;
+  const params = await searchParams;
+  // Filtered or searched views canonicalise to the bare list.
+  const filtered = Object.entries(params).some(
+    ([key, value]) => key !== "page" && value !== undefined && value !== ""
+  );
+  if (filtered) {
+    return { ...baseMetadata, alternates: { ...baseMetadata.alternates, canonical: "/cases" } };
+  }
+  const raw = params.page;
   const page = Number.parseInt(Array.isArray(raw) ? raw[0] ?? "" : raw ?? "", 10);
   const canonical = Number.isSafeInteger(page) && page > 1 ? `/cases?page=${page}` : "/cases";
   return { ...baseMetadata, alternates: { ...baseMetadata.alternates, canonical } };
