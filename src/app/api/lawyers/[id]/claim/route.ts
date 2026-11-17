@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { claims, lawyers, user } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import {
@@ -13,8 +13,23 @@ import {
   verifyBarCertificate,
   sendAdminNotification,
 } from "@/lib/integrations";
-
-const SELF_SERVICE_VERIFICATION_TOKEN_PREFIX = "self-service:";
+import {
+  SELF_SERVICE_CODE_TTL_MS,
+  SELF_SERVICE_MAX_ATTEMPTS,
+  SELF_SERVICE_REISSUE_COOLDOWN_MS,
+  attemptsAfterFailure,
+  formatSelfServiceToken,
+  isAttemptLimitReached,
+  isReissueRateLimited,
+  isSelfServiceTokenExpired,
+  isVerificationCodeMatch,
+  parseSelfServiceToken,
+} from "@/lib/claims/verification-token";
+import {
+  destinationTag,
+  normalizeBarMembershipNumber,
+} from "@/lib/claims/self-service-eligibility";
+import { resolveSelfServiceContact } from "@/lib/claims/self-service-contact";
 
 class AlreadyClaimedError extends Error {
   constructor() {
@@ -28,10 +43,6 @@ class ClaimStateChangedError extends Error {
     super("claim state changed");
     this.name = "ClaimStateChangedError";
   }
-}
-
-function normalizeBarMembershipNumber(value: string | null | undefined): string | null {
-  return value?.trim().toLowerCase() || null;
 }
 
 const claimSchema = z.object({
@@ -165,7 +176,8 @@ export async function POST(
     );
 
     // A stored Bar number must match exactly after trimming and case folding.
-    // Profiles without a stored number remain admin-review only.
+    // Profiles without a stored number may self-serve via an on-record
+    // contact (see getSelfServiceEligibility); a mismatch is still an error.
     if (
       storedBarMembershipNumber &&
       storedBarMembershipNumber !==
@@ -177,33 +189,179 @@ export async function POST(
       );
     }
 
-    const barNumberMatches =
-      Boolean(storedBarMembershipNumber) &&
-      storedBarMembershipNumber ===
-        normalizeBarMembershipNumber(submittedBarMembershipNumber);
-    const onRecordPhone = lawyer.phone?.trim() || null;
-    const onRecordEmail = lawyer.email?.trim() || null;
-    const selfServiceContact = barNumberMatches
-      ? onRecordPhone
-        ? { channel: "whatsapp" as const, value: onRecordPhone }
-        : onRecordEmail
-          ? { channel: "email" as const, value: onRecordEmail }
-          : null
-      : null;
+    // One gate decides whether a code may be sent, and where to.
+    const selfServiceContact = await resolveSelfServiceContact(
+      lawyer,
+      submittedBarMembershipNumber
+    );
 
     // Check if user already has a pending claim for this lawyer
+    // Only a pending claim blocks a new one; take the newest if several exist.
     const existingClaim = await db.query.claims.findFirst({
       where: and(
         eq(claims.lawyerId, lawyerId),
-        eq(claims.userId, session.user.id)
+        eq(claims.userId, session.user.id),
+        eq(claims.status, "pending")
       ),
+      orderBy: [desc(claims.createdAt)],
     });
 
-    if (existingClaim && existingClaim.status === "pending") {
-      return NextResponse.json(
-        { error: "You already have a pending claim for this profile" },
-        { status: 400 }
+    if (existingClaim) {
+      const now = new Date();
+      const parsedExisting = parseSelfServiceToken(
+        existingClaim.emailVerificationToken
       );
+      const tokenExpired = isSelfServiceTokenExpired(
+        existingClaim.emailVerificationExpires,
+        now
+      );
+      // Re-issue only when no code is outstanding (none ever issued, or the
+      // last one was exhausted) or the last self-service code expired. A
+      // token from another path (e.g. admin-sent WhatsApp code) is left alone.
+      const currentDestination = selfServiceContact
+        ? destinationTag(selfServiceContact)
+        : null;
+      // A code is bound to the contact it was sent to. If that is no longer
+      // the contact the gate resolves, the old code is dead: issue a new one.
+      const destinationStillValid =
+        parsedExisting !== null &&
+        parsedExisting.destination === currentDestination;
+      const reissueEligible =
+        !existingClaim.emailVerificationToken ||
+        (parsedExisting !== null && (tokenExpired || !destinationStillValid));
+      // PATCH validates this claim's Bar number against the record, so a
+      // code is only useful if that number is itself self-service eligible.
+      const claimBarNumberMatches =
+        (await resolveSelfServiceContact(
+          lawyer,
+          existingClaim.barMembershipNumber
+        )) !== null;
+
+      // A valid code is still outstanding (e.g. the user refreshed the
+      // page): let the form resume code entry without sending another.
+      if (
+        parsedExisting !== null &&
+        destinationStillValid &&
+        !tokenExpired &&
+        selfServiceContact &&
+        claimBarNumberMatches
+      ) {
+        return NextResponse.json({
+          success: true,
+          claimId: existingClaim.id,
+          message: "Claim submitted successfully",
+          verificationMethod:
+            existingClaim.verificationMethod ?? data.verificationMethod,
+          verificationResult: null,
+          verificationSent: true,
+          resumed: true,
+          nextSteps:
+            "A verification code has already been sent to the contact on record. Enter it to complete verification.",
+        });
+      }
+
+      if (!reissueEligible || !selfServiceContact || !claimBarNumberMatches) {
+        return NextResponse.json(
+          { error: "You already have a pending claim for this profile" },
+          { status: 400 }
+        );
+      }
+
+      if (isReissueRateLimited(existingClaim.updatedAt, now)) {
+        return NextResponse.json(
+          { error: "Please wait a moment before requesting a new code" },
+          { status: 429 }
+        );
+      }
+
+      // Take the cooldown atomically before sending, so parallel POSTs
+      // cannot all pass the check above and each send a message.
+      const cooldownTaken = await db
+        .update(claims)
+        .set({ updatedAt: now })
+        .where(
+          and(
+            eq(claims.id, existingClaim.id),
+            eq(claims.status, "pending"),
+            lt(
+              claims.updatedAt,
+              new Date(now.getTime() - SELF_SERVICE_REISSUE_COOLDOWN_MS)
+            )
+          )
+        )
+        .returning({ id: claims.id });
+
+      if (cooldownTaken.length === 0) {
+        return NextResponse.json(
+          { error: "Please wait a moment before requesting a new code" },
+          { status: 429 }
+        );
+      }
+
+      const reissuedCode = generateVerificationCode();
+      let reissueSent = false;
+
+      try {
+        const result =
+          selfServiceContact.channel === "whatsapp"
+            ? await sendClaimVerificationWhatsApp(selfServiceContact.value, {
+                lawyerName: lawyer.name,
+                verificationCode: reissuedCode,
+                expiresIn: "30 minutes",
+                entry: "site",
+                claimId: existingClaim.id,
+              })
+            : await sendClaimVerificationEmail(selfServiceContact.value, {
+                lawyerName: lawyer.name,
+                verificationCode: reissuedCode,
+                claimId: existingClaim.id,
+              });
+        reissueSent = result.success;
+      } catch (error) {
+        console.error("Error resending claim verification code:", error);
+      }
+
+      let reissueStored = false;
+      if (reissueSent) {
+        // Store only if nothing touched the claim since we took the
+        // cooldown (same updatedAt stamp): an admin action or status change
+        // in between wins, and the response then reports no code.
+        const stored = await db
+          .update(claims)
+          .set({
+            emailVerificationToken: formatSelfServiceToken(
+              reissuedCode,
+              0,
+              destinationTag(selfServiceContact)
+            ),
+            emailVerificationExpires: new Date(
+              now.getTime() + SELF_SERVICE_CODE_TTL_MS
+            ),
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(claims.id, existingClaim.id),
+              eq(claims.status, "pending"),
+              eq(claims.updatedAt, now)
+            )
+          )
+          .returning({ id: claims.id });
+        reissueStored = stored.length > 0;
+      }
+
+      return NextResponse.json({
+        success: true,
+        claimId: existingClaim.id,
+        message: "Claim submitted successfully",
+        verificationMethod:
+          existingClaim.verificationMethod ?? data.verificationMethod,
+        verificationResult: null,
+        verificationSent: reissueStored,
+        nextSteps: reissueStored
+          ? "A verification code has been sent to the contact on record. Enter it to complete verification."
+          : "Your claim requires admin review. Our team will verify your information and contact you if needed.",
+      });
     }
 
     // If document verification, verify the document first
@@ -228,7 +386,25 @@ export async function POST(
     expiresAt.setDate(expiresAt.getDate() + 30);
 
     // Create claim
-    const [claim] = await db
+    // Serialise claim creation per (lawyer, user) with a transaction-scoped
+    // advisory lock, then re-check, so parallel first submissions cannot
+    // create duplicate pending claims or send duplicate codes. No schema
+    // change needed (a partial unique index would be the long-term fix).
+    const claim = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${lawyer.id}), hashtext(${session.user.id}))`
+      );
+      const concurrent = await tx.query.claims.findFirst({
+        where: and(
+          eq(claims.lawyerId, lawyerId),
+          eq(claims.userId, session.user.id),
+          eq(claims.status, "pending")
+        ),
+        columns: { id: true },
+      });
+      if (concurrent) return null;
+
+      const [inserted] = await tx
       .insert(claims)
       .values({
         lawyerId,
@@ -243,6 +419,15 @@ export async function POST(
         expiresAt,
       })
       .returning();
+      return inserted;
+    });
+
+    if (!claim) {
+      return NextResponse.json(
+        { error: "A claim for this profile is already being processed. Please wait a moment and try again." },
+        { status: 429 }
+      );
+    }
 
     // Get user info for notifications
     const claimUser = await db.query.user.findFirst({
@@ -270,6 +455,8 @@ export async function POST(
             ? await sendClaimVerificationWhatsApp(selfServiceContact.value, {
                 lawyerName: lawyer.name,
                 verificationCode,
+                expiresIn: "30 minutes",
+                entry: "site",
                 claimId: claim.id,
               })
             : await sendClaimVerificationEmail(selfServiceContact.value, {
@@ -287,8 +474,14 @@ export async function POST(
         await db
           .update(claims)
           .set({
-            emailVerificationToken: `${SELF_SERVICE_VERIFICATION_TOKEN_PREFIX}${verificationCode}`,
-            emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            emailVerificationToken: formatSelfServiceToken(
+              verificationCode,
+              0,
+              destinationTag(selfServiceContact)
+            ),
+            emailVerificationExpires: new Date(
+              Date.now() + SELF_SERVICE_CODE_TTL_MS
+            ),
             updatedAt: new Date(),
           })
           .where(eq(claims.id, claim.id));
@@ -314,6 +507,7 @@ export async function POST(
             issues: verificationResult.issues,
           }
         : null,
+      verificationSent,
       nextSteps: verificationSent
         ? "A verification code has been sent to the contact on record. Enter it to complete verification."
         : "Your claim requires admin review. Our team will verify your information and contact you if needed.",
@@ -366,6 +560,7 @@ export async function PATCH(
         eq(claims.userId, session.user.id),
         eq(claims.status, "pending")
       ),
+      orderBy: [desc(claims.createdAt)],
     });
 
     if (!claim) {
@@ -392,44 +587,156 @@ export async function PATCH(
       );
     }
 
-    const storedBarMembershipNumber = normalizeBarMembershipNumber(
-      lawyer.barMembershipNumber
-    );
-    const claimBarMembershipNumber = normalizeBarMembershipNumber(
+    // Self-service needs either a matching stored Bar number or, when none
+    // is stored, an on-record destination for the code.
+    const barNumberVerified =
+      normalizeBarMembershipNumber(lawyer.barMembershipNumber) !== null &&
+      normalizeBarMembershipNumber(lawyer.barMembershipNumber) ===
+        normalizeBarMembershipNumber(claim.barMembershipNumber);
+
+    // Re-run the full gate at grant time, including contact uniqueness, so
+    // a code issued under conditions that no longer hold cannot be redeemed.
+    const selfServiceContact = await resolveSelfServiceContact(
+      { ...lawyer, id: lawyerId },
       claim.barMembershipNumber
     );
-
-    // Self-service is unavailable without both a matching stored Bar number
-    // and an on-record destination for the code.
-    if (
-      !storedBarMembershipNumber ||
-      storedBarMembershipNumber !== claimBarMembershipNumber ||
-      (!lawyer.phone?.trim() && !lawyer.email?.trim())
-    ) {
+    if (!selfServiceContact) {
       return NextResponse.json(
         { error: "This claim requires admin approval" },
         { status: 403 }
       );
     }
 
-    const storedVerificationCode =
-      claim.emailVerificationToken?.startsWith(
-        SELF_SERVICE_VERIFICATION_TOKEN_PREFIX
-      )
-        ? claim.emailVerificationToken.slice(
-            SELF_SERVICE_VERIFICATION_TOKEN_PREFIX.length
-          )
-        : null;
+    const parsedToken = parseSelfServiceToken(
+      claim.emailVerificationToken
+    );
+    const tooManyAttempts = () =>
+      NextResponse.json(
+        { error: "Too many incorrect attempts. Please request a new code." },
+        { status: 429 }
+      );
 
     // Only tokens issued by this self-service path can grant ownership.
-    if (!storedVerificationCode || storedVerificationCode !== verificationCode) {
+    if (!parsedToken) {
       return NextResponse.json(
         { error: "Invalid verification code" },
         { status: 400 }
       );
     }
 
-    if (claim.emailVerificationExpires && new Date() > claim.emailVerificationExpires) {
+    // Reserve one attempt BEFORE comparing, using compare-and-swap on the
+    // token string. Every guess, including parallel ones, must win its own
+    // swap, so a burst of concurrent requests cannot share a single attempt.
+    let currentToken = claim.emailVerificationToken ?? "";
+    let currentExpires = claim.emailVerificationExpires;
+    let current = parsedToken;
+    let reserved = false;
+
+    for (let i = 0; i < SELF_SERVICE_MAX_ATTEMPTS && !reserved; i++) {
+      if (isAttemptLimitReached(current.attempts)) break;
+
+      const nextAttempts = attemptsAfterFailure(current.attempts);
+      const nextToken = formatSelfServiceToken(
+        current.code,
+        nextAttempts,
+        current.destination
+      );
+      const swapped = await db
+        .update(claims)
+        .set({ emailVerificationToken: nextToken, updatedAt: new Date() })
+        .where(
+          and(
+            eq(claims.id, claim.id),
+            eq(claims.status, "pending"),
+            eq(claims.emailVerificationToken, currentToken)
+          )
+        )
+        .returning({ id: claims.id });
+
+      if (swapped.length > 0) {
+        reserved = true;
+        currentToken = nextToken;
+        current = { ...current, attempts: nextAttempts };
+        break;
+      }
+
+      // Lost the race: re-read the latest token and try again.
+      const latest = await db.query.claims.findFirst({
+        where: eq(claims.id, claim.id),
+        columns: {
+          emailVerificationToken: true,
+          emailVerificationExpires: true,
+          status: true,
+        },
+      });
+      const latestParsed =
+        latest?.status === "pending"
+          ? parseSelfServiceToken(latest.emailVerificationToken)
+          : null;
+      if (!latest?.emailVerificationToken || !latestParsed) {
+        return tooManyAttempts();
+      }
+      currentToken = latest.emailVerificationToken;
+      currentExpires = latest.emailVerificationExpires;
+      current = latestParsed;
+    }
+
+    if (!reserved) {
+      if (isAttemptLimitReached(current.attempts)) {
+        await db
+          .update(claims)
+          .set({
+            emailVerificationToken: null,
+            emailVerificationExpires: null,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(claims.id, claim.id),
+              eq(claims.emailVerificationToken, currentToken)
+            )
+          );
+        return tooManyAttempts();
+      }
+      return NextResponse.json(
+        { error: "Please try again in a moment" },
+        { status: 429 }
+      );
+    }
+
+    // The code must have been sent to the contact the gate resolves NOW.
+    // Unbound (older) tokens and tokens for another contact need a new code.
+    if (current.destination !== destinationTag(selfServiceContact)) {
+      return NextResponse.json(
+        { error: "This code is no longer valid. Please request a new code." },
+        { status: 403 }
+      );
+    }
+
+    if (!isVerificationCodeMatch(verificationCode, current.code)) {
+      if (isAttemptLimitReached(current.attempts)) {
+        await db
+          .update(claims)
+          .set({
+            emailVerificationToken: null,
+            emailVerificationExpires: null,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(claims.id, claim.id),
+              eq(claims.emailVerificationToken, currentToken)
+            )
+          );
+        return tooManyAttempts();
+      }
+      return NextResponse.json(
+        { error: "Invalid verification code" },
+        { status: 400 }
+      );
+    }
+
+    if (isSelfServiceTokenExpired(currentExpires)) {
       return NextResponse.json(
         { error: "Verification code has expired" },
         { status: 400 }
@@ -449,13 +756,19 @@ export async function PATCH(
           .update(claims)
           .set({
             status: "verified",
+            // Consume the verified code so it cannot be replayed.
+            emailVerificationToken: null,
+            emailVerificationExpires: null,
             updatedAt: new Date(),
           })
           .where(
             and(
               eq(claims.id, claim.id),
               eq(claims.userId, session.user.id),
-              eq(claims.status, "pending")
+              eq(claims.status, "pending"),
+              // Grant only for the exact code generation verified above; a
+              // re-issue or revocation in between makes this match nothing.
+              eq(claims.emailVerificationToken, currentToken)
             )
           )
           .returning({ id: claims.id });
@@ -468,10 +781,13 @@ export async function PATCH(
           .update(lawyers)
           .set({
             isClaimed: true,
-            isVerified: true,
             userId: session.user.id,
             claimedAt: new Date(),
-            verifiedAt: new Date(),
+            // "Verified" means identity confirmed against Bar records, so it
+            // is granted only when a stored Bar number matched the claim.
+            ...(barNumberVerified
+              ? { isVerified: true, verifiedAt: new Date() }
+              : {}),
             updatedAt: new Date(),
           })
           .where(

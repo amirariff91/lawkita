@@ -5,7 +5,7 @@ import { getLawyersByPracticeArea } from "@/lib/db/queries/lawyers";
 import { getPracticeAreaBySlug } from "@/lib/constants/practice-areas";
 import { LawyerGrid, LawyerGridSkeleton, PaginationLink } from "@/components/lawyers";
 import { Breadcrumbs } from "@/components/seo";
-import { getPracticeAreaPageSchema } from "@/lib/utils/seo";
+import { getPracticeAreaPageSchema, isHubPageIndexable } from "@/lib/utils/seo";
 import { Badge } from "@/components/ui/badge";
 import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsInteger } from "nuqs/server";
@@ -29,18 +29,28 @@ export async function generateMetadata({
 
   if (!practiceArea) {
     return {
-      title: "Practice Area Not Found | LawKita",
+      title: "Practice Area Not Found",
     };
   }
 
-  const title = `${practiceArea.name} Lawyers in Malaysia | LawKita`;
+  const title = `${practiceArea.name} Lawyers in Malaysia`;
   const description =
     practiceArea.description ||
     `Find experienced ${practiceArea.name.toLowerCase()} lawyers across Malaysia. Compare reviews, experience, and credentials.`;
 
+  // Count only (limit 1). If the count fails, stay indexable rather than
+  // failing the page, matching the sitemap's fallback.
+  const total = await getLawyersByPracticeArea(area, 1, 1)
+    .then((result) => result.total)
+    .catch(() => Number.POSITIVE_INFINITY);
+  const robots = isHubPageIndexable(total)
+    ? undefined
+    : { index: false, follow: true };
+
   return {
     title,
     description,
+    robots,
     alternates: {
       canonical: `/lawyers/practice-area/${area}`,
     },

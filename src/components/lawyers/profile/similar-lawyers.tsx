@@ -26,7 +26,7 @@ export function SimilarLawyers({ lawyers, currentLawyerName }: SimilarLawyersPro
         </p>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {lawyers.map((lawyer) => {
             const initials = lawyer.name
               .split(" ")
@@ -67,10 +67,10 @@ export function SimilarLawyers({ lawyers, currentLawyerName }: SimilarLawyersPro
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                      <h4 className="font-medium text-sm truncate min-w-0 group-hover:text-primary transition-colors">
                         {lawyer.name}
                       </h4>
-                      <ArrowRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <ArrowRight className="size-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
                     </div>
 
                     {location && (

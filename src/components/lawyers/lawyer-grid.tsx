@@ -19,7 +19,7 @@ export function LawyerGrid({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {lawyers.map((lawyer) => (
         <LawyerCard key={lawyer.id} lawyer={lawyer} />
       ))}

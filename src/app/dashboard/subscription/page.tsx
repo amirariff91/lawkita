@@ -354,7 +354,7 @@ export default function SubscriptionPage() {
       <div className="text-center text-sm text-muted-foreground">
         <p>
           Questions about billing?{" "}
-          <a href="mailto:support@lawkita.my" className="text-primary hover:underline">
+          <a href="mailto:support@lawkita.com" className="text-primary hover:underline">
             Contact support
           </a>
         </p>

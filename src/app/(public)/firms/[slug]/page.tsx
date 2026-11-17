@@ -33,12 +33,12 @@ export async function generateMetadata({
 
   if (!firm) {
     return {
-      title: "Firm Not Found | LawKita",
+      title: "Firm Not Found",
     };
   }
 
   const location = [firm.city, firm.state].filter(Boolean).join(", ");
-  const title = `${firm.name} | Law Firm in ${location || "Malaysia"} | LawKita`;
+  const title = `${firm.name} | Law Firm in ${location || "Malaysia"}`;
   const description = `${firm.name} is a law firm${location ? ` in ${location}` : ""} with ${firm.lawyerCount} lawyers. ${firm.practiceAreas.length > 0 ? `Practice areas include ${firm.practiceAreas.slice(0, 5).join(", ")}.` : ""}`;
 
   return {

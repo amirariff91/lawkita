@@ -16,8 +16,23 @@ interface ClaimFormProps {
   lawyerBarNumber?: string | null;
 }
 
-type FormStatus = "idle" | "submitting" | "success" | "error" | "needs_login";
+type FormStatus = "idle" | "submitting" | "awaiting_code" | "success" | "error" | "needs_login";
 type VerificationMethod = "bar_lookup" | "email" | "document";
+
+function doesResponseSayCodeSent(data: unknown): boolean {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+  const record = data as Record<string, unknown>;
+  if (record.verificationSent === true) {
+    return true;
+  }
+  return (
+    typeof record.nextSteps === "string" &&
+    record.nextSteps.includes("verification code has been sent")
+  );
+}
+
 
 export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormProps) {
   const router = useRouter();
@@ -34,6 +49,11 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationError, setVerificationError] = useState("");
+  const [verificationInfo, setVerificationInfo] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   // If not logged in, show login prompt
   if (!session?.user) {
@@ -94,6 +114,26 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
     });
   };
 
+  const submitClaimRequest = async (documentUrl: string | null = null) => {
+    const response = await fetch(`/api/lawyers/${lawyerId}/claim`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        barMembershipNumber: formData.barMembershipNumber,
+        firmEmail: formData.firmEmail || undefined,
+        phoneNumber: formData.phoneNumber || undefined,
+        verificationMethod,
+        verificationDocument: documentUrl ?? undefined,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to submit claim");
+    }
+    return data;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus("submitting");
@@ -108,29 +148,174 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
         documentUrl = await uploadDocument();
       }
 
-      const response = await fetch(`/api/lawyers/${lawyerId}/claim`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          barMembershipNumber: formData.barMembershipNumber,
-          firmEmail: formData.firmEmail || undefined,
-          phoneNumber: formData.phoneNumber || undefined,
-          verificationMethod,
-          verificationDocument: documentUrl,
-        }),
-      });
+      const data = await submitClaimRequest(documentUrl);
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to submit claim");
+      if (doesResponseSayCodeSent(data)) {
+        setVerificationCode("");
+        setVerificationError("");
+        setVerificationInfo(
+          (data as { resumed?: boolean }).resumed
+            ? "We already sent you a code that is still valid. Enter it below, or request a new one after it expires (30 minutes)."
+            : ""
+        );
+        setStatus("awaiting_code");
+      } else {
+        setStatus("success");
       }
-
-      setStatus("success");
     } catch (error) {
       setStatus("error");
       setErrorMessage(error instanceof Error ? error.message : "Something went wrong");
     }
   };
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = verificationCode.trim().toUpperCase();
+    if (!code) {
+      setVerificationError("Please enter the verification code");
+      return;
+    }
+    setIsVerifying(true);
+    setVerificationError("");
+    setVerificationInfo("");
+    try {
+      const response = await fetch(`/api/lawyers/${lawyerId}/claim`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verificationCode: code }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to verify claim");
+      }
+      router.push("/dashboard");
+    } catch (error) {
+      setVerificationError(
+        error instanceof Error ? error.message : "Failed to verify claim"
+      );
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setIsResending(true);
+    setVerificationError("");
+    setVerificationInfo("");
+    try {
+      const data = await submitClaimRequest(null);
+      if (doesResponseSayCodeSent(data)) {
+        setVerificationCode("");
+        setVerificationInfo(
+          (data as { resumed?: boolean }).resumed
+            ? "Your earlier code is still valid. Check the message we sent to the contact on record; you can request a new code after it expires (30 minutes)."
+            : "A new code has been sent to the contact on record."
+        );
+      } else {
+        setVerificationError("Failed to send a new code. Please try again.");
+      }
+    } catch (error) {
+      setVerificationError(
+        error instanceof Error ? error.message : "Failed to send a new code"
+      );
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  if (status === "awaiting_code") {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Enter Verification Code</CardTitle>
+          <CardDescription>
+            A 6-character code has been sent to the contact on record for {lawyerName}. Enter it to complete verification.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleVerifyCode} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="verificationCode">Verification Code</Label>
+              <Input
+                id="verificationCode"
+                value={verificationCode}
+                onChange={(e) =>
+                  setVerificationCode(
+                    e.target.value
+                      .toUpperCase()
+                      .replace(/[^A-Z0-9]/g, "")
+                      .slice(0, 6)
+                  )
+                }
+                placeholder="Enter code"
+                maxLength={6}
+                autoFocus
+                autoCapitalize="characters"
+                autoComplete="one-time-code"
+                inputMode="text"
+                required
+                aria-describedby="verificationCodeHint"
+                disabled={isVerifying || isResending}
+                className="uppercase tracking-widest text-center"
+              />
+              <p id="verificationCodeHint" className="text-xs text-muted-foreground">
+                The code expires in 30 minutes. After 5 incorrect attempts, request a new code.
+              </p>
+            </div>
+
+            {verificationError && (
+              <div role="alert" aria-live="polite" className="flex items-center gap-2 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                {verificationError}
+              </div>
+            )}
+
+            {verificationInfo && (
+              <div role="status" aria-live="polite" className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                {verificationInfo}
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={isVerifying || isResending}
+                aria-busy={isVerifying}
+              >
+                {isVerifying ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                    Verifying...
+                  </>
+                ) : (
+                  "Verify"
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={handleResendCode}
+                disabled={isVerifying || isResending}
+                aria-busy={isResending}
+              >
+                {isResending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send a new code"
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (status === "success") {
     return (
@@ -143,8 +328,8 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
               <p className="text-muted-foreground mt-1">
                 {verificationMethod === "email" ? (
                   <>
-                    We&apos;ve sent a verification email to <span className="font-medium">{formData.firmEmail}</span>.
-                    Please check your inbox and follow the instructions to complete verification.
+                    Your claim is waiting for review. Our team will check it and contact you.
+                    This usually takes 1-3 business days.
                   </>
                 ) : verificationMethod === "bar_lookup" ? (
                   <>
@@ -368,7 +553,7 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
               placeholder="e.g., 012-345 6789"
             />
             <p className="text-xs text-muted-foreground">
-              We may send a verification code via WhatsApp for faster verification
+              Verification codes go only to the phone or email already on the lawyer&apos;s public record, not to this number
             </p>
           </div>
 

@@ -228,9 +228,17 @@ export async function getLawyerBySlug(
 ): Promise<LawyerWithRelations | null> {
   const lawyer = await db.query.lawyers.findFirst({
     where: and(eq(lawyers.slug, slug), eq(lawyers.isActive, true)),
+    with: {
+      primaryFirm: {
+        columns: {
+          slug: true,
+        },
+      },
+    },
   });
 
   if (!lawyer) return null;
+  const { primaryFirm, ...lawyerRow } = lawyer;
 
   const [practiceAreasData, reviewsData, educationData, qualificationsData, casesData] =
     await Promise.all([
@@ -295,7 +303,8 @@ export async function getLawyerBySlug(
     ]);
 
   return {
-    ...lawyer,
+    ...lawyerRow,
+    firmSlug: primaryFirm?.slug ?? null,
     practiceAreas: practiceAreasData.map((row) => ({
       practiceArea: row.practiceArea,
       experienceLevel: row.experienceLevel,

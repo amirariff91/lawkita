@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 import { GraduationCap, Lightbulb, DollarSign, BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Newly Admitted Lawyers | LawKita",
+  title: "Newly Admitted Lawyers",
   description:
     "Discover lawyers who have recently been admitted to the Malaysian Bar. Fresh perspectives, up-to-date legal knowledge, and competitive rates.",
   openGraph: {
-    title: "Newly Admitted Lawyers | LawKita",
+    title: "Newly Admitted Lawyers",
     description:
       "Discover lawyers who have recently been admitted to the Malaysian Bar. Fresh perspectives, up-to-date legal knowledge, and competitive rates.",
   },

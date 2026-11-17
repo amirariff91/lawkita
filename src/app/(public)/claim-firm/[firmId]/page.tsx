@@ -39,12 +39,12 @@ export async function generateMetadata({
 
   if (!firm) {
     return {
-      title: "Firm Not Found | LawKita",
+      title: "Firm Not Found",
     };
   }
 
   return {
-    title: `Claim ${firm.name} | LawKita`,
+    title: `Claim ${firm.name}`,
     description: `Claim and manage your firm profile for ${firm.name} on LawKita, Malaysia's lawyer directory.`,
   };
 }

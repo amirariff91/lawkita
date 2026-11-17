@@ -5,7 +5,7 @@ import { getLawyersByLocation } from "@/lib/db/queries/lawyers";
 import { getStateBySlug, getCityBySlug } from "@/lib/constants/locations";
 import { LawyerGrid, LawyerGridSkeleton, PaginationLink } from "@/components/lawyers";
 import { Breadcrumbs } from "@/components/seo";
-import { getLocationPageSchema } from "@/lib/utils/seo";
+import { getLocationPageSchema, isHubPageIndexable } from "@/lib/utils/seo";
 import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsInteger } from "nuqs/server";
 
@@ -27,16 +27,25 @@ export async function generateMetadata({
 
   if (!state || !city) {
     return {
-      title: "Location Not Found | LawKita",
+      title: "Location Not Found",
     };
   }
 
-  const title = `Lawyers in ${city.name}, ${state.name} | LawKita`;
+  const title = `Lawyers in ${city.name}, ${state.name}`;
   const description = `Find verified lawyers in ${city.name}, ${state.name}. Browse by practice area and experience level. Read reviews and connect with local legal professionals.`;
+  // Count only (limit 1). If the count fails, stay indexable rather than
+  // failing the page, matching the sitemap's fallback.
+  const total = await getLawyersByLocation(state.name, city.name, 1, 1)
+    .then((result) => result.total)
+    .catch(() => Number.POSITIVE_INFINITY);
+  const robots = isHubPageIndexable(total)
+    ? undefined
+    : { index: false, follow: true };
 
   return {
     title,
     description,
+    robots,
     alternates: {
       canonical: `/lawyers/location/${stateSlug}/${citySlug}`,
     },

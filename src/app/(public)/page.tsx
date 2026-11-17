@@ -28,7 +28,7 @@ import { FeaturedLawyers } from "@/components/home/featured-lawyers";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "LawKita - Find the Right Lawyer in Malaysia",
+  title: "Find the Right Lawyer in Malaysia",
   description:
     "Search 1,900+ verified Malaysian lawyers by location, practice area, and ratings. Read reviews, compare experience, and find legal help today.",
   alternates: {
