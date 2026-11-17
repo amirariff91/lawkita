@@ -123,13 +123,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
 
   // Law firm profiles
+  // Newly added section: if the live firms table differs from schema.ts,
+  // skip firms rather than failing the whole sitemap.
   const allFirms = await db
     .select({
       slug: firms.slug,
       updatedAt: firms.updatedAt,
     })
     .from(firms)
-    .orderBy(desc(firms.updatedAt));
+    .orderBy(desc(firms.updatedAt))
+    .limit(20000)
+    .catch((error: unknown) => {
+      console.error("sitemap: firms query failed", error);
+      return [] as { slug: string; updatedAt: Date }[];
+    });
 
   for (const firm of allFirms) {
     entries.push({

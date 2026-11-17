@@ -150,6 +150,10 @@ interface ClaimVerificationData {
   lawyerName: string;
   verificationCode: string;
   claimId: string;
+  /** Human-readable lifetime, e.g. "30 minutes". Defaults to "24 hours". */
+  expiresIn?: string;
+  /** "site": the user types the code on LawKita; "reply": reply in WhatsApp. */
+  entry?: "site" | "reply";
 }
 
 export async function sendClaimVerificationWhatsApp(
@@ -160,10 +164,14 @@ export async function sendClaimVerificationWhatsApp(
 
 Hi, we received a claim request for the profile of *${data.lawyerName}* on LawKita.
 
-To verify your identity, please reply with:
-*VERIFY ${data.verificationCode}*
+${
+  data.entry === "site"
+    ? `Your verification code is *${data.verificationCode}*. Enter it on the LawKita claim page to finish.`
+    : `To verify your identity, please reply with:
+*VERIFY ${data.verificationCode}*`
+}
 
-This code expires in 24 hours.
+This code expires in ${data.expiresIn ?? "24 hours"}.
 
 If you did not request this verification, please reply CANCEL or ignore this message.
 

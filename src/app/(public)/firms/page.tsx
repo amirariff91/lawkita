@@ -8,7 +8,7 @@ import { Breadcrumbs } from "@/components/seo";
 import type { SearchParams } from "nuqs/server";
 import { firmSearchParamsCache } from "@/lib/search/firm-search-params";
 
-export const metadata: Metadata = {
+const baseMetadata: Metadata = {
   title: "Law Firms",
   description:
     "Browse law firms across Malaysia. Find the right firm for your legal needs.",
@@ -21,6 +21,19 @@ export const metadata: Metadata = {
       "Browse law firms across Malaysia. Find the right firm for your legal needs.",
   },
 };
+
+// Paginated pages are distinct result sets, so each page > 1 is its own
+// canonical. Filter/search variations still canonicalise to the bare list.
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  const raw = (await searchParams).page;
+  const page = Number.parseInt(Array.isArray(raw) ? raw[0] ?? "" : raw ?? "", 10);
+  const canonical = Number.isSafeInteger(page) && page > 1 ? `/firms?page=${page}` : "/firms";
+  return { ...baseMetadata, alternates: { ...baseMetadata.alternates, canonical } };
+}
 
 interface FirmsPageProps {
   searchParams: Promise<SearchParams>;

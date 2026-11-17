@@ -174,7 +174,7 @@ export async function sendClaimVerificationEmail(
       <p>Enter this verification code to confirm ownership:</p>
       <div class="info-box">
         <p style="font-size: 24px; font-weight: 700; letter-spacing: 4px; text-align: center;">${data.verificationCode}</p>
-        <p>This code expires in 24 hours.</p>
+        <p>This code expires in 30 minutes.</p>
       </div>
       <p style="color: #64748b; font-size: 14px;">
         Claim ID: ${data.claimId}. If you did not request this verification, you can safely ignore this email.
@@ -186,7 +186,7 @@ export async function sendClaimVerificationEmail(
     to: { email },
     subject: `Profile Verification Code - ${data.lawyerName}`,
     html,
-    text: `Your LawKita verification code for ${data.lawyerName} is ${data.verificationCode}. This code expires in 24 hours. Claim ID: ${data.claimId}.`,
+    text: `Your LawKita verification code for ${data.lawyerName} is ${data.verificationCode}. This code expires in 30 minutes. Claim ID: ${data.claimId}.`,
   });
 }
 

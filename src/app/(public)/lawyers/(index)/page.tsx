@@ -9,7 +9,7 @@ import type { SearchParams } from "nuqs/server";
 import { lawyerSearchParamsCache } from "@/lib/search/search-params";
 import type { ExperienceLevel, SortOption } from "@/types/lawyer";
 
-export const metadata: Metadata = {
+const baseMetadata: Metadata = {
   title: "Find a Lawyer",
   description:
     "Search and connect with verified lawyers across Malaysia. Filter by practice area, location, and experience level.",
@@ -22,6 +22,19 @@ export const metadata: Metadata = {
       "Search and connect with verified lawyers across Malaysia. Filter by practice area, location, and experience level.",
   },
 };
+
+// Paginated pages are distinct result sets, so each page > 1 is its own
+// canonical. Filter/search variations still canonicalise to the bare list.
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  const raw = (await searchParams).page;
+  const page = Number.parseInt(Array.isArray(raw) ? raw[0] ?? "" : raw ?? "", 10);
+  const canonical = Number.isSafeInteger(page) && page > 1 ? `/lawyers?page=${page}` : "/lawyers";
+  return { ...baseMetadata, alternates: { ...baseMetadata.alternates, canonical } };
+}
 
 interface LawyersPageProps {
   searchParams: Promise<SearchParams>;

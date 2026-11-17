@@ -320,8 +320,8 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
               <p className="text-muted-foreground mt-1">
                 {verificationMethod === "email" ? (
                   <>
-                    We&apos;ve sent a verification email to <span className="font-medium">{formData.firmEmail}</span>.
-                    Please check your inbox and follow the instructions to complete verification.
+                    Your claim is waiting for review. Our team will check it and contact you.
+                    This usually takes 1-3 business days.
                   </>
                 ) : verificationMethod === "bar_lookup" ? (
                   <>
@@ -545,7 +545,7 @@ export function ClaimForm({ lawyerId, lawyerName, lawyerBarNumber }: ClaimFormPr
               placeholder="e.g., 012-345 6789"
             />
             <p className="text-xs text-muted-foreground">
-              We may send a verification code via WhatsApp for faster verification
+              Verification codes go only to the phone or email already on the lawyer&apos;s public record, not to this number
             </p>
           </div>
 

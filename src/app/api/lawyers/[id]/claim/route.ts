@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { claims, lawyers, user } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc, lt } from "drizzle-orm";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import {
@@ -16,6 +16,7 @@ import {
 import {
   SELF_SERVICE_CODE_TTL_MS,
   SELF_SERVICE_MAX_ATTEMPTS,
+  SELF_SERVICE_REISSUE_COOLDOWN_MS,
   attemptsAfterFailure,
   formatSelfServiceToken,
   isAttemptLimitReached,
@@ -201,14 +202,17 @@ export async function POST(
       : null;
 
     // Check if user already has a pending claim for this lawyer
+    // Only a pending claim blocks a new one; take the newest if several exist.
     const existingClaim = await db.query.claims.findFirst({
       where: and(
         eq(claims.lawyerId, lawyerId),
-        eq(claims.userId, session.user.id)
+        eq(claims.userId, session.user.id),
+        eq(claims.status, "pending")
       ),
+      orderBy: [desc(claims.createdAt)],
     });
 
-    if (existingClaim && existingClaim.status === "pending") {
+    if (existingClaim) {
       const now = new Date();
       const parsedExisting = parseSelfServiceToken(
         existingClaim.emailVerificationToken
@@ -217,9 +221,41 @@ export async function POST(
         existingClaim.emailVerificationExpires,
         now
       );
-      const reissueEligible = parsedExisting === null || tokenExpired;
+      // Re-issue only when no code is outstanding (none ever issued, or the
+      // last one was exhausted) or the last self-service code expired. A
+      // token from another path (e.g. admin-sent WhatsApp code) is left alone.
+      const reissueEligible =
+        !existingClaim.emailVerificationToken ||
+        (parsedExisting !== null && tokenExpired);
+      // PATCH validates against the Bar number stored on THIS claim, so a
+      // code is only useful if that number matches the record too.
+      const claimBarNumberMatches =
+        Boolean(storedBarMembershipNumber) &&
+        normalizeBarMembershipNumber(existingClaim.barMembershipNumber) ===
+          storedBarMembershipNumber;
 
-      if (!reissueEligible || !selfServiceContact) {
+      // A valid code is still outstanding (e.g. the user refreshed the
+      // page): let the form resume code entry without sending another.
+      if (
+        parsedExisting !== null &&
+        !tokenExpired &&
+        selfServiceContact &&
+        claimBarNumberMatches
+      ) {
+        return NextResponse.json({
+          success: true,
+          claimId: existingClaim.id,
+          message: "Claim submitted successfully",
+          verificationMethod:
+            existingClaim.verificationMethod ?? data.verificationMethod,
+          verificationResult: null,
+          verificationSent: true,
+          nextSteps:
+            "A verification code has already been sent to the contact on record. Enter it to complete verification.",
+        });
+      }
+
+      if (!reissueEligible || !selfServiceContact || !claimBarNumberMatches) {
         return NextResponse.json(
           { error: "You already have a pending claim for this profile" },
           { status: 400 }
@@ -227,6 +263,30 @@ export async function POST(
       }
 
       if (isReissueRateLimited(existingClaim.updatedAt, now)) {
+        return NextResponse.json(
+          { error: "Please wait a moment before requesting a new code" },
+          { status: 429 }
+        );
+      }
+
+      // Take the cooldown atomically before sending, so parallel POSTs
+      // cannot all pass the check above and each send a message.
+      const cooldownTaken = await db
+        .update(claims)
+        .set({ updatedAt: now })
+        .where(
+          and(
+            eq(claims.id, existingClaim.id),
+            eq(claims.status, "pending"),
+            lt(
+              claims.updatedAt,
+              new Date(now.getTime() - SELF_SERVICE_REISSUE_COOLDOWN_MS)
+            )
+          )
+        )
+        .returning({ id: claims.id });
+
+      if (cooldownTaken.length === 0) {
         return NextResponse.json(
           { error: "Please wait a moment before requesting a new code" },
           { status: 429 }
@@ -242,6 +302,8 @@ export async function POST(
             ? await sendClaimVerificationWhatsApp(selfServiceContact.value, {
                 lawyerName: lawyer.name,
                 verificationCode: reissuedCode,
+                expiresIn: "30 minutes",
+                entry: "site",
                 claimId: existingClaim.id,
               })
             : await sendClaimVerificationEmail(selfServiceContact.value, {
@@ -264,7 +326,12 @@ export async function POST(
             ),
             updatedAt: now,
           })
-          .where(eq(claims.id, existingClaim.id));
+          .where(
+            and(
+              eq(claims.id, existingClaim.id),
+              eq(claims.status, "pending")
+            )
+          );
       }
 
       return NextResponse.json({
@@ -345,6 +412,8 @@ export async function POST(
             ? await sendClaimVerificationWhatsApp(selfServiceContact.value, {
                 lawyerName: lawyer.name,
                 verificationCode,
+                expiresIn: "30 minutes",
+                entry: "site",
                 claimId: claim.id,
               })
             : await sendClaimVerificationEmail(selfServiceContact.value, {
@@ -444,6 +513,7 @@ export async function PATCH(
         eq(claims.userId, session.user.id),
         eq(claims.status, "pending")
       ),
+      orderBy: [desc(claims.createdAt)],
     });
 
     if (!claim) {
@@ -511,6 +581,7 @@ export async function PATCH(
     // token string. Every guess, including parallel ones, must win its own
     // swap, so a burst of concurrent requests cannot share a single attempt.
     let currentToken = claim.emailVerificationToken ?? "";
+    let currentExpires = claim.emailVerificationExpires;
     let current = parsedToken;
     let reserved = false;
 
@@ -541,7 +612,11 @@ export async function PATCH(
       // Lost the race: re-read the latest token and try again.
       const latest = await db.query.claims.findFirst({
         where: eq(claims.id, claim.id),
-        columns: { emailVerificationToken: true, status: true },
+        columns: {
+          emailVerificationToken: true,
+          emailVerificationExpires: true,
+          status: true,
+        },
       });
       const latestParsed =
         latest?.status === "pending"
@@ -551,6 +626,7 @@ export async function PATCH(
         return tooManyAttempts();
       }
       currentToken = latest.emailVerificationToken;
+      currentExpires = latest.emailVerificationExpires;
       current = latestParsed;
     }
 
@@ -600,7 +676,7 @@ export async function PATCH(
       );
     }
 
-    if (isSelfServiceTokenExpired(claim.emailVerificationExpires)) {
+    if (isSelfServiceTokenExpired(currentExpires)) {
       return NextResponse.json(
         { error: "Verification code has expired" },
         { status: 400 }
@@ -620,13 +696,19 @@ export async function PATCH(
           .update(claims)
           .set({
             status: "verified",
+            // Consume the verified code so it cannot be replayed.
+            emailVerificationToken: null,
+            emailVerificationExpires: null,
             updatedAt: new Date(),
           })
           .where(
             and(
               eq(claims.id, claim.id),
               eq(claims.userId, session.user.id),
-              eq(claims.status, "pending")
+              eq(claims.status, "pending"),
+              // Grant only for the exact code generation verified above; a
+              // re-issue or revocation in between makes this match nothing.
+              eq(claims.emailVerificationToken, currentToken)
             )
           )
           .returning({ id: claims.id });

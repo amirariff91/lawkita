@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 import type { Metadata } from "next";
 import { getLawyerBySlug, getSimilarLawyers } from "@/lib/db/queries/lawyers";
 import { calculateProfileCompleteness } from "@/lib/utils/profile";
@@ -13,7 +15,7 @@ import {
   CasesSection,
   LawyerJsonLd,
   ClaimProfileCard,
-  OwnerCompleteness,
+  CompletenessIndicator,
   SimilarLawyers,
   FirmHistory,
 } from "@/components/lawyers/profile";
@@ -99,6 +101,16 @@ export default async function LawyerProfilePage({
     notFound();
   }
 
+  // Owner-only UI is decided on the server so the owner's user id never
+  // reaches the public page payload. Only claimed profiles need the lookup.
+  let isOwner = false;
+  if (lawyer.userId) {
+    const session = await auth.api
+      .getSession({ headers: await headers() })
+      .catch(() => null);
+    isOwner = session?.user?.id === lawyer.userId;
+  }
+
   const url = `${process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com"}/lawyers/${slug}`;
 
   return (
@@ -152,11 +164,13 @@ export default async function LawyerProfilePage({
           <SimilarLawyers lawyers={similarLawyers} currentLawyerName={lawyer.name} />
 
           {/* Profile Completeness (owner only) */}
-          {lawyer.userId && (
-            <OwnerCompleteness
-              ownerUserId={lawyer.userId}
-              completeness={calculateProfileCompleteness(lawyer)}
-            />
+          {isOwner && (
+            <div className="rounded-lg border bg-card p-6">
+              <CompletenessIndicator
+                completeness={calculateProfileCompleteness(lawyer)}
+                showDetails
+              />
+            </div>
           )}
 
           {/* Claim Profile CTA (for unclaimed profiles) */}
