@@ -2,6 +2,7 @@
  * WhatsApp Business API Integration
  * Handles verification callbacks for lawyer claim verification
  */
+import { randomInt } from "node:crypto";
 
 interface WhatsAppMessageResponse {
   messaging_product: string;
@@ -340,11 +341,11 @@ export function extractMessagesFromWebhook(payload: WhatsAppWebhookPayload): Arr
 // ============================================================================
 
 export function generateVerificationCode(): string {
-  // Generate 6-character alphanumeric code (uppercase)
+  // Generate 6-character alphanumeric code (uppercase) with a CSPRNG.
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Exclude confusing characters
   let code = "";
   for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(randomInt(chars.length));
   }
   return code;
 }
