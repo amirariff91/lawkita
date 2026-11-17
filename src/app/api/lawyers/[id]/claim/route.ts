@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { claims, lawyers, user } from "@/lib/db/schema";
-import { eq, and, desc, lt, sql } from "drizzle-orm";
+import { eq, and, desc, lt, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import {
@@ -25,6 +25,10 @@ import {
   isVerificationCodeMatch,
   parseSelfServiceToken,
 } from "@/lib/claims/verification-token";
+import {
+  getSelfServiceEligibility,
+  normalizeBarMembershipNumber,
+} from "@/lib/claims/self-service-eligibility";
 
 class AlreadyClaimedError extends Error {
   constructor() {
@@ -38,10 +42,6 @@ class ClaimStateChangedError extends Error {
     super("claim state changed");
     this.name = "ClaimStateChangedError";
   }
-}
-
-function normalizeBarMembershipNumber(value: string | null | undefined): string | null {
-  return value?.trim().toLowerCase() || null;
 }
 
 const claimSchema = z.object({
@@ -175,7 +175,8 @@ export async function POST(
     );
 
     // A stored Bar number must match exactly after trimming and case folding.
-    // Profiles without a stored number remain admin-review only.
+    // Profiles without a stored number may self-serve via an on-record
+    // contact (see getSelfServiceEligibility); a mismatch is still an error.
     if (
       storedBarMembershipNumber &&
       storedBarMembershipNumber !==
@@ -187,19 +188,39 @@ export async function POST(
       );
     }
 
-    const barNumberMatches =
-      Boolean(storedBarMembershipNumber) &&
-      storedBarMembershipNumber ===
-        normalizeBarMembershipNumber(submittedBarMembershipNumber);
-    const onRecordPhone = lawyer.phone?.trim() || null;
-    const onRecordEmail = lawyer.email?.trim() || null;
-    const selfServiceContact = barNumberMatches
-      ? onRecordPhone
-        ? { channel: "whatsapp" as const, value: onRecordPhone }
-        : onRecordEmail
-          ? { channel: "email" as const, value: onRecordEmail }
-          : null
+    const selfServiceEligibility = getSelfServiceEligibility({
+      storedBarMembershipNumber: lawyer.barMembershipNumber,
+      submittedBarMembershipNumber,
+      phone: lawyer.phone,
+      email: lawyer.email,
+    });
+    let selfServiceContact = selfServiceEligibility.eligible
+      ? {
+          channel: selfServiceEligibility.channel,
+          value: selfServiceEligibility.value,
+        }
       : null;
+
+    // Without a stored Bar number, control of the on-record contact is the
+    // only proof of identity. Many scraped contacts are firm switchboards or
+    // shared mailboxes, so a contact that also appears on another lawyer's
+    // record proves nothing about WHICH lawyer holds it: admin review instead.
+    if (selfServiceContact && !storedBarMembershipNumber) {
+      const column =
+        selfServiceContact.channel === "whatsapp" ? lawyers.phone : lawyers.email;
+      const rawContact =
+        selfServiceContact.channel === "whatsapp" ? lawyer.phone : lawyer.email;
+      const sharedWith = rawContact
+        ? await db
+            .select({ id: lawyers.id })
+            .from(lawyers)
+            .where(and(eq(column, rawContact), ne(lawyers.id, lawyer.id)))
+            .limit(1)
+        : [];
+      if (sharedWith.length > 0) {
+        selfServiceContact = null;
+      }
+    }
 
     // Check if user already has a pending claim for this lawyer
     // Only a pending claim blocks a new one; take the newest if several exist.
@@ -227,12 +248,14 @@ export async function POST(
       const reissueEligible =
         !existingClaim.emailVerificationToken ||
         (parsedExisting !== null && tokenExpired);
-      // PATCH validates against the Bar number stored on THIS claim, so a
-      // code is only useful if that number matches the record too.
-      const claimBarNumberMatches =
-        Boolean(storedBarMembershipNumber) &&
-        normalizeBarMembershipNumber(existingClaim.barMembershipNumber) ===
-          storedBarMembershipNumber;
+      // PATCH validates this claim's Bar number against the record, so a
+      // code is only useful if that number is itself self-service eligible.
+      const claimBarNumberMatches = getSelfServiceEligibility({
+        storedBarMembershipNumber: lawyer.barMembershipNumber,
+        submittedBarMembershipNumber: existingClaim.barMembershipNumber,
+        phone: lawyer.phone,
+        email: lawyer.email,
+      }).eligible;
 
       // A valid code is still outstanding (e.g. the user refreshed the
       // page): let the form resume code entry without sending another.
@@ -575,20 +598,15 @@ export async function PATCH(
       );
     }
 
-    const storedBarMembershipNumber = normalizeBarMembershipNumber(
-      lawyer.barMembershipNumber
-    );
-    const claimBarMembershipNumber = normalizeBarMembershipNumber(
-      claim.barMembershipNumber
-    );
-
-    // Self-service is unavailable without both a matching stored Bar number
-    // and an on-record destination for the code.
-    if (
-      !storedBarMembershipNumber ||
-      storedBarMembershipNumber !== claimBarMembershipNumber ||
-      (!lawyer.phone?.trim() && !lawyer.email?.trim())
-    ) {
+    // Self-service needs either a matching stored Bar number or, when none
+    // is stored, an on-record destination for the code.
+    const selfServiceEligibility = getSelfServiceEligibility({
+      storedBarMembershipNumber: lawyer.barMembershipNumber,
+      submittedBarMembershipNumber: claim.barMembershipNumber,
+      phone: lawyer.phone,
+      email: lawyer.email,
+    });
+    if (!selfServiceEligibility.eligible) {
       return NextResponse.json(
         { error: "This claim requires admin approval" },
         { status: 403 }
