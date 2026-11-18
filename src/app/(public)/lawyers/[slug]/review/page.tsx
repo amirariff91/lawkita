@@ -18,12 +18,12 @@ export async function generateMetadata({
 
   if (!lawyer) {
     return {
-      title: "Lawyer Not Found | LawKita",
+      title: "Lawyer Not Found",
     };
   }
 
   return {
-    title: `Write a Review for ${lawyer.name} | LawKita`,
+    title: `Write a Review for ${lawyer.name}`,
     description: `Share your experience working with ${lawyer.name}. Your review helps others make informed decisions.`,
   };
 }

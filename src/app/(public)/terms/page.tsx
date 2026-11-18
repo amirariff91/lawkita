@@ -2,8 +2,11 @@ import { Metadata } from "next";
 import { PageHeader } from "@/components/static";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | LawKita",
+  title: "Terms of Service",
   description: "Read the terms and conditions for using LawKita, Malaysia's lawyer directory platform.",
+  alternates: {
+    canonical: "/terms",
+  },
 };
 
 export default function TermsPage() {
@@ -198,7 +201,7 @@ export default function TermsPage() {
             For questions about these Terms, please contact us:
           </p>
           <ul>
-            <li>Email: legal@lawkita.my</li>
+            <li>Email: legal@lawkita.com</li>
             <li>Address: Kuala Lumpur, Malaysia</li>
           </ul>
         </div>

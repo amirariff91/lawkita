@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { createServerSupabaseClient } from "@/lib/supabase/client";
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { firmClaims, firms } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { sendFirmClaimSubmittedNotification, sendAdminFirmClaimNotification } from "@/lib/integrations/resend-firms";
 
@@ -38,21 +40,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const { position, verificationDocument } = validationResult.data;
-    const supabase = createServerSupabaseClient();
 
     // Check if firm exists
-    const { data: firm } = await supabase
-      .from("firms")
-      .select("id, name, slug, is_claimed")
-      .eq("id", firmId)
-      .single();
+    const [firm] = await db
+      .select({ id: firms.id, name: firms.name, slug: firms.slug, isClaimed: firms.isClaimed })
+      .from(firms)
+      .where(eq(firms.id, firmId))
+      .limit(1);
 
     if (!firm) {
       return NextResponse.json({ error: "Firm not found" }, { status: 404 });
     }
 
     // Check if already claimed
-    if (firm.is_claimed) {
+    if (firm.isClaimed) {
       return NextResponse.json(
         { error: "This firm has already been claimed" },
         { status: 400 }
@@ -60,13 +61,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check if user already has a pending claim for this firm
-    const { data: existingClaim } = await supabase
-      .from("firm_claims")
-      .select("id")
-      .eq("firm_id", firmId)
-      .eq("user_id", session.user.id)
-      .eq("status", "pending")
-      .single();
+    const [existingClaim] = await db
+      .select({ id: firmClaims.id })
+      .from(firmClaims)
+      .where(
+        and(
+          eq(firmClaims.firmId, firmId),
+          eq(firmClaims.userId, session.user.id),
+          eq(firmClaims.status, "pending")
+        )
+      )
+      .limit(1);
 
     if (existingClaim) {
       return NextResponse.json(
@@ -76,20 +81,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Create the claim
-    const { data: claim, error: claimError } = await supabase
-      .from("firm_claims")
-      .insert({
-        firm_id: firmId,
-        user_id: session.user.id,
+    const [claim] = await db
+      .insert(firmClaims)
+      .values({
+        firmId,
+        userId: session.user.id,
         position,
-        verification_document: verificationDocument,
+        verificationDocument,
         status: "pending",
       })
-      .select("id")
-      .single();
+      .returning({ id: firmClaims.id });
 
-    if (claimError) {
-      console.error("Error creating firm claim:", claimError);
+    if (!claim) {
       return NextResponse.json({ error: "Failed to submit claim" }, { status: 500 });
     }
 

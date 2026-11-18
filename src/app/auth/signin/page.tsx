@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { AuthCard, SocialAuthButtons, SignInForm } from "@/components/auth";
 
 export const metadata: Metadata = {
-  title: "Sign In | LawKita",
+  title: "Sign In",
   description: "Sign in to your LawKita account to manage your lawyer profile and enquiries.",
 };
 

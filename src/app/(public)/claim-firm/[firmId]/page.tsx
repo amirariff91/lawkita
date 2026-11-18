@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { createServerSupabaseClient } from "@/lib/supabase/client";
+import { db } from "@/lib/db";
+import { firms } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { ClaimFirmForm } from "@/components/firms/claim-firm-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,15 +14,21 @@ interface ClaimFirmPageProps {
 }
 
 async function getFirm(firmId: string) {
-  const supabase = createServerSupabaseClient();
-
-  const { data: firm } = await supabase
-    .from("firms")
-    .select("id, name, slug, address, city, state, is_claimed, lawyer_count")
-    .eq("id", firmId)
-    .single();
-
-  return firm;
+  const [firm] = await db
+    .select({
+      id: firms.id,
+      name: firms.name,
+      slug: firms.slug,
+      address: firms.address,
+      city: firms.city,
+      state: firms.state,
+      is_claimed: firms.isClaimed,
+      lawyer_count: firms.lawyerCount,
+    })
+    .from(firms)
+    .where(eq(firms.id, firmId))
+    .limit(1);
+  return firm ?? null;
 }
 
 export async function generateMetadata({
@@ -31,12 +39,12 @@ export async function generateMetadata({
 
   if (!firm) {
     return {
-      title: "Firm Not Found | LawKita",
+      title: "Firm Not Found",
     };
   }
 
   return {
-    title: `Claim ${firm.name} | LawKita`,
+    title: `Claim ${firm.name}`,
     description: `Claim and manage your firm profile for ${firm.name} on LawKita, Malaysia's lawyer directory.`,
   };
 }

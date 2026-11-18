@@ -3,43 +3,43 @@ import postgres from "postgres";
 import * as schema from "./schema";
 
 let _db: PostgresJsDatabase<typeof schema> | null = null;
+let _sql: ReturnType<typeof postgres> | null = null;
 
-function getDb(): PostgresJsDatabase<typeof schema> {
-  // Return cached connection
-  if (_db) return _db;
+function getSqlClient(): ReturnType<typeof postgres> {
+  if (_sql) return _sql;
 
   const connectionString = process.env.DATABASE_URL;
 
   if (!connectionString) {
-    // Check if we're in build phase
     if (process.env.NEXT_PHASE === "phase-production-build") {
-      // During build, return a proxy that throws descriptive errors if accessed
-      return new Proxy({} as PostgresJsDatabase<typeof schema>, {
-        get(_, prop) {
-          throw new Error(
-            `Database accessed during build phase (property: ${String(prop)}). ` +
-              `Ensure no database calls happen during static generation.`
-          );
-        },
-      });
+      throw new Error(
+        "Database connection requested during the production build. " +
+          "Database health checks and workers must run at runtime."
+      );
     }
 
-    // At runtime, throw but DON'T cache - allow retry on next request
     throw new Error(
       "DATABASE_URL environment variable is not set. " +
         "Configure DATABASE_URL in your deployment environment."
     );
   }
 
-  // Disable prefetch as it is not supported for "Transaction" pool mode
-  const client = postgres(connectionString, {
+  // Disable prefetch as it is not supported for Transaction pool mode.
+  _sql = postgres(connectionString, {
     prepare: false,
     connect_timeout: 10,
     idle_timeout: 20,
     max_lifetime: 60 * 30,
   });
 
-  _db = drizzle(client, { schema });
+  return _sql;
+}
+
+function getDb(): PostgresJsDatabase<typeof schema> {
+  // Return cached connection
+  if (_db) return _db;
+
+  _db = drizzle(getSqlClient(), { schema });
   return _db;
 }
 
@@ -62,3 +62,52 @@ export const db = new Proxy({} as PostgresJsDatabase<typeof schema>, {
 });
 
 export type DbClient = PostgresJsDatabase<typeof schema>;
+
+export async function closeDb(): Promise<void> {
+  const sqlClient = _sql;
+  _db = null;
+  _sql = null;
+  if (sqlClient) await sqlClient.end({ timeout: 5 });
+}
+
+export type AdvisoryLockResult<T> =
+  | { acquired: true; value: T }
+  | { acquired: false };
+
+/**
+ * Run work while holding a PostgreSQL session-level advisory lock.
+ *
+ * The reserved connection is important: advisory locks belong to a database
+ * session, so acquiring one through a pooled query and then doing work on a
+ * different pooled connection would not serialize concurrent workers.
+ */
+export async function withAdvisoryLock<T>(
+  lockKey: number,
+  work: () => Promise<T>
+): Promise<AdvisoryLockResult<T>> {
+  const connection = await getSqlClient().reserve();
+  let acquired = false;
+
+  try {
+    const [{ locked }] = await connection<{ locked: boolean }[]>`
+      SELECT pg_try_advisory_lock(${lockKey}) AS locked
+    `;
+    acquired = Boolean(locked);
+
+    if (!acquired) return { acquired: false };
+
+    return { acquired: true, value: await work() };
+  } finally {
+    if (acquired) {
+      try {
+        await connection`
+          SELECT pg_advisory_unlock(${lockKey})
+        `;
+      } finally {
+        await connection.release();
+      }
+    } else {
+      await connection.release();
+    }
+  }
+}

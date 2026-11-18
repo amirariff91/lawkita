@@ -6,7 +6,16 @@
  * This is a public directory intended for consumer access to find lawyers.
  */
 
-import { createServiceRoleClient } from "@/lib/supabase/client";
+import { db } from "@/lib/db";
+import {
+  lawyerFirmHistory,
+  lawyerPracticeAreas,
+  lawyers,
+  practiceAreas,
+  scrapingLogs,
+} from "@/lib/db/schema";
+import { getOrCreateFirm as getOrCreateFirmRepository } from "@/lib/db/queries/firms";
+import { and, eq, ilike, inArray, or } from "drizzle-orm";
 import { chromium, type Browser, type Page } from "playwright";
 import * as cheerio from "cheerio";
 
@@ -215,131 +224,9 @@ function extractCity(address: string, state: string): string | null {
 }
 
 /**
- * Normalize an address for firm deduplication
- */
-function normalizeAddress(address: string | null | undefined): string {
-  if (!address) return "";
-  return address
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .replace(/[.,]/g, "")
-    .replace(/\b(jalan|jln)\b/g, "jln")
-    .replace(/\b(lorong|lrg)\b/g, "lrg")
-    .replace(/\b(taman|tmn)\b/g, "tmn")
-    .replace(/\b(suite|ste)\b/g, "ste")
-    .replace(/\b(level|lvl)\b/g, "lvl")
-    .replace(/\b(floor|flr)\b/g, "flr")
-    .trim();
-}
-
-/**
- * Generate a URL-friendly slug for a firm
- */
-function generateFirmSlug(name: string, city: string | null): string {
-  const baseSlug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 50);
-
-  if (city) {
-    const citySlug = city
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 20);
-    return `${baseSlug}-${citySlug}`;
-  }
-
-  return baseSlug;
-}
-
-/**
- * Get or create a firm based on name and address (deduplication)
- */
-async function getOrCreateFirm(
-  supabase: ReturnType<typeof createServiceRoleClient>,
-  firmName: string,
-  firmAddress: string | null,
-  state: string | null,
-  city: string | null
-): Promise<{ id: string; slug: string }> {
-  const normalizedAddr = normalizeAddress(firmAddress);
-
-  // Try to find existing firm by normalized address
-  if (normalizedAddr) {
-    const { data: existingFirm } = await supabase
-      .from("firms")
-      .select("id, slug")
-      .eq("normalized_address", normalizedAddr)
-      .single();
-
-    if (existingFirm) {
-      return { id: existingFirm.id, slug: existingFirm.slug };
-    }
-  }
-
-  // Try to find by exact name match in same city
-  if (city) {
-    const { data: existingFirm } = await supabase
-      .from("firms")
-      .select("id, slug")
-      .eq("name", firmName)
-      .eq("city", city)
-      .single();
-
-    if (existingFirm) {
-      return { id: existingFirm.id, slug: existingFirm.slug };
-    }
-  }
-
-  // Create new firm
-  const slug = generateFirmSlug(firmName, city);
-
-  const { data: newFirm, error } = await supabase
-    .from("firms")
-    .insert({
-      name: firmName,
-      slug,
-      address: firmAddress,
-      normalized_address: normalizedAddr || null,
-      state,
-      city,
-    })
-    .select("id, slug")
-    .single();
-
-  if (error) {
-    // Handle slug conflict by adding a random suffix
-    const slugWithSuffix = `${slug}-${Date.now().toString(36)}`;
-    const { data: retryFirm, error: retryError } = await supabase
-      .from("firms")
-      .insert({
-        name: firmName,
-        slug: slugWithSuffix,
-        address: firmAddress,
-        normalized_address: normalizedAddr || null,
-        state,
-        city,
-      })
-      .select("id, slug")
-      .single();
-
-    if (retryError) {
-      throw new Error(`Failed to create firm: ${retryError.message}`);
-    }
-
-    return { id: retryFirm.id, slug: retryFirm.slug };
-  }
-
-  return { id: newFirm.id, slug: newFirm.slug };
-}
-
-/**
  * Track firm history for a lawyer (detect firm changes)
  */
 async function trackFirmHistory(
-  supabase: ReturnType<typeof createServiceRoleClient>,
   lawyerId: string,
   newFirmName: string | null,
   newFirmId: string | null,
@@ -347,80 +234,60 @@ async function trackFirmHistory(
 ): Promise<void> {
   if (!newFirmName) return;
 
-  // Get current firm history entry
-  const { data: currentHistory } = await supabase
-    .from("lawyer_firm_history")
-    .select("id, firm_name, firm_id")
-    .eq("lawyer_id", lawyerId)
-    .eq("is_current", true)
-    .single();
+  const [currentHistory] = await db
+    .select({
+      id: lawyerFirmHistory.id,
+      firmName: lawyerFirmHistory.firmName,
+      firmId: lawyerFirmHistory.firmId,
+    })
+    .from(lawyerFirmHistory)
+    .where(and(eq(lawyerFirmHistory.lawyerId, lawyerId), eq(lawyerFirmHistory.isCurrent, true)))
+    .limit(1);
 
-  const now = new Date().toISOString();
+  const now = new Date();
 
   if (currentHistory) {
     // Check if firm has changed
-    if (currentHistory.firm_name !== newFirmName) {
+    if (currentHistory.firmName !== newFirmName) {
       // Mark old firm as not current
-      await supabase
-        .from("lawyer_firm_history")
-        .update({ is_current: false, last_seen: now })
-        .eq("id", currentHistory.id);
+      await db
+        .update(lawyerFirmHistory)
+        .set({ isCurrent: false, lastSeen: now })
+        .where(eq(lawyerFirmHistory.id, currentHistory.id));
 
       // Add new firm entry
-      await supabase.from("lawyer_firm_history").insert({
-        lawyer_id: lawyerId,
-        firm_name: newFirmName,
-        firm_id: newFirmId,
-        firm_address: newFirmAddress,
-        first_seen: now,
-        last_seen: now,
-        is_current: true,
+      await db.insert(lawyerFirmHistory).values({
+        lawyerId,
+        firmName: newFirmName,
+        firmId: newFirmId,
+        firmAddress: newFirmAddress,
+        firstSeen: now,
+        lastSeen: now,
+        isCurrent: true,
       });
     } else {
       // Same firm, just update last_seen
-      await supabase
-        .from("lawyer_firm_history")
-        .update({ last_seen: now })
-        .eq("id", currentHistory.id);
+      await db
+        .update(lawyerFirmHistory)
+        .set({ lastSeen: now })
+        .where(eq(lawyerFirmHistory.id, currentHistory.id));
     }
   } else {
     // No history exists, create initial entry
-    await supabase.from("lawyer_firm_history").insert({
-      lawyer_id: lawyerId,
-      firm_name: newFirmName,
-      firm_id: newFirmId,
-      firm_address: newFirmAddress,
-      first_seen: now,
-      last_seen: now,
-      is_current: true,
+    await db.insert(lawyerFirmHistory).values({
+      lawyerId,
+      firmName: newFirmName,
+      firmId: newFirmId,
+      firmAddress: newFirmAddress,
+      firstSeen: now,
+      lastSeen: now,
+      isCurrent: true,
     });
   }
 }
-
-// Scraper-owned Bar-registry facts: authoritative, synced even over existing
-// values (a status change / suspension must reflect on claimed profiles too).
-// Deliberately excludes is_claimed, user_id, scraped_data, and is_verified.
-// bar_membership_number is deliberately NOT synced: it is immutable identity,
-// and the existing-row match can fall back to name (collision risk), so
-// overwriting it could clobber the wrong lawyer's number. Set on insert only.
-const LAWYER_ALWAYS_SYNC_FIELDS = [
-  "bar_admission_date",
-  "bar_status",
-  "years_at_bar",
-  "is_active",
-] as const;
-
-// Claimant-editable / contact fields: never overwrite an existing non-empty
-// value (protects claimed and manually-corrected profiles).
-const LAWYER_FILL_GAP_FIELDS = [
-  "name",
-  "address",
-  "phone",
-  "email",
-  "state",
-  "city",
-] as const;
-
+// Scraper-owned Bar-registry facts are authoritative on existing rows.
+// Contact fields are fill-gap only so claimed or manually edited profiles are
+// not overwritten by a later directory scrape.
 function hasScrapedValue(value: unknown): boolean {
   if (value === null || value === undefined) return false;
   return typeof value !== "string" || value.trim().length > 0;
@@ -443,19 +310,26 @@ export async function saveLawyer(
     return { action: "skipped" };
   }
 
-  const supabase = createServiceRoleClient();
-
   // Check if lawyer already exists (by bar number or name)
-  const { data: existing } = await supabase
-    .from("lawyers")
-    .select(
-      "id, name, bar_membership_number, firm_name, primary_firm_id, address, phone, email, state, city, bar_admission_date, bar_status, years_at_bar, is_verified, is_claimed, is_active, last_scraped_at"
-    )
-    .or(
-      `bar_membership_number.eq.${lawyer.barMembershipNumber || ""},name.ilike.${lawyer.name}`
-    )
-    .limit(1)
-    .single();
+  const existing = await db.query.lawyers.findFirst({
+    where: lawyer.barMembershipNumber
+      ? or(
+          eq(lawyers.barMembershipNumber, lawyer.barMembershipNumber),
+          ilike(lawyers.name, lawyer.name)
+        )
+      : ilike(lawyers.name, lawyer.name),
+    columns: {
+      id: true,
+      name: true,
+      address: true,
+      phone: true,
+      email: true,
+      state: true,
+      city: true,
+      firmName: true,
+      isClaimed: true,
+    },
+  });
 
   const admissionDate = parseAdmissionDate(lawyer.admissionDate || "");
   const yearsAtBar = calculateYearsAtBar(admissionDate);
@@ -465,8 +339,7 @@ export async function saveLawyer(
   let firmId: string | null = null;
   if (lawyer.firmName) {
     try {
-      const firm = await getOrCreateFirm(
-        supabase,
+      const firm = await getOrCreateFirmRepository(
         lawyer.firmName,
         lawyer.firmAddress || null,
         lawyer.state || null,
@@ -478,89 +351,104 @@ export async function saveLawyer(
     }
   }
 
-  const lawyerData = {
+  const scrapedLawyerData = {
     name: lawyer.name,
-    bar_membership_number: lawyer.barMembershipNumber,
-    firm_name: lawyer.firmName,
-    primary_firm_id: firmId,
+    barMembershipNumber: lawyer.barMembershipNumber,
+    firmName: lawyer.firmName,
+    primaryFirmId: firmId,
     address: lawyer.firmAddress,
     phone: lawyer.phone,
     email: lawyer.email,
     state: lawyer.state,
     city: city || lawyer.city,
-    bar_admission_date: admissionDate?.toISOString(),
-    bar_status: lawyer.isActive ? "active" : "inactive",
-    years_at_bar: yearsAtBar,
-    is_verified: true, // Bar Council verified
-    is_claimed: false,
-    is_active: lawyer.isActive,
-    last_scraped_at: new Date().toISOString(),
-    scraped_data: {
+    barAdmissionDate: admissionDate,
+    barStatus: lawyer.isActive ? ("active" as const) : ("inactive" as const),
+    yearsAtBar,
+    isVerified: true,
+    isActive: lawyer.isActive,
+    lastScrapedAt: new Date(),
+    scrapedData: {
       source: "malaysian_bar_council",
       sourceUrl: lawyer.sourceUrl,
       scrapedAt: lawyer.scrapedAt.toISOString(),
       rawPracticeAreas: lawyer.practiceAreas,
     },
-    updated_at: new Date().toISOString(),
+    updatedAt: new Date(),
   };
 
   if (existing) {
-    // Existing profiles: sync authoritative Bar-registry facts, fill gaps for
-    // claimant-editable/contact fields, and NEVER touch is_claimed, user_id,
-    // scraped_data, or is_verified. Always record the re-scrape metadata.
-    const isClaimed = existing.is_claimed === true;
-    const updateData: Record<string, unknown> = {
-      last_scraped_at: lawyerData.last_scraped_at ?? new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    // Existing rows keep ownership, verification, and source data intact.
+    const isClaimed = existing.isClaimed;
+    const updateData: Partial<typeof lawyers.$inferInsert> = {
+      barAdmissionDate: scrapedLawyerData.barAdmissionDate ?? undefined,
+      barStatus: scrapedLawyerData.barStatus,
+      yearsAtBar: scrapedLawyerData.yearsAtBar ?? undefined,
+      isActive: scrapedLawyerData.isActive,
+      lastScrapedAt: scrapedLawyerData.lastScrapedAt,
+      updatedAt: scrapedLawyerData.updatedAt,
     };
 
-    // Bar-registry facts: authoritative, overwrite even on claimed rows.
-    for (const field of LAWYER_ALWAYS_SYNC_FIELDS) {
-      const value = lawyerData[field];
-      if (hasScrapedValue(value)) {
-        updateData[field] = value;
-      }
-    }
-
-    // Contact / claimant-editable fields: fill genuine gaps only.
-    for (const field of LAWYER_FILL_GAP_FIELDS) {
-      const value = lawyerData[field];
-      if (hasScrapedValue(value) && canFillLawyerField(existing[field], isClaimed)) {
-        updateData[field] = value;
-      }
-    }
-
-    // Firm linkage: keep name + id COHERENT (never link to one firm while the
-    // displayed name is another). Unclaimed rows sync from the scrape; claimed
-    // rows are only filled when the owner left the firm name blank — and then
-    // name and id are written together, never split. A failed lookup (firmId
-    // null) never removes an existing link.
-    const canWriteFirm = !isClaimed || canFillLawyerField(existing.firm_name, isClaimed);
-    if (canWriteFirm && hasScrapedValue(lawyerData.firm_name)) {
-      updateData.firm_name = lawyerData.firm_name;
-    }
-    if (canWriteFirm && firmId !== null) {
-      updateData.primary_firm_id = firmId;
-    }
-
-    const { error } = await supabase
-      .from("lawyers")
-      .update(updateData)
-      .eq("id", existing.id);
-
-    if (error) {
-      throw new Error(`Failed to update lawyer: ${error.message}`);
-    }
-
-    // Track firm history only when we actually wrote the firm change — never
-    // record a move the preserved (claimed) profile row won't reflect.
+    // Contact fields fill genuine gaps only. Claimed rows never replace an
+    // empty string because only a database NULL is an unambiguous gap.
     if (
-      updateData.firm_name !== undefined &&
-      lawyer.firmName &&
-      existing.firm_name !== lawyer.firmName
+      hasScrapedValue(scrapedLawyerData.name) &&
+      canFillLawyerField(existing.name, isClaimed)
     ) {
+      updateData.name = scrapedLawyerData.name;
+    }
+    if (
+      hasScrapedValue(scrapedLawyerData.address) &&
+      canFillLawyerField(existing.address, isClaimed)
+    ) {
+      updateData.address = scrapedLawyerData.address;
+    }
+    if (
+      hasScrapedValue(scrapedLawyerData.phone) &&
+      canFillLawyerField(existing.phone, isClaimed)
+    ) {
+      updateData.phone = scrapedLawyerData.phone;
+    }
+    if (
+      hasScrapedValue(scrapedLawyerData.email) &&
+      canFillLawyerField(existing.email, isClaimed)
+    ) {
+      updateData.email = scrapedLawyerData.email;
+    }
+    if (
+      hasScrapedValue(scrapedLawyerData.state) &&
+      canFillLawyerField(existing.state, isClaimed)
+    ) {
+      updateData.state = scrapedLawyerData.state;
+    }
+    if (
+      hasScrapedValue(scrapedLawyerData.city) &&
+      canFillLawyerField(existing.city, isClaimed)
+    ) {
+      updateData.city = scrapedLawyerData.city;
+    }
+
+    // Firm name and primary_firm_id are one coherent update. A failed firm
+    // lookup leaves both existing values untouched, including the primary ID.
+    const canWriteFirm =
+      !isClaimed || canFillLawyerField(existing.firmName, isClaimed);
+    const firmWasWritten =
+      canWriteFirm &&
+      hasScrapedValue(scrapedLawyerData.firmName) &&
+      firmId !== null;
+    if (firmWasWritten) {
+      updateData.firmName = scrapedLawyerData.firmName;
+      updateData.primaryFirmId = firmId;
+    }
+
+    await db
+      .update(lawyers)
+      .set(updateData)
+      .where(eq(lawyers.id, existing.id));
+
+    // Record history only when the corresponding firm pair was actually
+    // written to the lawyer row.
+    if (firmWasWritten && lawyer.firmName && existing.firmName !== lawyer.firmName) {
       await trackFirmHistory(
-        supabase,
         existing.id,
         lawyer.firmName,
         firmId,
@@ -574,33 +462,26 @@ export async function saveLawyer(
     const slug = generateSlug(lawyer.name);
 
     // Check for slug uniqueness
-    const { data: slugExists } = await supabase
-      .from("lawyers")
-      .select("id")
-      .eq("slug", slug)
-      .limit(1)
-      .single();
+    const [slugExists] = await db
+      .select({ id: lawyers.id })
+      .from(lawyers)
+      .where(eq(lawyers.slug, slug))
+      .limit(1);
 
     const finalSlug = slugExists ? `${slug}-${Date.now()}` : slug;
 
-    const { data: created, error } = await supabase
-      .from("lawyers")
-      .insert({
-        ...lawyerData,
+    const [created] = await db
+      .insert(lawyers)
+      .values({
+        ...scrapedLawyerData,
         slug: finalSlug,
-        created_at: new Date().toISOString(),
+        isClaimed: false,
       })
-      .select("id")
-      .single();
-
-    if (error) {
-      throw new Error(`Failed to create lawyer: ${error.message}`);
-    }
+      .returning({ id: lawyers.id });
 
     // Track initial firm history
     if (created?.id && lawyer.firmName) {
       await trackFirmHistory(
-        supabase,
         created.id,
         lawyer.firmName,
         firmId,
@@ -617,36 +498,36 @@ export async function saveLawyer(
  */
 export async function linkPracticeAreas(
   lawyerId: string,
-  practiceAreas: string[]
+  practiceAreaNames: string[]
 ): Promise<void> {
-  if (!practiceAreas.length) return;
-
-  const supabase = createServiceRoleClient();
+  if (!practiceAreaNames.length) return;
 
   // Get practice area IDs from slugs
-  const slugs = practiceAreas
+  const slugs = practiceAreaNames
     .map((pa) => PRACTICE_AREA_MAPPINGS[pa] || generateSlug(pa))
     .filter(Boolean);
 
   if (!slugs.length) return;
 
-  const { data: areas } = await supabase
-    .from("practice_areas")
-    .select("id")
-    .in("slug", slugs);
+  const areas = await db
+    .select({ id: practiceAreas.id })
+    .from(practiceAreas)
+    .where(inArray(practiceAreas.slug, slugs));
 
   if (!areas?.length) return;
 
   // Delete existing associations
-  await supabase.from("lawyer_practice_areas").delete().eq("lawyer_id", lawyerId);
+  await db
+    .delete(lawyerPracticeAreas)
+    .where(eq(lawyerPracticeAreas.lawyerId, lawyerId));
 
   // Insert new associations
-  const associations = areas.map((area: { id: string }) => ({
-    lawyer_id: lawyerId,
-    practice_area_id: area.id,
+  const associations = areas.map((area) => ({
+    lawyerId,
+    practiceAreaId: area.id,
   }));
 
-  await supabase.from("lawyer_practice_areas").insert(associations);
+  await db.insert(lawyerPracticeAreas).values(associations);
 }
 
 /**
@@ -656,34 +537,32 @@ export async function logScrapingJob(
   result: Partial<ScrapingResult>,
   status: "running" | "completed" | "failed" | "partial"
 ): Promise<string> {
-  const supabase = createServiceRoleClient();
-
-  const { data, error } = await supabase
-    .from("scraping_logs")
-    .insert({
-      job_type: "lawyer_profile",
-      source_type: "bar_council",
-      source_url: "https://legaldirectory.malaysianbar.org.my/",
-      status,
-      records_processed: result.totalProcessed || 0,
-      records_created: result.created || 0,
-      records_updated: result.updated || 0,
-      records_skipped: result.skipped || 0,
-      error_count: result.errors?.length || 0,
-      errors: result.errors,
-      duration_ms: result.duration,
-      started_at: new Date().toISOString(),
-      completed_at: status !== "running" ? new Date().toISOString() : null,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
+  try {
+    const [data] = await db
+      .insert(scrapingLogs)
+      .values({
+        jobType: "lawyer_profile",
+        sourceType: "bar_council",
+        sourceUrl: "https://legaldirectory.malaysianbar.org.my/",
+        status,
+        recordsProcessed: result.totalProcessed || 0,
+        recordsCreated: result.created || 0,
+        recordsUpdated: result.updated || 0,
+        recordsSkipped: result.skipped || 0,
+        errorCount: result.errors?.length || 0,
+        errors: result.errors?.map((item) => ({
+          message: item.error,
+          context: item.lawyer ? { lawyer: item.lawyer } : undefined,
+        })),
+        durationMs: result.duration,
+        completedAt: status !== "running" ? new Date() : null,
+      })
+      .returning({ id: scrapingLogs.id });
+    return data?.id || "";
+  } catch (error) {
     console.error("Failed to log scraping job:", error);
     return "";
   }
-
-  return data?.id || "";
 }
 
 /**
@@ -696,22 +575,23 @@ export async function updateScrapingLog(
 ): Promise<void> {
   if (!logId) return;
 
-  const supabase = createServiceRoleClient();
-
-  await supabase
-    .from("scraping_logs")
-    .update({
+  await db
+    .update(scrapingLogs)
+    .set({
       status,
-      records_processed: result.totalProcessed,
-      records_created: result.created,
-      records_updated: result.updated,
-      records_skipped: result.skipped,
-      error_count: result.errors?.length || 0,
-      errors: result.errors,
-      duration_ms: result.duration,
-      completed_at: status !== "running" ? new Date().toISOString() : null,
+      recordsProcessed: result.totalProcessed,
+      recordsCreated: result.created,
+      recordsUpdated: result.updated,
+      recordsSkipped: result.skipped,
+      errorCount: result.errors?.length || 0,
+      errors: result.errors?.map((item) => ({
+        message: item.error,
+        context: item.lawyer ? { lawyer: item.lawyer } : undefined,
+      })),
+      durationMs: result.duration,
+      completedAt: status !== "running" ? new Date() : null,
     })
-    .eq("id", logId);
+    .where(eq(scrapingLogs.id, logId));
 }
 
 /**

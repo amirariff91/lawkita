@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, CheckCircle2, AlertCircle, Star, Upload, FileText, X, Shield } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+import { uploadStorageFile } from "@/lib/storage/client";
 
 interface ReviewFormProps {
   lawyerId: string;
@@ -108,37 +108,14 @@ export function ReviewForm({ lawyerId, lawyerName }: ReviewFormProps) {
   const uploadDocument = async (): Promise<string | null> => {
     if (!verificationDocument) return null;
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error("Storage not configured");
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    const fileExt = verificationDocument.name.split(".").pop();
-    const fileName = `reviews/${lawyerId}/${Date.now()}.${fileExt}`;
-
     setUploadProgress(30);
-
-    const { data, error } = await supabase.storage
-      .from("documents")
-      .upload(fileName, verificationDocument, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-    if (error) {
-      throw new Error("Failed to upload document: " + error.message);
-    }
-
-    setUploadProgress(80);
-
-    const { data: urlData } = supabase.storage.from("documents").getPublicUrl(data.path);
-
-    setUploadProgress(100);
-    return urlData.publicUrl;
+    return uploadStorageFile({
+      bucket: "documents",
+      purpose: "review-document",
+      resourceId: lawyerId,
+      file: verificationDocument,
+      onProgress: setUploadProgress,
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

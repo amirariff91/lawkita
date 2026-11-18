@@ -63,11 +63,11 @@ export async function generateMetadata({
 
   if (!caseData) {
     return {
-      title: "Case Not Found | LawKita",
+      title: "Case Not Found",
     };
   }
 
-  const title = `${caseData.title} | Famous Cases | LawKita`;
+  const title = `${caseData.title} | Famous Cases`;
   const description = truncateForDescription(
     caseData.description ||
       `Explore the ${caseData.title} case. View timeline, involved lawyers, verdict, and detailed case information on LawKita.`

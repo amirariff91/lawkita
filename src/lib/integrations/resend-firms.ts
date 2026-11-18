@@ -27,9 +27,11 @@ interface ResendError {
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com";
+
 async function sendEmail(options: SendEmailOptions): Promise<{ success: boolean; id?: string; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@lawkita.my";
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@lawkita.com";
 
   if (!apiKey) {
     console.warn("RESEND_API_KEY not configured, skipping email");
@@ -96,7 +98,7 @@ function wrapTemplate(content: string): string {
         ${content}
         <div class="footer">
           <p>LawKita - Malaysia's Trusted Lawyer Directory</p>
-          <p><a href="https://lawkita.my">lawkita.my</a></p>
+          <p><a href="${APP_URL}">lawkita.com</a></p>
         </div>
       </div>
     </body>
@@ -143,7 +145,7 @@ export async function sendFirmClaimSubmittedNotification(
       </ol>
 
       <p style="color: #64748b; font-size: 14px;">
-        If you did not submit this claim, please contact us immediately at support@lawkita.my
+        If you did not submit this claim, please contact us immediately at support@lawkita.com
       </p>
     </div>
   `);
@@ -180,7 +182,7 @@ export async function sendFirmClaimStatusNotification(
         <p>Great news! Your claim for <strong>${data.firmName}</strong> has been verified.</p>
         <p>You now have full access to manage your firm profile on LawKita.</p>
 
-        <a href="https://lawkita.my/firm-dashboard" class="button">Go to Firm Dashboard</a>
+        <a href="${APP_URL}/firm-dashboard" class="button">Go to Firm Dashboard</a>
 
         <p><strong>What you can do now:</strong></p>
         <ul>
@@ -201,10 +203,10 @@ export async function sendFirmClaimStatusNotification(
         <p>If you believe this is an error, you can:</p>
         <ul>
           <li>Submit a new claim with additional documentation</li>
-          <li>Contact us at support@lawkita.my for assistance</li>
+          <li>Contact us at support@lawkita.com for assistance</li>
         </ul>
 
-        <a href="https://lawkita.my/firms/${data.firmSlug}" class="button">View Firm Profile</a>
+        <a href="${APP_URL}/firms/${data.firmSlug}" class="button">View Firm Profile</a>
       `}
     </div>
   `);
@@ -227,7 +229,7 @@ interface AdminFirmClaimNotificationData {
 export async function sendAdminFirmClaimNotification(
   data: AdminFirmClaimNotificationData
 ): Promise<{ success: boolean; id?: string; error?: string }> {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@lawkita.my";
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@lawkita.com";
 
   const html = wrapTemplate(`
     <div class="header">
@@ -241,7 +243,7 @@ export async function sendAdminFirmClaimNotification(
         <p><span class="label">Claim ID:</span> ${data.claimId}</p>
       </div>
 
-      <a href="https://lawkita.my/admin/firm-claims/${data.claimId}" class="button">Review Claim</a>
+      <a href="${APP_URL}/admin/firm-claims/${data.claimId}" class="button">Review Claim</a>
     </div>
   `);
 
@@ -290,7 +292,7 @@ export async function sendFirmSubscriptionConfirmation(
         <li>Priority support</li>
       </ul>
 
-      <a href="https://lawkita.my/firm-dashboard" class="button">Go to Firm Dashboard</a>
+      <a href="${APP_URL}/firm-dashboard" class="button">Go to Firm Dashboard</a>
     </div>
   `);
 
@@ -320,7 +322,7 @@ export async function sendFirmSubscriptionExpiring(
         <li>Priority support</li>
       </ul>
 
-      <a href="https://lawkita.my/firm-dashboard/subscription" class="button">Renew Subscription</a>
+      <a href="${APP_URL}/firm-dashboard/subscription" class="button">Renew Subscription</a>
 
       <p style="color: #64748b; font-size: 14px;">
         If you have automatic renewal enabled, your subscription will renew automatically.

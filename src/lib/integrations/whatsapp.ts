@@ -2,6 +2,7 @@
  * WhatsApp Business API Integration
  * Handles verification callbacks for lawyer claim verification
  */
+import { randomInt } from "node:crypto";
 
 interface WhatsAppMessageResponse {
   messaging_product: string;
@@ -149,6 +150,10 @@ interface ClaimVerificationData {
   lawyerName: string;
   verificationCode: string;
   claimId: string;
+  /** Human-readable lifetime, e.g. "30 minutes". Defaults to "24 hours". */
+  expiresIn?: string;
+  /** "site": the user types the code on LawKita; "reply": reply in WhatsApp. */
+  entry?: "site" | "reply";
 }
 
 export async function sendClaimVerificationWhatsApp(
@@ -159,16 +164,20 @@ export async function sendClaimVerificationWhatsApp(
 
 Hi, we received a claim request for the profile of *${data.lawyerName}* on LawKita.
 
-To verify your identity, please reply with:
-*VERIFY ${data.verificationCode}*
+${
+  data.entry === "site"
+    ? `Your verification code is *${data.verificationCode}*. Enter it on the LawKita claim page to finish.`
+    : `To verify your identity, please reply with:
+*VERIFY ${data.verificationCode}*`
+}
 
-This code expires in 24 hours.
+This code expires in ${data.expiresIn ?? "24 hours"}.
 
 If you did not request this verification, please reply CANCEL or ignore this message.
 
 ---
 LawKita - Malaysia's Trusted Lawyer Directory
-lawkita.my`;
+lawkita.com`;
 
   return sendWhatsAppMessage(phoneNumber, message);
 }
@@ -186,7 +195,7 @@ You can now:
 • Respond to client enquiries
 • View your analytics
 
-Log in at: lawkita.my/dashboard
+Log in at: lawkita.com/dashboard
 
 ---
 LawKita - Malaysia's Trusted Lawyer Directory`;
@@ -207,7 +216,7 @@ Reason: ${reason}
 
 To resolve this:
 1. Submit a new claim with correct documentation
-2. Contact support@lawkita.my
+2. Contact support@lawkita.com
 
 ---
 LawKita - Malaysia's Trusted Lawyer Directory`;
@@ -242,7 +251,7 @@ You have a new enquiry on LawKita:
 • Case Type: ${data.caseType}
 • Urgency: ${data.urgency}
 
-View details: lawkita.my/dashboard/enquiries
+View details: lawkita.com/dashboard/enquiries
 
 ---
 LawKita`;
@@ -340,11 +349,11 @@ export function extractMessagesFromWebhook(payload: WhatsAppWebhookPayload): Arr
 // ============================================================================
 
 export function generateVerificationCode(): string {
-  // Generate 6-character alphanumeric code (uppercase)
+  // Generate 6-character alphanumeric code (uppercase) with a CSPRNG.
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Exclude confusing characters
   let code = "";
   for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(randomInt(chars.length));
   }
   return code;
 }

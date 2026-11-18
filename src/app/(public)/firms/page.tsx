@@ -8,16 +8,44 @@ import { Breadcrumbs } from "@/components/seo";
 import type { SearchParams } from "nuqs/server";
 import { firmSearchParamsCache } from "@/lib/search/firm-search-params";
 
-export const metadata: Metadata = {
-  title: "Law Firms | LawKita",
+const baseMetadata: Metadata = {
+  title: "Law Firms",
   description:
     "Browse law firms across Malaysia. Find the right firm for your legal needs.",
+  alternates: {
+    canonical: "/firms",
+  },
   openGraph: {
-    title: "Law Firms | LawKita",
+    title: "Law Firms",
     description:
       "Browse law firms across Malaysia. Find the right firm for your legal needs.",
   },
 };
+
+// Paginated pages are distinct result sets, so each page > 1 is its own
+// canonical. Filtered/searched views canonicalise to the bare list.
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  const params = await searchParams;
+  // Filtered or searched views canonicalise to the bare list. Only real
+  // filters count: sort order, tracking params and defaults do not.
+  const filterKeys = ["query", "state", "city", "practiceArea"];
+  const filtered = filterKeys.some((key) => {
+    const value = params[key];
+    const first = Array.isArray(value) ? value[0] : value;
+    return first !== undefined && first !== "" && first !== "false";
+  });
+  if (filtered) {
+    return { ...baseMetadata, alternates: { ...baseMetadata.alternates, canonical: "/firms" } };
+  }
+  const raw = params.page;
+  const page = Number.parseInt(Array.isArray(raw) ? raw[0] ?? "" : raw ?? "", 10);
+  const canonical = Number.isSafeInteger(page) && page > 1 ? `/firms?page=${page}` : "/firms";
+  return { ...baseMetadata, alternates: { ...baseMetadata.alternates, canonical } };
+}
 
 interface FirmsPageProps {
   searchParams: Promise<SearchParams>;

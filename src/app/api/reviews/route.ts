@@ -26,7 +26,7 @@ const reviewSchema = z.object({
   valueRating: z.number().min(0).max(5).optional(),
   pros: z.string().optional(),
   cons: z.string().optional(),
-  verificationDocument: z.string().optional(), // Supabase storage URL for invoice/receipt
+  verificationDocument: z.string().optional(), // Object storage URL for invoice/receipt
 });
 
 export async function POST(request: NextRequest) {
@@ -139,9 +139,11 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    // If auto-published, recalculate metrics from published reviews
+    // If auto-published, recalculate metrics from all currently-published
+    // reviews instead of incrementing a cached count.
     if (isAutoPublished) {
       await recalculateLawyerReviewMetrics(data.lawyerId);
+
       // Send published notification
       await sendReviewPublishedNotification({
         reviewerEmail: data.reviewerEmail,

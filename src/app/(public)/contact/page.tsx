@@ -4,15 +4,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Mail, MapPin, Clock } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Contact Us | LawKita",
+  title: "Contact Us",
   description: "Get in touch with the LawKita team. We're here to help with questions about our lawyer directory platform.",
+  alternates: {
+    canonical: "/contact",
+  },
 };
 
 const contactInfo = [
   {
     icon: Mail,
     title: "Email",
-    details: ["support@lawkita.my", "For lawyers: lawyers@lawkita.my"],
+    details: ["support@lawkita.com", "For lawyers: lawyers@lawkita.com"],
   },
   {
     icon: MapPin,

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, CheckCircle2, AlertCircle, Upload, X, Building2 } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+import { uploadStorageFile } from "@/lib/storage/client";
 import type { FirmDashboardData } from "@/lib/db/queries/firms";
 
 interface FirmProfileFormProps {
@@ -58,31 +58,13 @@ export function FirmProfileForm({ firm }: FirmProfileFormProps) {
   const uploadLogo = async (): Promise<string | null> => {
     if (!logo) return firm.logo;
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error("Storage not configured");
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    const fileExt = logo.name.split(".").pop();
-    const fileName = `firms/${firm.id}/logo.${fileExt}`;
-
-    const { data, error } = await supabase.storage
-      .from("images")
-      .upload(fileName, logo, {
-        cacheControl: "3600",
-        upsert: true,
-      });
-
-    if (error) {
-      throw new Error("Failed to upload logo: " + error.message);
-    }
-
-    const { data: urlData } = supabase.storage.from("images").getPublicUrl(data.path);
-    return urlData.publicUrl;
+    return uploadStorageFile({
+      bucket: "images",
+      purpose: "firm-logo",
+      resourceId: firm.id,
+      file: logo,
+      upsert: true,
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

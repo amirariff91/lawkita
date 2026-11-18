@@ -3,7 +3,9 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { getUserFirm } from "@/lib/db/queries/firms";
-import { createServerSupabaseClient } from "@/lib/supabase/client";
+import { db } from "@/lib/db";
+import { lawyers } from "@/lib/db/schema";
+import { and, desc, eq } from "drizzle-orm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,15 +26,17 @@ export default async function FirmDashboardPage() {
     redirect("/firms");
   }
 
-  const supabase = createServerSupabaseClient();
-
   // Get recent lawyer activity
-  const { data: recentLawyers } = await supabase
-    .from("lawyers")
-    .select("id, name, slug, years_at_bar")
-    .eq("primary_firm_id", firm.id)
-    .eq("is_active", true)
-    .order("updated_at", { ascending: false })
+  const recentLawyers = await db
+    .select({
+      id: lawyers.id,
+      name: lawyers.name,
+      slug: lawyers.slug,
+      years_at_bar: lawyers.yearsAtBar,
+    })
+    .from(lawyers)
+    .where(and(eq(lawyers.primaryFirmId, firm.id), eq(lawyers.isActive, true)))
+    .orderBy(desc(lawyers.updatedAt))
     .limit(5);
 
   return (

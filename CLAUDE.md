@@ -10,9 +10,12 @@ PRD.md is a 2026-01 snapshot of original intent, not the current spec. [A15]
 
 - Use Bun for everything — install, run, scripts. Never run yarn or regenerate
   yarn.lock; it and the `packageManager` field are dead leftovers. [A4]
-- Pushing `main` deploys production (Coolify builds the Dockerfile on push).
-  Before any push to main, all three must pass:
-  `bun run build && bun run type-check && bun run lint`. [A5f, A13]
+- Production deploys from the **`migrate/supabase-to-postgres`** branch — Coolify
+  (app `lawkita-web`) builds the Dockerfile when THAT branch is pushed/merged.
+  `main` is NOT the deploy branch (a push to main is inert). [A5f — corrected
+  2026-09-13; was "push main = deploy" before the Supabase→Postgres migration]
+  Before any deploy, all three must pass:
+  `bun run build && bun run type-check && bun run lint`. [A13]
 - Two data layers coexist (Drizzle over DATABASE_URL, supabase-js). End-state
   is undecided: use whichever client the file you're editing already uses;
   never migrate code between layers without asking. [A2]

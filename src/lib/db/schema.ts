@@ -177,7 +177,7 @@ export const firms = pgTable(
     name: text("name").notNull(),
     slug: text("slug").unique().notNull(),
     description: text("description"),
-    logo: text("logo"), // Supabase storage URL
+    logo: text("logo"), // Object storage URL
     address: text("address"),
     normalizedAddress: text("normalized_address"), // For deduplication
     state: text("state"),
@@ -472,7 +472,7 @@ export const reviews = pgTable(
     cons: text("cons"),
 
     // Verification
-    verificationDocument: text("verification_document"), // Supabase storage URL
+    verificationDocument: text("verification_document"), // Object storage URL
     isVerified: boolean("is_verified").default(false).notNull(),
     verificationStatus: text("verification_status", {
       enum: ["pending", "approved", "rejected", "flagged_for_review"],
@@ -651,7 +651,7 @@ export const firmClaims = pgTable(
     position: text("position"), // Managing Partner, Admin, etc.
 
     // Verification
-    verificationDocument: text("verification_document"), // Supabase storage URL
+    verificationDocument: text("verification_document"), // Object storage URL
     status: text("status", {
       enum: ["pending", "verified", "rejected"],
     })

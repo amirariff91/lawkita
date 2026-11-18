@@ -7,16 +7,44 @@ import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsString, parseAsInteger } from "nuqs/server";
 import type { CaseCategory, CaseStatus } from "@/types/case";
 
-export const metadata: Metadata = {
-  title: "Famous Cases Explorer | LawKita",
+const baseMetadata: Metadata = {
+  title: "Famous Cases Explorer",
   description:
     "Explore high-profile Malaysian legal cases. Discover case timelines, involved lawyers, and verdicts in corruption, political, corporate, and criminal cases.",
+  alternates: {
+    canonical: "/cases",
+  },
   openGraph: {
-    title: "Famous Cases Explorer | LawKita",
+    title: "Famous Cases Explorer",
     description:
       "Explore high-profile Malaysian legal cases. Discover case timelines, involved lawyers, and verdicts.",
   },
 };
+
+// Paginated pages are distinct result sets, so each page > 1 is its own
+// canonical. Filtered/searched views canonicalise to the bare list.
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  const params = await searchParams;
+  // Filtered or searched views canonicalise to the bare list. Only real
+  // filters count: sort order, tracking params and defaults do not.
+  const filterKeys = ["query", "category", "status", "tag"];
+  const filtered = filterKeys.some((key) => {
+    const value = params[key];
+    const first = Array.isArray(value) ? value[0] : value;
+    return first !== undefined && first !== "" && first !== "false";
+  });
+  if (filtered) {
+    return { ...baseMetadata, alternates: { ...baseMetadata.alternates, canonical: "/cases" } };
+  }
+  const raw = params.page;
+  const page = Number.parseInt(Array.isArray(raw) ? raw[0] ?? "" : raw ?? "", 10);
+  const canonical = Number.isSafeInteger(page) && page > 1 ? `/cases?page=${page}` : "/cases";
+  return { ...baseMetadata, alternates: { ...baseMetadata.alternates, canonical } };
+}
 
 const searchParamsCache = createSearchParamsCache({
   query: parseAsString.withDefault(""),
