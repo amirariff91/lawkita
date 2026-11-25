@@ -11,13 +11,14 @@ paths:
 
 - Scraped lawyer data is sacred — it is the product [A6]. `lawyers.scraped_data`
   holds the original scrape for conflict resolution; never drop or overwrite it.
-- Re-running the Bar Council scraper is CONFIRMED DESTRUCTIVE (code review
-  2026-07-08, resolving what the owner couldn't recall [A12]): the update
-  payload sets `is_claimed: false` and overwrites name/contact/firm fields and
-  `scraped_data` on existing rows
-  (src/lib/scrapers/malaysian-bar-scraper.ts:445,471). The site is live [A1].
-  Never run it against production until the upsert preserves claimed/edited
-  profiles — fixing that is a prerequisite, not an option.
+- Re-running the Bar Council scraper rewrites live lawyer rows and the site is
+  live [A1]: ask the owner before running it against production [A12]. The
+  2026-07-08 review found that an update reset `is_claimed` and overwrote
+  name/contact/firm fields; that was fixed on 2026-09-13 (commit d3e93d1). An
+  update now keeps ownership, changes only Bar status fields on claimed rows,
+  and on unclaimed rows fills empty contact fields and may replace the firm
+  (`canFillLawyerField` in src/lib/scrapers/malaysian-bar-scraper.ts). New
+  rows are inserted unclaimed.
 - Whether the news-crawler cron is scheduled anywhere is unknown [A5f] — don't
   assume it runs (docs/unknowns.md #6).
 - Outcomes of the e-judgment scraper and Bar Council API discovery experiments

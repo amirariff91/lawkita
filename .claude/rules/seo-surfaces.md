@@ -14,10 +14,9 @@ paths:
 
 The site is live and organic traffic is the business [A1].
 
-- Canonical domain is **lawkita.com** [A17], but code fallbacks default to
-  `https://lawkita.my` (src/lib/utils/seo.ts:5, src/app/sitemap.ts:9,
-  src/app/robots.ts:3). Production must set NEXT_PUBLIC_APP_URL; never copy
-  the `.my` fallback into new code — use lawkita.com if a literal is needed.
+- Canonical domain is **lawkita.com** [A17], and the code fallbacks use it
+  (src/lib/utils/seo.ts:5, src/app/sitemap.ts:18, src/app/robots.ts:3).
+  Production must set NEXT_PUBLIC_APP_URL; never add a `.my` literal.
 - Do not remove or rename public routes, slugs, metadata, JSON-LD, or sitemap
   entries without explicit owner approval.
 - The sitemap is generated at request time (`dynamic = "force-dynamic"` —
