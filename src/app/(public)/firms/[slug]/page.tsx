@@ -89,9 +89,24 @@ export default async function FirmProfilePage({
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-4">
-              <div className={`p-3 rounded-lg ${isPremium ? "bg-amber-100 dark:bg-amber-900/30" : "bg-primary/10"}`}>
-                <Building2 className={`size-8 ${isPremium ? "text-amber-600" : "text-primary"}`} />
-              </div>
+              {firm.logo ? (
+                // A light or white logo needs a dark backdrop to stay visible.
+                <div
+                  className={`flex h-16 w-24 shrink-0 items-center justify-center rounded-lg border p-2 ${firm.logoIsLight ? "bg-[#112238]" : "bg-white"}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={firm.logo}
+                    alt={`${firm.name} logo`}
+                    className="max-h-full max-w-full object-contain"
+                    loading="eager"
+                  />
+                </div>
+              ) : (
+                <div className={`p-3 rounded-lg ${isPremium ? "bg-amber-100 dark:bg-amber-900/30" : "bg-primary/10"}`}>
+                  <Building2 className={`size-8 ${isPremium ? "text-amber-600" : "text-primary"}`} />
+                </div>
+              )}
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h1 className="text-3xl font-bold">{firm.name}</h1>
@@ -221,6 +236,65 @@ export default async function FirmProfilePage({
                 </Badge>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Firm details from public directories and the firm's own website */}
+        {(firm.foundedYear ||
+          firm.openingHours ||
+          (firm.languages?.length ?? 0) > 0 ||
+          (firm.legalNetworks?.length ?? 0) > 0 ||
+          (firm.bankPanels?.length ?? 0) > 0) && (
+          <div className="space-y-3">
+            <h2 className="text-xl font-semibold">About the firm</h2>
+            <dl className="grid gap-3 text-sm sm:grid-cols-2">
+              {firm.foundedYear && (
+                <div>
+                  <dt className="text-muted-foreground">Founded</dt>
+                  <dd>{firm.foundedYear}</dd>
+                </div>
+              )}
+              {firm.openingHours && (
+                <div>
+                  <dt className="text-muted-foreground">Opening hours</dt>
+                  <dd>{firm.openingHours}</dd>
+                </div>
+              )}
+              {(firm.languages?.length ?? 0) > 0 && (
+                <div>
+                  <dt className="text-muted-foreground">Languages</dt>
+                  <dd>{firm.languages!.join(", ")}</dd>
+                </div>
+              )}
+              {(firm.legalNetworks?.length ?? 0) > 0 && (
+                <div>
+                  <dt className="text-muted-foreground">Legal networks</dt>
+                  <dd>{firm.legalNetworks!.join(", ")}</dd>
+                </div>
+              )}
+              {(firm.bankPanels?.length ?? 0) > 0 && (
+                <div className="sm:col-span-2">
+                  <dt className="text-muted-foreground">
+                    Bank panels (self-declared on the firm&apos;s website)
+                  </dt>
+                  <dd>{firm.bankPanels!.join(", ")}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
+
+        {(firm.rankings?.length ?? 0) > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-xl font-semibold">Published rankings</h2>
+            <ul className="list-disc space-y-1 pl-5 text-sm">
+              {firm.rankings!.map((ranking) => (
+                <li key={ranking}>{ranking}</li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground">
+              As published by the named legal guide. LawKita does not rank firms.
+            </p>
           </div>
         )}
 

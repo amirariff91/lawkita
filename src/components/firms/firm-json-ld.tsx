@@ -27,6 +27,7 @@ export function FirmJsonLd({ firm }: FirmJsonLdProps) {
       ...(firm.address && { streetAddress: firm.address }),
       ...(firm.city && { addressLocality: firm.city }),
       ...(firm.state && { addressRegion: firm.state }),
+      ...(firm.postcode && { postalCode: firm.postcode }),
       addressCountry: "MY",
     };
   }
@@ -43,9 +44,24 @@ export function FirmJsonLd({ firm }: FirmJsonLdProps) {
     jsonLd.email = firm.email;
   }
 
-  if (firm.website) {
-    jsonLd.sameAs = [firm.website];
+  const sameAs = [firm.website, firm.linkedin, ...(firm.socialLinks ?? [])].filter(
+    (link): link is string => Boolean(link)
+  );
+  if (sameAs.length > 0) jsonLd.sameAs = sameAs;
+
+  if (firm.logo) jsonLd.logo = firm.logo;
+
+  if (typeof firm.latitude === "number" && typeof firm.longitude === "number") {
+    jsonLd.geo = {
+      "@type": "GeoCoordinates",
+      latitude: firm.latitude,
+      longitude: firm.longitude,
+    };
   }
+
+  if (firm.foundedYear) jsonLd.foundingDate = String(firm.foundedYear);
+  if (firm.languages && firm.languages.length > 0) jsonLd.knowsLanguage = firm.languages;
+  if (firm.rankings && firm.rankings.length > 0) jsonLd.award = firm.rankings;
 
   // Practice areas / services
   if (firm.practiceAreas.length > 0) {

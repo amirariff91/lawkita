@@ -9,8 +9,13 @@ import {
   cities,
   firms,
 } from "@/lib/db/schema";
-import { and, count, desc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull } from "drizzle-orm";
 import { isHubPageIndexable } from "@/lib/utils/seo";
+import { indexableLawyerProfile, listableLawyer } from "@/lib/lawyers/listable";
+
+// One sitemap file may hold 50,000 URLs. Past this many, split the sitemap.
+const SITEMAP_WARN_URLS = 45_000;
+const MAX_LAWYER_URLS = 40_000;
 
 // Generate sitemap at runtime, not build time (requires DB connection)
 export const dynamic = "force-dynamic";
@@ -90,7 +95,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   );
 
-  // Lawyer profiles - all lawyers should be indexed for SEO
+  // Lawyer profiles: listable lawyers whose profile has enough substance to
+  // index (see indexableLawyerProfile). Oldest first, so that if the cap is
+  // ever reached the profiles already in the sitemap stay in it.
   const allLawyers = await db
     .select({
       slug: lawyers.slug,
@@ -98,9 +105,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       isClaimed: lawyers.isClaimed,
     })
     .from(lawyers)
-    .where(eq(lawyers.isActive, true))
-    .orderBy(desc(lawyers.updatedAt))
-    .limit(10000); // Limit to prevent memory issues
+    .where(indexableLawyerProfile)
+    .orderBy(asc(lawyers.createdAt), asc(lawyers.id))
+    .limit(MAX_LAWYER_URLS);
 
   for (const lawyer of allLawyers) {
     entries.push({
@@ -183,7 +190,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     )
     .innerJoin(lawyers, eq(lawyerPracticeAreas.lawyerId, lawyers.id))
     .where(
-      and(eq(lawyers.isActive, true), eq(practiceAreas.isUserFacing, true))
+      and(listableLawyer, eq(practiceAreas.isUserFacing, true))
     )
     .groupBy(practiceAreas.slug)
     .catch((error: unknown) => {
@@ -197,7 +204,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const stateCounts = await db
     .select({ state: lawyers.state, count: count() })
     .from(lawyers)
-    .where(and(eq(lawyers.isActive, true), isNotNull(lawyers.state)))
+    .where(and(listableLawyer, isNotNull(lawyers.state)))
     .groupBy(lawyers.state)
     .catch((error: unknown) => {
       console.error("sitemap: state counts query failed", error);
@@ -216,7 +223,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .from(lawyers)
     .where(
       and(
-        eq(lawyers.isActive, true),
+        listableLawyer,
         isNotNull(lawyers.state),
         isNotNull(lawyers.city)
       )
@@ -295,6 +302,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.6,
     });
+  }
+
+  if (entries.length > SITEMAP_WARN_URLS) {
+    console.warn(
+      `sitemap: ${entries.length} URLs, close to the 50,000 per-file limit; split it`
+    );
   }
 
   return entries;

@@ -36,6 +36,7 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
 
   // Determine inactive status
   const isInactive =
+    lawyer.barStatus === "struck_off" ||
     lawyer.barStatus === "deceased" ||
     lawyer.barStatus === "inactive" ||
     lawyer.barStatus === "suspended";

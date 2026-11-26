@@ -10,6 +10,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { listableLawyer } from "@/lib/lawyers/listable";
 import {
   firms,
   lawyerFirmHistory,
@@ -37,6 +38,19 @@ export interface FirmWithStats {
   avgYearsExperience: number | null;
   practiceAreas: string[];
   lawyers: LawyerCardData[];
+  // Directory import fields (absent on firms created by the scraper)
+  logoIsLight?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  postcode?: string | null;
+  foundedYear?: number | null;
+  openingHours?: string | null;
+  languages?: string[] | null;
+  bankPanels?: string[] | null;
+  legalNetworks?: string[] | null;
+  rankings?: string[] | null;
+  linkedin?: string | null;
+  socialLinks?: string[] | null;
 }
 
 export interface FirmCardData {
@@ -106,7 +120,7 @@ async function getFirmLawyers(firmId: string): Promise<{
   const lawyerRows = await db
     .select()
     .from(lawyers)
-    .where(and(eq(lawyers.primaryFirmId, firmId), eq(lawyers.isActive, true)))
+    .where(and(eq(lawyers.primaryFirmId, firmId), listableLawyer))
     .orderBy(sql`${lawyers.yearsAtBar} DESC NULLS LAST`);
   const practiceAreaMap = new Map<string, string[]>();
   const allPracticeAreas = new Set<string>();
@@ -168,6 +182,18 @@ export async function getFirmBySlug(slug: string): Promise<FirmWithStats | null>
       : null,
     practiceAreas: firmLawyers.practiceAreas,
     lawyers: firmLawyers.lawyers,
+    logoIsLight: firm.logoIsLight,
+    latitude: firm.latitude,
+    longitude: firm.longitude,
+    postcode: firm.postcode,
+    foundedYear: firm.foundedYear,
+    openingHours: firm.openingHours,
+    languages: firm.languages,
+    bankPanels: firm.bankPanels,
+    legalNetworks: firm.legalNetworks,
+    rankings: firm.rankings,
+    linkedin: firm.linkedin,
+    socialLinks: firm.socialLinks,
   };
 }
 
@@ -397,7 +423,7 @@ export async function updateFirmCachedStats(firmId: string): Promise<void> {
   const rows = await db
     .select({ yearsAtBar: lawyers.yearsAtBar })
     .from(lawyers)
-    .where(and(eq(lawyers.primaryFirmId, firmId), eq(lawyers.isActive, true)));
+    .where(and(eq(lawyers.primaryFirmId, firmId), listableLawyer));
   const years = rows
     .map((row) => row.yearsAtBar)
     .filter((year): year is number => year !== null);

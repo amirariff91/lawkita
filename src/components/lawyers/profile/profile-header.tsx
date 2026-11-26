@@ -35,7 +35,28 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
   const isInactive =
     lawyer.barStatus === "deceased" ||
     lawyer.barStatus === "inactive" ||
-    lawyer.barStatus === "suspended";
+    lawyer.barStatus === "suspended" ||
+    lawyer.barStatus === "struck_off";
+
+  const statusMessage =
+    lawyer.barStatus === "deceased"
+      ? "This lawyer is deceased"
+      : lawyer.barStatus === "struck_off"
+        ? "This lawyer is recorded as struck off the Roll"
+        : lawyer.barStatus === "suspended"
+          ? "This lawyer is currently recorded as suspended"
+          : "This lawyer is currently recorded as inactive";
+
+  const standingSource = lawyer.standingSourceUrl ? (
+    <a
+      href={lawyer.standingSourceUrl}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+      className="underline"
+    >
+      Source
+    </a>
+  ) : null;
 
   return (
     <div className="relative">
@@ -45,11 +66,22 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
           <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
             <AlertTriangle className="size-4" aria-hidden="true" />
             <span className="text-sm font-medium">
-              {lawyer.barStatus === "deceased"
-                ? "This lawyer is deceased"
-                : lawyer.barStatus === "suspended"
-                  ? "This lawyer is currently suspended by the Malaysian Bar Council"
-                  : "This lawyer is currently listed as inactive with the Malaysian Bar Council"}
+              {statusMessage}
+              {lawyer.standingNote ? `: ${lawyer.standingNote}` : ""}
+              {standingSource && <> ({standingSource})</>}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* A note about one credential, for a lawyer otherwise in good standing */}
+      {!isInactive && lawyer.standingNote && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-900/20">
+          <div className="flex items-center gap-2 text-amber-900 dark:text-amber-100">
+            <AlertTriangle className="size-4" aria-hidden="true" />
+            <span className="text-sm">
+              {lawyer.standingNote}
+              {standingSource && <> ({standingSource})</>}
             </span>
           </div>
         </div>
@@ -88,7 +120,11 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
             {isInactive && (
               <Badge variant="destructive" className="gap-1">
                 <AlertTriangle className="size-3" aria-hidden="true" />
-                {lawyer.barStatus === "suspended" ? "Suspended" : "Inactive"}
+                {lawyer.barStatus === "suspended"
+                  ? "Suspended"
+                  : lawyer.barStatus === "struck_off"
+                    ? "Struck off"
+                    : "Inactive"}
               </Badge>
             )}
 
@@ -143,6 +179,7 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
               ) : (
                 <span>{lawyer.firmName}</span>
               )}
+              {lawyer.designation && <span>· {lawyer.designation}</span>}
             </div>
           )}
 

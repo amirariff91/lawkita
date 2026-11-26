@@ -1,3 +1,4 @@
+import { isListableLawyer } from "@/lib/lawyers/listable";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { enquiries, lawyers, messages } from "@/lib/db/schema";
@@ -47,6 +48,7 @@ export async function POST(
         email: true,
         phone: true,
         isActive: true,
+        barStatus: true,
         isClaimed: true,
         subscriptionTier: true,
       },
@@ -59,7 +61,7 @@ export async function POST(
       );
     }
 
-    if (!lawyer.isActive) {
+    if (!isListableLawyer(lawyer)) {
       return NextResponse.json(
         { error: "This lawyer is not currently accepting enquiries" },
         { status: 400 }

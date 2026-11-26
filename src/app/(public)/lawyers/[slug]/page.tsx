@@ -18,8 +18,10 @@ import {
   CompletenessIndicator,
   SimilarLawyers,
   FirmHistory,
+  DirectoryDetailsSection,
 } from "@/components/lawyers/profile";
 import { EnquiryForm } from "@/components/lawyers/enquiry-form";
+import { isLawyerProfileIndexable, isListableLawyer } from "@/lib/lawyers/listable";
 import { Breadcrumbs } from "@/components/seo";
 import {
   getLawyerOgImageUrl,
@@ -62,6 +64,12 @@ export async function generateMetadata({
     alternates: {
       canonical: canonicalUrl,
     },
+    // Sparse profiles and lawyers not in good standing keep their page but
+    // stay out of the index (and out of the sitemap).
+    ...(!isLawyerProfileIndexable({
+      ...lawyer,
+      practiceAreaCount: lawyer.practiceAreas.length,
+    }) && { robots: { index: false, follow: true } }),
     openGraph: {
       title,
       description,
@@ -132,7 +140,9 @@ export default async function LawyerProfilePage({
           <MetricsSection lawyer={lawyer} />
 
           {/* Enquiry Form */}
-          <EnquiryForm lawyerId={lawyer.id} lawyerName={lawyer.name} />
+          {isListableLawyer(lawyer) && (
+            <EnquiryForm lawyerId={lawyer.id} lawyerName={lawyer.name} />
+          )}
 
           {/* About */}
           <AboutSection bio={lawyer.bio} />
@@ -142,6 +152,14 @@ export default async function LawyerProfilePage({
 
           {/* Practice Areas */}
           <PracticeAreasSection practiceAreas={lawyer.practiceAreas} />
+
+          {/* Qualification, panels, languages, published rankings */}
+          <DirectoryDetailsSection
+            qualification={lawyer.qualification}
+            languages={lawyer.languages}
+            credentials={lawyer.credentials}
+            rankings={lawyer.rankings}
+          />
 
           {/* Education & Qualifications */}
           <EducationSection

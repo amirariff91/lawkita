@@ -47,6 +47,10 @@ export function LawyerJsonLd({ lawyer, url }: LawyerJsonLdProps) {
     jsonLd.worksFor = {
       "@type": "LegalService",
       name: lawyer.firmName,
+      ...(lawyer.firmSlug && {
+        "@id": `${new URL(url).origin}/firms/${lawyer.firmSlug}`,
+        url: `${new URL(url).origin}/firms/${lawyer.firmSlug}`,
+      }),
       ...(lawyer.address && {
         address: {
           "@type": "PostalAddress",
@@ -74,6 +78,10 @@ export function LawyerJsonLd({ lawyer, url }: LawyerJsonLdProps) {
   if (lawyer.practiceAreas.length > 0) {
     jsonLd.knowsAbout = lawyer.practiceAreas.map((pa) => pa.practiceArea.name);
   }
+
+  if (lawyer.designation) jsonLd.jobTitle = lawyer.designation;
+  if (lawyer.linkedin) jsonLd.sameAs = [lawyer.linkedin];
+  if (lawyer.rankings && lawyer.rankings.length > 0) jsonLd.award = lawyer.rankings;
 
   // Area served (based on state)
   if (lawyer.state) {
@@ -165,8 +173,9 @@ export function LawyerJsonLd({ lawyer, url }: LawyerJsonLdProps) {
   // Same as links (could include LinkedIn, etc. if available)
   // jsonLd.sameAs = [];
 
-  // Available language (assuming English and Malay)
-  jsonLd.knowsLanguage = ["en", "ms"];
+  // Languages from the directory when known; otherwise English and Malay.
+  jsonLd.knowsLanguage =
+    lawyer.languages && lawyer.languages.length > 0 ? lawyer.languages : ["en", "ms"];
 
   return (
     <script
