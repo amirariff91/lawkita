@@ -499,6 +499,14 @@ export const PRACTICE_AREAS: PracticeAreaDefinition[] = [
     level: 1,
     isUserFacing: true,
   },
+  {
+    name: "Defamation",
+    slug: "defamation",
+    icon: "message-square-warning",
+    description: "Libel, slander, and reputation disputes, including online defamation",
+    level: 1,
+    isUserFacing: true,
+  },
 ];
 
 // Flatten practice areas for easy lookup

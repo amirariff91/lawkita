@@ -1,3 +1,4 @@
+import { serializeJsonLd } from "@/lib/utils/json-ld";
 import Link from "next/link";
 import { ChevronRight, Home } from "lucide-react";
 import { getBreadcrumbSchema } from "@/lib/utils/seo";
@@ -33,7 +34,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
       />
       <nav aria-label="Breadcrumb" className="mb-4">
         <ol className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">

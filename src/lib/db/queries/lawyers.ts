@@ -1,5 +1,6 @@
 import {
   and,
+  asc,
   count,
   desc,
   eq,
@@ -12,6 +13,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { listableLawyer } from "@/lib/lawyers/listable";
 import {
   cases,
   caseLawyers,
@@ -36,7 +38,7 @@ const EXPERIENCE_THRESHOLDS: Record<ExperienceLevel, { min: number; max: number 
   senior: { min: 16, max: Infinity },
 };
 
-type LawyerCardRow = {
+export type LawyerCardRow = {
   id: string;
   slug: string;
   name: string;
@@ -52,12 +54,12 @@ type LawyerCardRow = {
   reviewCount: number | null;
   averageRating: string | null;
   responseRate: string | null;
-  barStatus: "active" | "inactive" | "suspended" | "deceased" | null;
+  barStatus: "active" | "inactive" | "suspended" | "deceased" | "struck_off" | null;
   barMembershipNumber: string | null;
   lastScrapedAt: Date | null;
 };
 
-const lawyerCardSelection = {
+export const lawyerCardSelection = {
   id: lawyers.id,
   slug: lawyers.slug,
   name: lawyers.name,
@@ -78,7 +80,7 @@ const lawyerCardSelection = {
   lastScrapedAt: lawyers.lastScrapedAt,
 };
 
-function toLawyerCard(
+export function toLawyerCard(
   lawyer: LawyerCardRow,
   practiceAreaMap: Map<string, string[]>
 ): LawyerCardData {
@@ -105,7 +107,7 @@ function toLawyerCard(
   };
 }
 
-async function getPracticeAreaMap(lawyerIds: string[]): Promise<Map<string, string[]>> {
+export async function getPracticeAreaMap(lawyerIds: string[]): Promise<Map<string, string[]>> {
   const map = new Map<string, string[]>();
   if (lawyerIds.length === 0) return map;
 
@@ -139,7 +141,7 @@ export async function searchLawyers(
   const offset = (page - 1) * limit;
   const conditions = [];
 
-  if (!params.showInactive) conditions.push(eq(lawyers.isActive, true));
+  if (!params.showInactive) conditions.push(listableLawyer);
 
   if (params.practiceArea) {
     const [practiceArea] = await db
@@ -150,13 +152,15 @@ export async function searchLawyers(
 
     if (!practiceArea) return emptySearchResult(page);
 
-    const associations = await db
-      .select({ lawyerId: lawyerPracticeAreas.lawyerId })
-      .from(lawyerPracticeAreas)
-      .where(eq(lawyerPracticeAreas.practiceAreaId, practiceArea.id));
-    const ids = associations.map((row) => row.lawyerId);
-    if (ids.length === 0) return emptySearchResult(page);
-    conditions.push(inArray(lawyers.id, ids));
+    // A subquery, not a list of ids: one practice area can hold thousands of
+    // lawyers, which is too many bind parameters to send per request.
+    conditions.push(
+      sql`EXISTS (
+        SELECT 1 FROM ${lawyerPracticeAreas}
+        WHERE ${lawyerPracticeAreas.lawyerId} = ${lawyers.id}
+          AND ${lawyerPracticeAreas.practiceAreaId} = ${practiceArea.id}
+      )`
+    );
   }
 
   if (params.query) {
@@ -192,17 +196,23 @@ export async function searchLawyers(
 
   switch (params.sort ?? "relevance") {
     case "experience":
-      query.orderBy(sql`${lawyers.yearsAtBar} DESC NULLS LAST`);
+      query.orderBy(sql`${lawyers.yearsAtBar} DESC NULLS LAST`, asc(lawyers.id));
       break;
     case "rating":
-      query.orderBy(sql`${lawyers.averageRating} DESC NULLS LAST`);
+      query.orderBy(sql`${lawyers.averageRating} DESC NULLS LAST`, asc(lawyers.id));
       break;
     case "reviews":
-      query.orderBy(sql`${lawyers.reviewCount} DESC NULLS LAST`);
+      query.orderBy(sql`${lawyers.reviewCount} DESC NULLS LAST`, asc(lawyers.id));
       break;
     case "relevance":
     default:
-      query.orderBy(desc(lawyers.subscriptionTier), sql`${lawyers.reviewCount} DESC NULLS LAST`);
+      // Most rows tie on tier and review count; without a final unique key
+      // the database may order ties differently per page.
+      query.orderBy(
+        desc(lawyers.subscriptionTier),
+        sql`${lawyers.reviewCount} DESC NULLS LAST`,
+        asc(lawyers.id)
+      );
       break;
   }
 
@@ -304,6 +314,9 @@ export async function getLawyerBySlug(
 
   return {
     ...lawyerRow,
+    // Raw source rows are for the importer and scrapers, not for pages.
+    importData: null,
+    scrapedData: null,
     firmSlug: primaryFirm?.slug ?? null,
     practiceAreas: practiceAreasData.map((row) => ({
       practiceArea: row.practiceArea,
@@ -349,7 +362,7 @@ export async function getFeaturedLawyers(limit = 6): Promise<LawyerCardData[]> {
   const rows = await db
     .select(lawyerCardSelection)
     .from(lawyers)
-    .where(and(eq(lawyers.isActive, true), isNotNull(lawyers.averageRating)))
+    .where(and(listableLawyer, isNotNull(lawyers.averageRating)))
     .orderBy(
       desc(lawyers.subscriptionTier),
       desc(lawyers.averageRating),
@@ -364,16 +377,14 @@ export async function getLawyerCountsByState(): Promise<
   { state: string; count: number }[]
 > {
   const rows = await db
-    .select({ state: lawyers.state })
+    .select({ state: lawyers.state, total: count() })
     .from(lawyers)
-    .where(and(eq(lawyers.isActive, true), isNotNull(lawyers.state)));
-  const counts = new Map<string, number>();
+    .where(and(listableLawyer, isNotNull(lawyers.state)))
+    .groupBy(lawyers.state);
 
-  for (const row of rows) {
-    if (row.state) counts.set(row.state, (counts.get(row.state) ?? 0) + 1);
-  }
-
-  return [...counts].map(([state, count]) => ({ state, count }));
+  return rows.flatMap((row) =>
+    row.state ? [{ state: row.state, count: Number(row.total) }] : []
+  );
 }
 
 export async function getLawyerCountsByPracticeArea(): Promise<
@@ -383,24 +394,19 @@ export async function getLawyerCountsByPracticeArea(): Promise<
     .select({
       slug: practiceAreas.slug,
       name: practiceAreas.name,
-      isUserFacing: practiceAreas.isUserFacing,
+      total: count(),
     })
     .from(lawyerPracticeAreas)
     .innerJoin(
       practiceAreas,
       eq(lawyerPracticeAreas.practiceAreaId, practiceAreas.id)
-    );
-  const counts = new Map<string, { name: string; count: number }>();
+    )
+    .innerJoin(lawyers, eq(lawyerPracticeAreas.lawyerId, lawyers.id))
+    .where(and(listableLawyer, eq(practiceAreas.isUserFacing, true)))
+    .groupBy(practiceAreas.slug, practiceAreas.name);
 
-  for (const row of rows) {
-    if (!row.isUserFacing) continue;
-    const current = counts.get(row.slug) ?? { name: row.name, count: 0 };
-    current.count++;
-    counts.set(row.slug, current);
-  }
-
-  return [...counts]
-    .map(([slug, value]) => ({ slug, ...value }))
+  return rows
+    .map((row) => ({ slug: row.slug, name: row.name, count: Number(row.total) }))
     .sort((a, b) => b.count - a.count);
 }
 
@@ -411,7 +417,7 @@ export async function getNewlyAdmittedLawyers(
   const safePage = Math.max(1, page);
   const safeLimit = Math.max(1, limit);
   const offset = (safePage - 1) * safeLimit;
-  const where = and(eq(lawyers.isActive, true), lt(lawyers.yearsAtBar, 1));
+  const where = and(listableLawyer, lt(lawyers.yearsAtBar, 1));
   const [{ total }] = await db
     .select({ total: count() })
     .from(lawyers)
@@ -420,7 +426,7 @@ export async function getNewlyAdmittedLawyers(
     .select(lawyerCardSelection)
     .from(lawyers)
     .where(where)
-    .orderBy(sql`${lawyers.yearsAtBar} ASC NULLS LAST`)
+    .orderBy(sql`${lawyers.yearsAtBar} ASC NULLS LAST`, asc(lawyers.id))
     .limit(safeLimit)
     .offset(offset);
   const practiceAreaMap = await getPracticeAreaMap(rows.map((row) => row.id));
@@ -454,8 +460,7 @@ export async function getSimilarLawyers(
   const targetPracticeAreaIds = targetPracticeAreas.map((row) => row.practiceAreaId);
 
   const conditions = [
-    eq(lawyers.isActive, true),
-    eq(lawyers.barStatus, "active"),
+    listableLawyer,
     sql`${lawyers.id} <> ${target.id}`,
   ];
   if (target.state) conditions.push(eq(lawyers.state, target.state));

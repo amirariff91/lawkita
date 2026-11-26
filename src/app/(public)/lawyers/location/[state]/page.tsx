@@ -1,3 +1,4 @@
+import { serializeJsonLd } from "@/lib/utils/json-ld";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -7,11 +8,12 @@ import { getLawyersByLocation } from "@/lib/db/queries/lawyers";
 import { getStateBySlug, getCitiesForState } from "@/lib/constants/locations";
 import { LawyerGrid, LawyerGridSkeleton, PaginationLink } from "@/components/lawyers";
 import { Breadcrumbs } from "@/components/seo";
-import { getLocationPageSchema, isHubPageIndexable } from "@/lib/utils/seo";
+import { getLocationPageSchema, isHubPageIndexable, DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsInteger } from "nuqs/server";
+import { areaLinksForPlace, LinkList, loadAreaPlaceSummary } from "../../practice-area/area-place-view";
 
 const searchParamsCache = createSearchParamsCache({
   page: parseAsInteger.withDefault(1),
@@ -52,7 +54,7 @@ export async function generateMetadata({
     alternates: {
       canonical: `/lawyers/location/${stateSlug}`,
     },
-    openGraph: {
+    openGraph: { images: DEFAULT_OG_IMAGES,
       title,
       description,
     },
@@ -76,7 +78,15 @@ async function StateContent({
   const cities = getCitiesForState(stateSlug);
 
   // lawyers.state stores the state NAME ("Selangor"), not the slug.
-  const result = await getLawyersByLocation(state?.name ?? stateSlug, undefined, 20, page);
+  const [result, areaLinks] = await Promise.all([
+    getLawyersByLocation(state?.name ?? stateSlug, undefined, 20, page),
+    // Practice areas with results here, linking to /practice-area/[area]/[state].
+    state
+      ? loadAreaPlaceSummary({ stateName: state.name }).then((summary) =>
+          areaLinksForPlace(summary, { state })
+        )
+      : Promise.resolve([]),
+  ]);
 
   const getPageUrl = (pageNum: number) => {
     if (pageNum === 1) {
@@ -107,6 +117,10 @@ async function StateContent({
             ))}
           </div>
         </div>
+      )}
+
+      {state && (
+        <LinkList title={`Practice areas in ${state.name}`} items={areaLinks} />
       )}
 
       {/* Lawyers list */}
@@ -155,7 +169,7 @@ export default async function StatePage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(locationSchema) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(locationSchema) }}
       />
       <div className="container mx-auto py-8 px-4">
         <Breadcrumbs

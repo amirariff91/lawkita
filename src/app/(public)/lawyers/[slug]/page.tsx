@@ -18,8 +18,10 @@ import {
   CompletenessIndicator,
   SimilarLawyers,
   FirmHistory,
+  DirectoryDetailsSection,
 } from "@/components/lawyers/profile";
 import { EnquiryForm } from "@/components/lawyers/enquiry-form";
+import { isLawyerProfileIndexable, isListableLawyer } from "@/lib/lawyers/listable";
 import { Breadcrumbs } from "@/components/seo";
 import {
   getLawyerOgImageUrl,
@@ -27,6 +29,7 @@ import {
   getLawyerMetaTitle,
   getLawyerMetaDescription,
 } from "@/lib/utils/seo";
+import { formatFirmName, formatPersonName } from "@/lib/utils/name-format";
 
 interface LawyerProfilePageProps {
   params: Promise<{ slug: string }>;
@@ -45,14 +48,20 @@ export async function generateMetadata({
   }
 
   const practiceAreaNames = lawyer.practiceAreas.map((pa) => pa.practiceArea.name);
-  const title = getLawyerMetaTitle(lawyer.name, lawyer.firmName, lawyer.city);
-  const description = getLawyerMetaDescription(
-    lawyer.name,
-    lawyer.bio,
-    lawyer.city,
-    lawyer.state,
-    practiceAreaNames
-  );
+  const displayName = formatPersonName(lawyer.name);
+  const displayFirmName = formatFirmName(lawyer.firmName);
+  const title = getLawyerMetaTitle(displayName, displayFirmName, lawyer.city);
+  const description = getLawyerMetaDescription({
+    name: displayName,
+    firmName: displayFirmName,
+    city: lawyer.city,
+    state: lawyer.state,
+    barAdmissionDate: lawyer.barAdmissionDate,
+    yearsAtBar: lawyer.yearsAtBar,
+    practiceAreas: practiceAreaNames,
+    credentials: lawyer.credentials,
+    bio: lawyer.bio,
+  });
   const ogImageUrl = getLawyerOgImageUrl(slug);
   const canonicalUrl = getLawyerCanonicalUrl(slug);
 
@@ -62,6 +71,12 @@ export async function generateMetadata({
     alternates: {
       canonical: canonicalUrl,
     },
+    // Sparse profiles and lawyers not in good standing keep their page but
+    // stay out of the index (and out of the sitemap).
+    ...(!isLawyerProfileIndexable({
+      ...lawyer,
+      practiceAreaCount: lawyer.practiceAreas.length,
+    }) && { robots: { index: false, follow: true } }),
     openGraph: {
       title,
       description,
@@ -72,7 +87,7 @@ export async function generateMetadata({
           url: ogImageUrl,
           width: 1200,
           height: 630,
-          alt: `${lawyer.name} - Lawyer Profile`,
+          alt: `${displayName} - Lawyer Profile`,
         },
       ],
     },
@@ -112,6 +127,7 @@ export default async function LawyerProfilePage({
   }
 
   const url = `${process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com"}/lawyers/${slug}`;
+  const displayName = formatPersonName(lawyer.name);
 
   return (
     <>
@@ -121,7 +137,7 @@ export default async function LawyerProfilePage({
         <Breadcrumbs
           items={[
             { label: "Lawyers", href: "/lawyers" },
-            { label: lawyer.name, href: `/lawyers/${slug}` },
+            { label: displayName, href: `/lawyers/${slug}` },
           ]}
         />
         <div className="max-w-4xl mx-auto space-y-8">
@@ -132,7 +148,9 @@ export default async function LawyerProfilePage({
           <MetricsSection lawyer={lawyer} />
 
           {/* Enquiry Form */}
-          <EnquiryForm lawyerId={lawyer.id} lawyerName={lawyer.name} />
+          {isListableLawyer(lawyer) && (
+            <EnquiryForm lawyerId={lawyer.id} lawyerName={displayName} />
+          )}
 
           {/* About */}
           <AboutSection bio={lawyer.bio} />
@@ -142,6 +160,14 @@ export default async function LawyerProfilePage({
 
           {/* Practice Areas */}
           <PracticeAreasSection practiceAreas={lawyer.practiceAreas} />
+
+          {/* Qualification, panels, languages, published rankings */}
+          <DirectoryDetailsSection
+            qualification={lawyer.qualification}
+            languages={lawyer.languages}
+            credentials={lawyer.credentials}
+            rankings={lawyer.rankings}
+          />
 
           {/* Education & Qualifications */}
           <EducationSection
@@ -161,7 +187,7 @@ export default async function LawyerProfilePage({
           />
 
           {/* Similar Lawyers */}
-          <SimilarLawyers lawyers={similarLawyers} currentLawyerName={lawyer.name} />
+          <SimilarLawyers lawyers={similarLawyers} currentLawyerName={displayName} />
 
           {/* Profile Completeness (owner only) */}
           {isOwner && (
@@ -175,7 +201,7 @@ export default async function LawyerProfilePage({
 
           {/* Claim Profile CTA (for unclaimed profiles) */}
           {!lawyer.isClaimed && (
-            <ClaimProfileCard lawyerId={lawyer.id} lawyerName={lawyer.name} />
+            <ClaimProfileCard lawyerId={lawyer.id} lawyerName={displayName} />
           )}
         </div>
       </div>

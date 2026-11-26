@@ -1,4 +1,6 @@
+import { safeHttpUrl, serializeJsonLd } from "@/lib/utils/json-ld";
 import type { LawyerWithRelations } from "@/types/lawyer";
+import { formatFirmName, formatPersonName } from "@/lib/utils/name-format";
 
 interface LawyerJsonLdProps {
   lawyer: LawyerWithRelations;
@@ -15,7 +17,7 @@ export function LawyerJsonLd({ lawyer, url }: LawyerJsonLdProps) {
     "@context": "https://schema.org",
     "@type": "Attorney",
     "@id": url,
-    name: lawyer.name,
+    name: formatPersonName(lawyer.name),
     url,
   };
 
@@ -38,7 +40,7 @@ export function LawyerJsonLd({ lawyer, url }: LawyerJsonLdProps) {
     // Format phone number with country code
     const formattedPhone = lawyer.phone.startsWith("+")
       ? lawyer.phone
-      : `+60-${lawyer.phone.replace(/^0/, "")}`;
+      : `+60-${lawyer.phone.replace(/^(?:60|0)/, "")}`;
     jsonLd.telephone = formattedPhone;
   }
 
@@ -46,7 +48,11 @@ export function LawyerJsonLd({ lawyer, url }: LawyerJsonLdProps) {
   if (lawyer.firmName) {
     jsonLd.worksFor = {
       "@type": "LegalService",
-      name: lawyer.firmName,
+      name: formatFirmName(lawyer.firmName),
+      ...(lawyer.firmSlug && {
+        "@id": `${new URL(url).origin}/firms/${lawyer.firmSlug}`,
+        url: `${new URL(url).origin}/firms/${lawyer.firmSlug}`,
+      }),
       ...(lawyer.address && {
         address: {
           "@type": "PostalAddress",
@@ -74,6 +80,11 @@ export function LawyerJsonLd({ lawyer, url }: LawyerJsonLdProps) {
   if (lawyer.practiceAreas.length > 0) {
     jsonLd.knowsAbout = lawyer.practiceAreas.map((pa) => pa.practiceArea.name);
   }
+
+  if (lawyer.designation) jsonLd.jobTitle = lawyer.designation;
+  const linkedin = safeHttpUrl(lawyer.linkedin);
+  if (linkedin) jsonLd.sameAs = [linkedin];
+  if (lawyer.rankings && lawyer.rankings.length > 0) jsonLd.award = lawyer.rankings;
 
   // Area served (based on state)
   if (lawyer.state) {
@@ -165,13 +176,14 @@ export function LawyerJsonLd({ lawyer, url }: LawyerJsonLdProps) {
   // Same as links (could include LinkedIn, etc. if available)
   // jsonLd.sameAs = [];
 
-  // Available language (assuming English and Malay)
-  jsonLd.knowsLanguage = ["en", "ms"];
+  // Languages from the directory when known; otherwise English and Malay.
+  jsonLd.knowsLanguage =
+    lawyer.languages && lawyer.languages.length > 0 ? lawyer.languages : ["en", "ms"];
 
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
     />
   );
 }

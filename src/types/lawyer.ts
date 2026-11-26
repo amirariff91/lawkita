@@ -62,7 +62,7 @@ export interface LawyerCardData {
   responseRate: string | null;
   practiceAreas: string[];
   // Phase 1: Trust signals
-  barStatus: "active" | "inactive" | "suspended" | "deceased" | null;
+  barStatus: "active" | "inactive" | "suspended" | "deceased" | "struck_off" | null;
   barMembershipNumber: string | null;
   lastScrapedAt: Date | null;
 }

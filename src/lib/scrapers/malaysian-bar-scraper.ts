@@ -15,6 +15,8 @@ import {
   scrapingLogs,
 } from "@/lib/db/schema";
 import { getOrCreateFirm as getOrCreateFirmRepository } from "@/lib/db/queries/firms";
+import { canFillLawyerField, hasScrapedValue } from "@/lib/lawyers/fill-rules";
+import { generateLawyerSlug as generateSlug } from "@/lib/lawyers/slug";
 import { and, eq, ilike, inArray, or } from "drizzle-orm";
 import { chromium, type Browser, type Page } from "playwright";
 import * as cheerio from "cheerio";
@@ -143,16 +145,6 @@ export interface ScrapingResult {
   skipped: number;
   errors: Array<{ lawyer?: string; error: string }>;
   duration: number;
-}
-
-// Generate a URL-friendly slug
-function generateSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim();
 }
 
 // Parse admission date from various formats
@@ -285,18 +277,6 @@ async function trackFirmHistory(
     });
   }
 }
-// Scraper-owned Bar-registry facts are authoritative on existing rows.
-// Contact fields are fill-gap only so claimed or manually edited profiles are
-// not overwritten by a later directory scrape.
-function hasScrapedValue(value: unknown): boolean {
-  if (value === null || value === undefined) return false;
-  return typeof value !== "string" || value.trim().length > 0;
-}
-
-function canFillLawyerField(value: unknown, isClaimed: boolean): boolean {
-  if (value === null) return true;
-  return !isClaimed && typeof value === "string" && value.trim().length === 0;
-}
 
 /**
  * Save a scraped lawyer to the database
@@ -328,6 +308,7 @@ export async function saveLawyer(
       city: true,
       firmName: true,
       isClaimed: true,
+      barStatus: true,
     },
   });
 
@@ -379,11 +360,17 @@ export async function saveLawyer(
   if (existing) {
     // Existing rows keep ownership, verification, and source data intact.
     const isClaimed = existing.isClaimed;
+    // The directory listing only says active or not. It must not revive a
+    // lawyer recorded as struck off, suspended or deceased.
+    const keepStanding =
+      existing.barStatus === "struck_off" ||
+      existing.barStatus === "suspended" ||
+      existing.barStatus === "deceased";
     const updateData: Partial<typeof lawyers.$inferInsert> = {
       barAdmissionDate: scrapedLawyerData.barAdmissionDate ?? undefined,
-      barStatus: scrapedLawyerData.barStatus,
+      barStatus: keepStanding ? undefined : scrapedLawyerData.barStatus,
       yearsAtBar: scrapedLawyerData.yearsAtBar ?? undefined,
-      isActive: scrapedLawyerData.isActive,
+      isActive: keepStanding ? undefined : scrapedLawyerData.isActive,
       lastScrapedAt: scrapedLawyerData.lastScrapedAt,
       updatedAt: scrapedLawyerData.updatedAt,
     };

@@ -9,8 +9,27 @@ import {
   cities,
   firms,
 } from "@/lib/db/schema";
-import { and, count, desc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull } from "drizzle-orm";
 import { isHubPageIndexable } from "@/lib/utils/seo";
+import { indexableLawyerProfile, listableLawyer } from "@/lib/lawyers/listable";
+import { getCredentialHubCountsByPlace } from "@/lib/db/queries/credential-hubs";
+import {
+  credentialHubSitemapPaths,
+  summariseCredentialHubCounts,
+} from "@/lib/lawyers/credential-hubs";
+import { getAreaPlaceCounts } from "@/lib/db/queries/practice-area-locations";
+import {
+  areaPlaceSitemapPaths,
+  PRACTICE_AREA_LOCATION_SITEMAP_CAP,
+  summariseAreaPlaceCounts,
+} from "@/lib/utils/practice-area-location-seo";
+
+// One sitemap file may hold 50,000 URLs. Past this many, split the sitemap.
+const SITEMAP_WARN_URLS = 45_000;
+const MAX_SITEMAP_URLS = 50_000;
+const MAX_LAWYER_URLS = 40_000;
+// Room kept for the sections that come after lawyer profiles (cases, hubs).
+const RESERVED_AFTER_LAWYERS = 3_000;
 
 // Generate sitemap at runtime, not build time (requires DB connection)
 export const dynamic = "force-dynamic";
@@ -42,6 +61,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: `${BASE_URL}/lawyers/practice-area`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
+    {
+      url: `${BASE_URL}/lawyers/location`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.7,
@@ -87,10 +112,112 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.7,
+    },
+    {
+      url: `${BASE_URL}/tools`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${BASE_URL}/tools/stamp-duty-calculator`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: `${BASE_URL}/tools/legal-fees-calculator`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: `${BASE_URL}/tools/tenancy-stamp-duty-calculator`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
     }
   );
 
-  // Lawyer profiles - all lawyers should be indexed for SEO
+  // Law firm profiles come before lawyer profiles: searches for a firm's
+  // name are the largest source of directory traffic.
+  // Law firm profiles
+  // Newly added section: if the live firms table differs from schema.ts,
+  // skip firms rather than failing the whole sitemap.
+  const allFirms = await db
+    .select({
+      slug: firms.slug,
+      updatedAt: firms.updatedAt,
+    })
+    .from(firms)
+    // A fixed order: a bulk import gives thousands of firms the same
+    // updatedAt, and a cap must always cut the same rows.
+    .orderBy(asc(firms.createdAt), asc(firms.id))
+    .limit(20000)
+    .catch((error: unknown) => {
+      console.error("sitemap: firms query failed", error);
+      return [] as { slug: string; updatedAt: Date }[];
+    });
+
+  for (const firm of allFirms) {
+    entries.push({
+      url: `${BASE_URL}/firms/${firm.slug}`,
+      lastModified: firm.updatedAt,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    });
+  }
+
+  // Services (credential hubs): the index, each national hub, and the
+  // state/city pages that pass the indexing rule (credentialHubSitemapPaths).
+  // One grouped count query. If it fails, list the index and national hubs
+  // only, rather than failing the whole sitemap.
+  const credentialHubCounts = await getCredentialHubCountsByPlace().catch(
+    (error: unknown) => {
+      console.error("sitemap: credential hub counts query failed", error);
+      return null;
+    }
+  );
+  const credentialHubPaths = credentialHubSitemapPaths(
+    credentialHubCounts === null
+      ? null
+      : summariseCredentialHubCounts(credentialHubCounts)
+  );
+  for (const hubPath of credentialHubPaths) {
+    entries.push({
+      url: `${BASE_URL}${hubPath.path}`,
+      changeFrequency: "weekly",
+      priority: hubPath.priority,
+    });
+  }
+
+  // Practice area x location pages (/lawyers/practice-area/[area]/[state]
+  // and /[state]/[city]): only combinations that pass the indexing rule,
+  // most lawyers first, at most PRACTICE_AREA_LOCATION_SITEMAP_CAP. One
+  // grouped count query. If it fails, add none rather than failing the
+  // whole sitemap.
+  const areaPlaceCounts = await getAreaPlaceCounts().catch((error: unknown) => {
+    console.error("sitemap: practice area x location counts query failed", error);
+    return null;
+  });
+  const areaPlacePaths =
+    areaPlaceCounts === null
+      ? []
+      : areaPlaceSitemapPaths(
+          summariseAreaPlaceCounts(areaPlaceCounts),
+          PRACTICE_AREA_LOCATION_SITEMAP_CAP
+        );
+  for (const areaPlacePath of areaPlacePaths) {
+    entries.push({
+      url: `${BASE_URL}${areaPlacePath.path}`,
+      changeFrequency: "weekly",
+      priority: areaPlacePath.priority,
+    });
+  }
+
+  // Lawyer profiles: listable lawyers whose profile has enough substance to
+  // index (see indexableLawyerProfile). Oldest first, so that if the cap is
+  // ever reached the profiles already in the sitemap stay in it.
   const allLawyers = await db
     .select({
       slug: lawyers.slug,
@@ -98,9 +225,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       isClaimed: lawyers.isClaimed,
     })
     .from(lawyers)
-    .where(eq(lawyers.isActive, true))
-    .orderBy(desc(lawyers.updatedAt))
-    .limit(10000); // Limit to prevent memory issues
+    .where(indexableLawyerProfile)
+    .orderBy(asc(lawyers.createdAt), asc(lawyers.id))
+    .limit(
+      Math.max(
+        0,
+        Math.min(MAX_LAWYER_URLS, MAX_SITEMAP_URLS - RESERVED_AFTER_LAWYERS - entries.length)
+      )
+    );
 
   for (const lawyer of allLawyers) {
     entries.push({
@@ -131,30 +263,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
 
-  // Law firm profiles
-  // Newly added section: if the live firms table differs from schema.ts,
-  // skip firms rather than failing the whole sitemap.
-  const allFirms = await db
-    .select({
-      slug: firms.slug,
-      updatedAt: firms.updatedAt,
-    })
-    .from(firms)
-    .orderBy(desc(firms.updatedAt))
-    .limit(20000)
-    .catch((error: unknown) => {
-      console.error("sitemap: firms query failed", error);
-      return [] as { slug: string; updatedAt: Date }[];
-    });
-
-  for (const firm of allFirms) {
-    entries.push({
-      url: `${BASE_URL}/firms/${firm.slug}`,
-      lastModified: firm.updatedAt,
-      changeFrequency: "weekly",
-      priority: 0.7,
-    });
-  }
   // Practice areas
   const allPracticeAreas = await db
     .select({
@@ -183,7 +291,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     )
     .innerJoin(lawyers, eq(lawyerPracticeAreas.lawyerId, lawyers.id))
     .where(
-      and(eq(lawyers.isActive, true), eq(practiceAreas.isUserFacing, true))
+      and(listableLawyer, eq(practiceAreas.isUserFacing, true))
     )
     .groupBy(practiceAreas.slug)
     .catch((error: unknown) => {
@@ -197,7 +305,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const stateCounts = await db
     .select({ state: lawyers.state, count: count() })
     .from(lawyers)
-    .where(and(eq(lawyers.isActive, true), isNotNull(lawyers.state)))
+    .where(and(listableLawyer, isNotNull(lawyers.state)))
     .groupBy(lawyers.state)
     .catch((error: unknown) => {
       console.error("sitemap: state counts query failed", error);
@@ -216,7 +324,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .from(lawyers)
     .where(
       and(
-        eq(lawyers.isActive, true),
+        listableLawyer,
         isNotNull(lawyers.state),
         isNotNull(lawyers.city)
       )
@@ -295,6 +403,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.6,
     });
+  }
+
+  if (entries.length > SITEMAP_WARN_URLS) {
+    console.warn(
+      `sitemap: ${entries.length} URLs, close to the 50,000 per-file limit; split it`
+    );
+  }
+
+  // A file over the protocol limit can be rejected whole. Never emit one.
+  if (entries.length > MAX_SITEMAP_URLS) {
+    console.error(`sitemap: ${entries.length} URLs exceeds ${MAX_SITEMAP_URLS}; truncating`);
+    return entries.slice(0, MAX_SITEMAP_URLS);
   }
 
   return entries;

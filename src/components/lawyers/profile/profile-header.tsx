@@ -16,6 +16,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { formatFreshness } from "@/lib/utils";
+import { safeHttpUrl } from "@/lib/utils/json-ld";
+import { formatFirmName, formatPersonName } from "@/lib/utils/name-format";
 import type { LawyerWithRelations } from "@/types/lawyer";
 
 interface ProfileHeaderProps {
@@ -30,12 +32,36 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
     .toUpperCase()
     .slice(0, 2);
 
+  const displayName = formatPersonName(lawyer.name);
+  const displayFirmName = formatFirmName(lawyer.firmName);
   const location = [lawyer.city, lawyer.state].filter(Boolean).join(", ");
 
   const isInactive =
     lawyer.barStatus === "deceased" ||
     lawyer.barStatus === "inactive" ||
-    lawyer.barStatus === "suspended";
+    lawyer.barStatus === "suspended" ||
+    lawyer.barStatus === "struck_off";
+
+  const statusMessage =
+    lawyer.barStatus === "deceased"
+      ? "This lawyer is deceased"
+      : lawyer.barStatus === "struck_off"
+        ? "This lawyer is recorded as struck off the Roll"
+        : lawyer.barStatus === "suspended"
+          ? "This lawyer is currently recorded as suspended"
+          : "This lawyer is currently recorded as inactive";
+
+  const standingSourceUrl = safeHttpUrl(lawyer.standingSourceUrl);
+  const standingSource = standingSourceUrl ? (
+    <a
+      href={standingSourceUrl}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+      className="underline"
+    >
+      Source
+    </a>
+  ) : null;
 
   return (
     <div className="relative">
@@ -45,11 +71,22 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
           <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
             <AlertTriangle className="size-4" aria-hidden="true" />
             <span className="text-sm font-medium">
-              {lawyer.barStatus === "deceased"
-                ? "This lawyer is deceased"
-                : lawyer.barStatus === "suspended"
-                  ? "This lawyer is currently suspended by the Malaysian Bar Council"
-                  : "This lawyer is currently listed as inactive with the Malaysian Bar Council"}
+              {statusMessage}
+              {lawyer.standingNote ? `: ${lawyer.standingNote}` : ""}
+              {standingSource && <> ({standingSource})</>}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* A note about one credential, for a lawyer otherwise in good standing */}
+      {!isInactive && lawyer.standingNote && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-900/20">
+          <div className="flex items-center gap-2 text-amber-900 dark:text-amber-100">
+            <AlertTriangle className="size-4" aria-hidden="true" />
+            <span className="text-sm">
+              {lawyer.standingNote}
+              {standingSource && <> ({standingSource})</>}
             </span>
           </div>
         </div>
@@ -61,7 +98,7 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
           <Avatar className={`size-24 sm:size-32 ${isInactive ? "opacity-75" : ""}`}>
             <AvatarImage
               src={lawyer.photo ?? undefined}
-              alt={lawyer.name}
+              alt={displayName}
               width={128}
               height={128}
               loading="eager"
@@ -81,14 +118,18 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-start gap-2">
             <h1 className={`text-2xl sm:text-3xl font-bold text-balance ${isInactive ? "text-muted-foreground" : ""}`}>
-              {lawyer.name}
+              {displayName}
             </h1>
 
             {/* Inactive badge */}
             {isInactive && (
               <Badge variant="destructive" className="gap-1">
                 <AlertTriangle className="size-3" aria-hidden="true" />
-                {lawyer.barStatus === "suspended" ? "Suspended" : "Inactive"}
+                {lawyer.barStatus === "suspended"
+                  ? "Suspended"
+                  : lawyer.barStatus === "struck_off"
+                    ? "Struck off"
+                    : "Inactive"}
               </Badge>
             )}
 
@@ -138,11 +179,12 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
                   href={`/firms/${lawyer.firmSlug}`}
                   className="hover:text-foreground hover:underline transition-colors"
                 >
-                  {lawyer.firmName}
+                  {displayFirmName}
                 </Link>
               ) : (
-                <span>{lawyer.firmName}</span>
+                <span>{displayFirmName}</span>
               )}
+              {lawyer.designation && <span>· {lawyer.designation}</span>}
             </div>
           )}
 

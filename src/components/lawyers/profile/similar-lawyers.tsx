@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Star, BadgeCheck, ArrowRight } from "lucide-react";
 import type { LawyerCardData } from "@/types/lawyer";
+import { formatPersonName } from "@/lib/utils/name-format";
 
 interface SimilarLawyersProps {
   lawyers: LawyerCardData[];
@@ -35,6 +36,7 @@ export function SimilarLawyers({ lawyers, currentLawyerName }: SimilarLawyersPro
               .toUpperCase()
               .slice(0, 2);
 
+            const displayName = formatPersonName(lawyer.name);
             const location = [lawyer.city, lawyer.state].filter(Boolean).join(", ");
             const rating = lawyer.averageRating
               ? parseFloat(lawyer.averageRating)
@@ -51,7 +53,7 @@ export function SimilarLawyers({ lawyers, currentLawyerName }: SimilarLawyersPro
                     <Avatar className="size-12">
                       <AvatarImage
                         src={lawyer.photo ?? undefined}
-                        alt={lawyer.name}
+                        alt={displayName}
                         width={48}
                         height={48}
                         loading="lazy"
@@ -68,7 +70,7 @@ export function SimilarLawyers({ lawyers, currentLawyerName }: SimilarLawyersPro
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h4 className="font-medium text-sm truncate min-w-0 group-hover:text-primary transition-colors">
-                        {lawyer.name}
+                        {displayName}
                       </h4>
                       <ArrowRight className="size-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
                     </div>

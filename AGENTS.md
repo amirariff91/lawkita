@@ -1,7 +1,6 @@
 # LawKita
 
-Malaysian lawyer directory. Canonical domain: lawkita.com [A17] — but code
-fallbacks default to lawkita.my (see .claude/rules/seo-surfaces.md).
+Malaysian lawyer directory. Canonical domain: lawkita.com [A17].
 Live in production with real traffic. [A1]
 Next.js 16 App Router + Supabase Postgres + better-auth.
 PRD.md is a 2026-01 snapshot of original intent, not the current spec. [A15]
@@ -10,9 +9,12 @@ PRD.md is a 2026-01 snapshot of original intent, not the current spec. [A15]
 
 - Use Bun for everything — install, run, scripts. Never run yarn or regenerate
   yarn.lock; it and the `packageManager` field are dead leftovers. [A4]
-- Pushing `main` deploys production (Coolify builds the Dockerfile on push).
-  Before any push to main, all three must pass:
-  `bun run build && bun run type-check && bun run lint`. [A5f, A13]
+- Production deploys from the **`migrate/supabase-to-postgres`** branch — Coolify
+  (app `lawkita-web`) builds the Dockerfile when THAT branch is pushed/merged.
+  `main` is NOT the deploy branch (a push to main is inert). [A5f — corrected
+  2026-09-13; was "push main = deploy" before the Supabase→Postgres migration]
+  Before any deploy, all three must pass:
+  `bun run build && bun run type-check && bun run lint`. [A13]
 - Two data layers coexist (Drizzle over DATABASE_URL, supabase-js). End-state
   is undecided: use whichever client the file you're editing already uses;
   never migrate code between layers without asking. [A2]
@@ -21,16 +23,15 @@ PRD.md is a 2026-01 snapshot of original intent, not the current spec. [A15]
   different times. Inspect the live DB before schema-dependent work. [A3]
 - Never display or compute win/loss records for lawyers — only neutral
   verifiable metrics (court appearances, years at bar, response rate). [A10]
-- Never re-run the Bar Council scraper against production: it is currently
-  destructive — the update payload resets `is_claimed: false` and overwrites
-  contact/firm fields on existing rows (see .Codex/rules/scrapers.md). [A12 +
-  code review 2026-07-08]
+- Ask the owner before running the Bar Council scraper against production: it
+  rewrites live lawyer rows. Since 2026-09-13 an update leaves claimed
+  profiles' ownership, contact and firm fields alone (see
+  .claude/rules/scrapers.md). [A12]
 
 ## Sacred vs disposable
 
-High-risk — verify end-to-end before pushing: public SEO pages + sitemap +
-metadata; scraped lawyer data; auth + claim/verification flow; enquiries +
-Stripe checkout. [A6]
+The surfaces that matter most: public SEO pages + sitemap + metadata; scraped
+lawyer data; auth + claim/verification flow; enquiries + Stripe checkout. [A6]
 
 Allowed to stay ugly — do not polish or refactor: the insights page and the
 3D/motion flair (three.js, Remotion, framer-motion). Everything else, keep to
@@ -51,6 +52,19 @@ normal quality. [A6f]
 - **verified** — identity confirmed against Bar records; stronger than claimed.
 - **cases** — curated famous cases today; designed to become all court cases.
 - **insights** — aggregate stats derived from scraped Bar Council data.
+
+## Path rules
+
+Before editing under these paths, read the rule file first (Claude Code loads
+them by itself; other tools do not):
+
+- `src/lib/db/**`, `src/lib/supabase/**`, `drizzle/**` → `.claude/rules/db-layer.md`
+- `src/lib/scrapers/**`, `scripts/**`, `supabase/functions/**`, scraping and
+  cron API routes → `.claude/rules/scrapers.md`
+- `src/app/(public)/**`, sitemap, robots, `src/components/seo/**`, OG images,
+  JSON-LD → `.claude/rules/seo-surfaces.md`
+- cases, reviews, `src/lib/ai/**`, `src/lib/jobs/**`, confidence scoring →
+  `.claude/rules/cases-and-reviews.md`
 
 ## Docs
 

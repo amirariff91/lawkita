@@ -1,3 +1,4 @@
+import { DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { searchCasesWithLawyers, getAllCaseTags } from "@/lib/db/queries/cases";
@@ -14,7 +15,7 @@ const baseMetadata: Metadata = {
   alternates: {
     canonical: "/cases",
   },
-  openGraph: {
+  openGraph: { images: DEFAULT_OG_IMAGES,
     title: "Famous Cases Explorer",
     description:
       "Explore high-profile Malaysian legal cases. Discover case timelines, involved lawyers, and verdicts.",
