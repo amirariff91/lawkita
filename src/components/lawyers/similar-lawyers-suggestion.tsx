@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Star, BadgeCheck, ArrowRight, Search } from "lucide-react";
 import type { LawyerCardData } from "@/types/lawyer";
+import { formatPersonName } from "@/lib/utils/name-format";
 
 interface SimilarLawyersSuggestionProps {
   lawyers: LawyerCardData[];
@@ -44,6 +45,7 @@ export function SimilarLawyersSuggestion({
               .toUpperCase()
               .slice(0, 2);
 
+            const displayName = formatPersonName(lawyer.name);
             const location = [lawyer.city, lawyer.state].filter(Boolean).join(", ");
             const rating = lawyer.averageRating
               ? parseFloat(lawyer.averageRating)
@@ -61,7 +63,7 @@ export function SimilarLawyersSuggestion({
                       <Avatar className="size-10">
                         <AvatarImage
                           src={lawyer.photo ?? undefined}
-                          alt={lawyer.name}
+                          alt={displayName}
                           width={40}
                           height={40}
                           loading="lazy"
@@ -76,7 +78,7 @@ export function SimilarLawyersSuggestion({
                     </div>
                     <div className="min-w-0 flex-1">
                       <h4 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-                        {lawyer.name}
+                        {displayName}
                       </h4>
                       {location && (
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">

@@ -3,6 +3,7 @@ import { Building2, MapPin, Users, Clock, Crown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { FirmCardData } from "@/lib/db/queries/firms";
+import { formatFirmName } from "@/lib/utils/name-format";
 
 interface FirmCardProps {
   firm: FirmCardData & { subscriptionTier?: string };
@@ -22,7 +23,7 @@ export function FirmCard({ firm }: FirmCardProps) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-sm line-clamp-2">{firm.name}</h3>
+                <h3 className="font-semibold text-sm line-clamp-2">{formatFirmName(firm.name)}</h3>
                 {isPremium && (
                   <Badge className="bg-amber-500 text-white text-[10px] px-1.5 py-0 h-4">
                     <Crown className="size-2.5 mr-0.5" />

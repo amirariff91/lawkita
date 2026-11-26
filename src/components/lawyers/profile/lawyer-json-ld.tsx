@@ -1,4 +1,5 @@
 import type { LawyerWithRelations } from "@/types/lawyer";
+import { formatFirmName, formatPersonName } from "@/lib/utils/name-format";
 
 interface LawyerJsonLdProps {
   lawyer: LawyerWithRelations;
@@ -15,7 +16,7 @@ export function LawyerJsonLd({ lawyer, url }: LawyerJsonLdProps) {
     "@context": "https://schema.org",
     "@type": "Attorney",
     "@id": url,
-    name: lawyer.name,
+    name: formatPersonName(lawyer.name),
     url,
   };
 
@@ -46,7 +47,7 @@ export function LawyerJsonLd({ lawyer, url }: LawyerJsonLdProps) {
   if (lawyer.firmName) {
     jsonLd.worksFor = {
       "@type": "LegalService",
-      name: lawyer.firmName,
+      name: formatFirmName(lawyer.firmName),
       ...(lawyer.firmSlug && {
         "@id": `${new URL(url).origin}/firms/${lawyer.firmSlug}`,
         url: `${new URL(url).origin}/firms/${lawyer.firmSlug}`,

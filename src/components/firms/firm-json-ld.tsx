@@ -1,4 +1,5 @@
 import type { FirmWithStats } from "@/lib/db/queries/firms";
+import { formatFirmName } from "@/lib/utils/name-format";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com";
 
@@ -16,7 +17,7 @@ export function FirmJsonLd({ firm }: FirmJsonLdProps) {
     "@context": "https://schema.org",
     "@type": "LegalService",
     "@id": url,
-    name: firm.name,
+    name: formatFirmName(firm.name),
     url,
   };
 

@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { getLawyerBySlug } from "@/lib/db/queries/lawyers";
+import { formatFirmName, formatPersonName } from "@/lib/utils/name-format";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,7 @@ export async function GET(
   }
 
   const rating = lawyer.averageRating ? parseFloat(lawyer.averageRating) : null;
+  const displayName = formatPersonName(lawyer.name);
   const location = [lawyer.city, lawyer.state].filter(Boolean).join(", ");
   const practiceAreaNames = lawyer.practiceAreas
     .slice(0, 3)
@@ -69,7 +71,7 @@ export async function GET(
             {lawyer.photo ? (
               <img
                 src={lawyer.photo}
-                alt={lawyer.name}
+                alt={displayName}
                 width={160}
                 height={160}
                 style={{
@@ -126,7 +128,7 @@ export async function GET(
                   color: "#1a1a1a",
                 }}
               >
-                {lawyer.name}
+                {displayName}
               </span>
               {lawyer.isVerified && (
                 <div
@@ -156,7 +158,7 @@ export async function GET(
                   marginTop: "8px",
                 }}
               >
-                {lawyer.firmName}
+                {formatFirmName(lawyer.firmName)}
               </span>
             )}
 

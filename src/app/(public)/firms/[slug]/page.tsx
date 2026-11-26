@@ -5,6 +5,12 @@ import { getFirmBySlug } from "@/lib/db/queries/firms";
 import { LawyerGrid } from "@/components/lawyers";
 import { FirmJsonLd } from "@/components/firms";
 import { Breadcrumbs } from "@/components/seo";
+import { formatFirmName } from "@/lib/utils/name-format";
+import {
+  getFirmCanonicalUrl,
+  getFirmMetaDescription,
+  getFirmMetaTitle,
+} from "@/lib/utils/seo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,20 +43,33 @@ export async function generateMetadata({
     };
   }
 
-  const location = [firm.city, firm.state].filter(Boolean).join(", ");
-  const title = `${firm.name} | Law Firm in ${location || "Malaysia"}`;
-  const description = `${firm.name} is a law firm${location ? ` in ${location}` : ""} with ${firm.lawyerCount} lawyers. ${firm.practiceAreas.length > 0 ? `Practice areas include ${firm.practiceAreas.slice(0, 5).join(", ")}.` : ""}`;
+  const displayName = formatFirmName(firm.name);
+  const title = getFirmMetaTitle(displayName, firm.city, firm.state);
+  const description = getFirmMetaDescription({
+    name: displayName,
+    city: firm.city,
+    state: firm.state,
+    address: firm.address,
+    phone: firm.phone,
+    lawyerCount: firm.lawyerCount,
+    practiceAreas: firm.practiceAreas,
+  });
+  const canonicalUrl = getFirmCanonicalUrl(slug);
 
   return {
     title,
     description,
     alternates: {
-      canonical: `/firms/${slug}`,
+      canonical: canonicalUrl,
     },
     openGraph: {
       title,
       description,
       type: "website",
+      url: canonicalUrl,
+      siteName: "LawKita",
+      locale: "en_MY",
+      ...(firm.logo && { images: [{ url: firm.logo, alt: `${displayName} logo` }] }),
     },
     twitter: {
       card: "summary_large_image",
@@ -73,6 +92,7 @@ export default async function FirmProfilePage({
   const isClaimed = firm.isClaimed ?? false;
   const isPremium = firm.subscriptionTier === "firm_premium";
   const location = [firm.city, firm.state].filter(Boolean).join(", ");
+  const displayName = formatFirmName(firm.name);
 
   return (
     <>
@@ -81,7 +101,7 @@ export default async function FirmProfilePage({
         <Breadcrumbs
           items={[
             { label: "Firms", href: "/firms" },
-            { label: firm.name, href: `/firms/${firm.slug}` },
+            { label: displayName, href: `/firms/${firm.slug}` },
           ]}
         />
         <div className="max-w-5xl mx-auto space-y-8">
@@ -97,7 +117,7 @@ export default async function FirmProfilePage({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={firm.logo}
-                    alt={`${firm.name} logo`}
+                    alt={`${displayName} logo`}
                     className="max-h-full max-w-full object-contain"
                     loading="eager"
                   />
@@ -109,7 +129,7 @@ export default async function FirmProfilePage({
               )}
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-3xl font-bold">{firm.name}</h1>
+                  <h1 className="text-3xl font-bold">{displayName}</h1>
                   {isPremium && (
                     <Badge className="bg-amber-500">
                       <Crown className="h-3 w-3 mr-1" />

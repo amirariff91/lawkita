@@ -15,6 +15,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import type { LawyerCardData } from "@/types/lawyer";
+import { formatFirmName, formatPersonName } from "@/lib/utils/name-format";
 
 interface LawyerCardProps {
   lawyer: LawyerCardData;
@@ -32,6 +33,7 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
     ? parseFloat(lawyer.averageRating)
     : null;
 
+  const displayName = formatPersonName(lawyer.name);
   const location = [lawyer.city, lawyer.state].filter(Boolean).join(", ");
 
   // Determine inactive status
@@ -58,7 +60,7 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
               <Avatar className={`size-16 ${isInactive ? "grayscale" : ""}`}>
                 <AvatarImage
                   src={lawyer.photo ?? undefined}
-                  alt={lawyer.name}
+                  alt={displayName}
                   width={64}
                   height={64}
                   loading="lazy"
@@ -82,12 +84,12 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
                       isInactive ? "text-muted-foreground" : "text-foreground"
                     }`}
                   >
-                    {lawyer.name}
+                    {displayName}
                   </h3>
                   {lawyer.firmName && (
                     <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
                       <Building2 className="size-3 shrink-0" aria-hidden="true" />
-                      <span className="truncate">{lawyer.firmName}</span>
+                      <span className="truncate">{formatFirmName(lawyer.firmName)}</span>
                     </div>
                   )}
                 </div>

@@ -16,6 +16,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { formatFreshness } from "@/lib/utils";
+import { formatFirmName, formatPersonName } from "@/lib/utils/name-format";
 import type { LawyerWithRelations } from "@/types/lawyer";
 
 interface ProfileHeaderProps {
@@ -30,6 +31,8 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
     .toUpperCase()
     .slice(0, 2);
 
+  const displayName = formatPersonName(lawyer.name);
+  const displayFirmName = formatFirmName(lawyer.firmName);
   const location = [lawyer.city, lawyer.state].filter(Boolean).join(", ");
 
   const isInactive =
@@ -93,7 +96,7 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
           <Avatar className={`size-24 sm:size-32 ${isInactive ? "opacity-75" : ""}`}>
             <AvatarImage
               src={lawyer.photo ?? undefined}
-              alt={lawyer.name}
+              alt={displayName}
               width={128}
               height={128}
               loading="eager"
@@ -113,7 +116,7 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-start gap-2">
             <h1 className={`text-2xl sm:text-3xl font-bold text-balance ${isInactive ? "text-muted-foreground" : ""}`}>
-              {lawyer.name}
+              {displayName}
             </h1>
 
             {/* Inactive badge */}
@@ -174,10 +177,10 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
                   href={`/firms/${lawyer.firmSlug}`}
                   className="hover:text-foreground hover:underline transition-colors"
                 >
-                  {lawyer.firmName}
+                  {displayFirmName}
                 </Link>
               ) : (
-                <span>{lawyer.firmName}</span>
+                <span>{displayFirmName}</span>
               )}
               {lawyer.designation && <span>· {lawyer.designation}</span>}
             </div>
