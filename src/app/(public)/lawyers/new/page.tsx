@@ -1,3 +1,4 @@
+import { DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getNewlyAdmittedLawyers } from "@/lib/db/queries/lawyers";
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
   title: "Newly Admitted Lawyers",
   description:
     "Discover lawyers who have recently been admitted to the Malaysian Bar. Fresh perspectives, up-to-date legal knowledge, and competitive rates.",
-  openGraph: {
+  openGraph: { images: DEFAULT_OG_IMAGES,
     title: "Newly Admitted Lawyers",
     description:
       "Discover lawyers who have recently been admitted to the Malaysian Bar. Fresh perspectives, up-to-date legal knowledge, and competitive rates.",

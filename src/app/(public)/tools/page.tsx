@@ -1,3 +1,4 @@
+import { DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Calculator } from "lucide-react";
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
   title,
   description,
   alternates: { canonical: "/tools" },
-  openGraph: { title, description, url: "/tools" },
+  openGraph: { images: DEFAULT_OG_IMAGES, title, description, url: "/tools" },
   twitter: { card: "summary_large_image", title, description },
 };
 

@@ -1,3 +1,4 @@
+import { DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
 import { serializeJsonLd } from "@/lib/utils/json-ld";
 // Shared view and metadata for the credential hub pages:
 // /lawyers/services/[service], /[service]/[state], /[service]/[state]/[city].
@@ -127,7 +128,7 @@ export async function buildHubMetadata(
         ? { index: false, follow: true }
         : credentialHubRobots(levelOf(place), total),
     alternates: { canonical: pathFor(hub, place, page) },
-    openGraph: { title, description },
+    openGraph: { images: DEFAULT_OG_IMAGES, title, description },
     twitter: { card: "summary_large_image", title, description },
   };
 }

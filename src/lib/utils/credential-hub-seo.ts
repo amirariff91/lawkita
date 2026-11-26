@@ -55,13 +55,28 @@ export function buildCredentialHubHeading(hub: CredentialHub, place: HubPlace): 
   return `${hub.name} (${hub.malayName}) in ${headingPlace(place)}`;
 }
 
+/** The root layout appends " | LawKita" (10 characters); aim for 60 in total. */
+const HUB_TITLE_BUDGET = 50;
+
 /** The root layout appends " | LawKita". */
 export function buildCredentialHubTitle(
   hub: CredentialHub,
   place: HubPlace,
   page = 1
 ): string {
-  const base = `${hub.name} (${hub.malayName}) in ${placeLabel(place)}`;
+  // Lead with the term people search (hub.searchName), then shorten in steps
+  // until the title fits: drop the alternate name first, the state last.
+  const lead = hub.searchName ?? hub.name;
+  const alternate = lead === hub.name ? hub.malayName : hub.name;
+  const city = place.city?.name ?? place.state?.name ?? "Malaysia";
+  const candidates = [
+    `${lead} (${alternate}) in ${placeLabel(place)}`,
+    // The state stays as long as possible: city names repeat across states.
+    `${lead} in ${placeLabel(place)}`,
+    `${lead} (${alternate}) in ${city}`,
+    `${lead} in ${city}`,
+  ];
+  const base = candidates.find((title) => title.length <= HUB_TITLE_BUDGET) ?? candidates[3];
   return page > 1 ? `${base} - Page ${page}` : base;
 }
 

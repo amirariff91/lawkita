@@ -15,6 +15,8 @@ export interface CredentialHub {
   name: string;
   /** Malay term shown alongside the English name. */
   malayName: string;
+  /** The name most people search for, when it is not the English one. Leads the page title. */
+  searchName?: string;
   /** Lowercase noun for one lawyer: "commissioner for oaths". */
   singular: string;
   /** Lowercase noun for several lawyers: "commissioners for oaths". */
@@ -33,6 +35,8 @@ export const CREDENTIAL_HUBS: readonly CredentialHub[] = [
     credentials: ["Commissioner for Oaths"],
     name: "Commissioner for Oaths",
     malayName: "Pesuruhjaya Sumpah",
+    // "pesuruhjaya sumpah" is searched about ten times as often as the English term.
+    searchName: "Pesuruhjaya Sumpah",
     singular: "commissioner for oaths",
     plural: "commissioners for oaths",
     summary:
@@ -92,6 +96,7 @@ export const CREDENTIAL_HUBS: readonly CredentialHub[] = [
     credentials: ["Peguam Syarie"],
     name: "Syariah Lawyers",
     malayName: "Peguam Syarie",
+    searchName: "Peguam Syarie",
     singular: "syariah lawyer",
     plural: "syariah lawyers",
     summary:

@@ -6,7 +6,7 @@ import { getLawyersByPracticeArea } from "@/lib/db/queries/lawyers";
 import { getPracticeAreaBySlug } from "@/lib/constants/practice-areas";
 import { LawyerGrid, LawyerGridSkeleton, PaginationLink } from "@/components/lawyers";
 import { Breadcrumbs } from "@/components/seo";
-import { getPracticeAreaPageSchema, isHubPageIndexable } from "@/lib/utils/seo";
+import { getPracticeAreaPageSchema, isHubPageIndexable, DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
 import { Badge } from "@/components/ui/badge";
 import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsInteger } from "nuqs/server";
@@ -37,15 +37,14 @@ export async function generateMetadata({
   }
 
   const title = `${practiceArea.name} Lawyers in Malaysia`;
-  const description =
-    practiceArea.description ||
-    `Find experienced ${practiceArea.name.toLowerCase()} lawyers across Malaysia. Compare reviews, experience, and credentials.`;
 
   // Count only (limit 1). If the count fails, stay indexable rather than
   // failing the page, matching the sitemap's fallback.
   const total = await getLawyersByPracticeArea(area, 1, 1)
     .then((result) => result.total)
     .catch(() => Number.POSITIVE_INFINITY);
+  const counted = Number.isFinite(total) && total > 0;
+  const description = `${counted ? `${total.toLocaleString("en-MY")} ` : "Find "}${practiceArea.name.toLowerCase()} lawyers in Malaysia, by state and city, with firm and years at the Bar.${practiceArea.description ? ` ${practiceArea.description}.` : ""}`.slice(0, 160);
   const robots = isHubPageIndexable(total)
     ? undefined
     : { index: false, follow: true };
@@ -57,7 +56,7 @@ export async function generateMetadata({
     alternates: {
       canonical: `/lawyers/practice-area/${area}`,
     },
-    openGraph: {
+    openGraph: { images: DEFAULT_OG_IMAGES,
       title,
       description,
     },

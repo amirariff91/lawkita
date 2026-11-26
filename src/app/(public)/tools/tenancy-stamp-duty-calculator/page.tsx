@@ -1,3 +1,4 @@
+import { DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
 import type { Metadata } from "next";
 import { RateTable } from "@/components/tools/rate-table";
 import { TenancyStampDutyCalculator } from "@/components/tools/tenancy-stamp-duty-calculator";
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
   title: tool.metaTitle,
   description: tool.description,
   alternates: { canonical: tool.path },
-  openGraph: { title: tool.metaTitle, description: tool.description, url: tool.path },
+  openGraph: { images: DEFAULT_OG_IMAGES, title: tool.metaTitle, description: tool.description, url: tool.path },
   twitter: { card: "summary_large_image", title: tool.metaTitle, description: tool.description },
 };
 

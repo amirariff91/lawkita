@@ -1,3 +1,4 @@
+import { DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
 import { serializeJsonLd } from "@/lib/utils/json-ld";
 // Shared view and metadata for the practice area x location pages:
 // /lawyers/practice-area/[area]/[state] and /[area]/[state]/[city].
@@ -89,7 +90,7 @@ export async function buildAreaPlaceMetadata(
         ? { index: false, follow: true }
         : areaPlaceRobots(total),
     alternates: { canonical: pathFor(area.slug, place, page) },
-    openGraph: { title, description },
+    openGraph: { images: DEFAULT_OG_IMAGES, title, description },
     twitter: { card: "summary_large_image", title, description },
   };
 }

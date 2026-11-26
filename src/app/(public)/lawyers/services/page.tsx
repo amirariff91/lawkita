@@ -1,3 +1,4 @@
+import { DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -32,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description: CREDENTIAL_INDEX_DESCRIPTION,
     robots: credentialHubRobots("index", total),
     alternates: { canonical: credentialHubPath() },
-    openGraph: { title: CREDENTIAL_INDEX_TITLE, description: CREDENTIAL_INDEX_DESCRIPTION },
+    openGraph: { images: DEFAULT_OG_IMAGES, title: CREDENTIAL_INDEX_TITLE, description: CREDENTIAL_INDEX_DESCRIPTION },
     twitter: {
       card: "summary_large_image",
       title: CREDENTIAL_INDEX_TITLE,

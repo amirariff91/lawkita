@@ -10,8 +10,7 @@ import { formatFirmName } from "@/lib/utils/name-format";
 import {
   getFirmCanonicalUrl,
   getFirmMetaDescription,
-  getFirmMetaTitle,
-} from "@/lib/utils/seo";
+  getFirmMetaTitle, DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,9 +69,9 @@ export async function generateMetadata({
       url: canonicalUrl,
       siteName: "LawKita",
       locale: "en_MY",
-      ...(safeHttpUrl(firm.logo) && {
-        images: [{ url: safeHttpUrl(firm.logo)!, alt: `${displayName} logo` }],
-      }),
+      images: safeHttpUrl(firm.logo)
+        ? [{ url: safeHttpUrl(firm.logo)!, alt: `${displayName} logo` }]
+        : DEFAULT_OG_IMAGES,
     },
     twitter: {
       card: "summary_large_image",

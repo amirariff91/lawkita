@@ -1,3 +1,4 @@
+import { DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { searchFirms } from "@/lib/db/queries/firms";
@@ -15,7 +16,7 @@ const baseMetadata: Metadata = {
   alternates: {
     canonical: "/firms",
   },
-  openGraph: {
+  openGraph: { images: DEFAULT_OG_IMAGES,
     title: "Law Firms",
     description:
       "Browse law firms across Malaysia. Find the right firm for your legal needs.",

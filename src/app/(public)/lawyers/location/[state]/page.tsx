@@ -8,7 +8,7 @@ import { getLawyersByLocation } from "@/lib/db/queries/lawyers";
 import { getStateBySlug, getCitiesForState } from "@/lib/constants/locations";
 import { LawyerGrid, LawyerGridSkeleton, PaginationLink } from "@/components/lawyers";
 import { Breadcrumbs } from "@/components/seo";
-import { getLocationPageSchema, isHubPageIndexable } from "@/lib/utils/seo";
+import { getLocationPageSchema, isHubPageIndexable, DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { SearchParams } from "nuqs/server";
@@ -54,7 +54,7 @@ export async function generateMetadata({
     alternates: {
       canonical: `/lawyers/location/${stateSlug}`,
     },
-    openGraph: {
+    openGraph: { images: DEFAULT_OG_IMAGES,
       title,
       description,
     },

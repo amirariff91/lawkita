@@ -519,3 +519,17 @@ export function getWebsiteSchema(): object {
     },
   };
 }
+
+/**
+ * The site-wide share image (src/app/opengraph-image.tsx). A page that sets
+ * its own `openGraph` object replaces the inherited one, image included, so
+ * every such page lists this explicitly unless it has an image of its own.
+ */
+export const DEFAULT_OG_IMAGES = [
+  {
+    url: "/opengraph-image",
+    width: 1200,
+    height: 630,
+    alt: "LawKita, the Malaysian lawyer and law firm directory",
+  },
+];

@@ -1,3 +1,4 @@
+import { DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -17,7 +18,7 @@ const baseMetadata: Metadata = {
   alternates: {
     canonical: "/lawyers",
   },
-  openGraph: {
+  openGraph: { images: DEFAULT_OG_IMAGES,
     title: "Find a Lawyer",
     description:
       "Search and connect with verified lawyers across Malaysia. Filter by practice area, location, and experience level.",

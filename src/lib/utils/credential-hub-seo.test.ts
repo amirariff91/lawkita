@@ -62,10 +62,10 @@ describe("place, level, heading, title", () => {
       buildCredentialHubTitle(oaths, cherasSel)
     );
     expect(buildCredentialHubTitle(oaths, shahAlam)).toBe(
-      "Commissioner for Oaths (Pesuruhjaya Sumpah) in Shah Alam, Selangor"
+      "Pesuruhjaya Sumpah in Shah Alam, Selangor"
     );
     expect(buildCredentialHubTitle(oaths, shahAlam, 2)).toBe(
-      "Commissioner for Oaths (Pesuruhjaya Sumpah) in Shah Alam, Selangor - Page 2"
+      "Pesuruhjaya Sumpah in Shah Alam, Selangor - Page 2"
     );
   });
 });

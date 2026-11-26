@@ -1,5 +1,7 @@
 "use client";
 
+import type { MouseEvent, ReactNode } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -14,7 +16,33 @@ export function Pagination({
   totalPages,
   onPageChange,
 }: PaginationProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   if (totalPages <= 1) return null;
+
+  // Each control is a real link to ?page=N, so a crawler (or a visitor
+  // without JavaScript) can reach every page. Clicks still go through
+  // onPageChange for the in-app transition.
+  const hrefFor = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (page <= 1) params.delete("page");
+    else params.set("page", String(page));
+    const query = params.toString();
+    return query ? `${pathname}?${query}` : pathname;
+  };
+  const pageLink = (page: number, children: ReactNode, label?: string) => (
+    <a
+      href={hrefFor(page)}
+      aria-label={label}
+      onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+        event.preventDefault();
+        onPageChange(page);
+      }}
+    >
+      {children}
+    </a>
+  );
 
   // Generate page numbers to show
   const getPageNumbers = () => {
@@ -67,10 +95,22 @@ export function Pagination({
         size="icon"
         className="size-8"
         disabled={currentPage === 1}
-        onClick={() => onPageChange(currentPage - 1)}
+        asChild={currentPage > 1}
       >
-        <ChevronLeft className="size-4" aria-hidden="true" />
-        <span className="sr-only">Previous page</span>
+        {currentPage > 1 ? (
+          pageLink(
+            currentPage - 1,
+            <>
+              <ChevronLeft className="size-4" aria-hidden="true" />
+              <span className="sr-only">Previous page</span>
+            </>
+          )
+        ) : (
+          <>
+            <ChevronLeft className="size-4" aria-hidden="true" />
+            <span className="sr-only">Previous page</span>
+          </>
+        )}
       </Button>
 
       {pages.map((page, index) =>
@@ -84,11 +124,10 @@ export function Pagination({
             variant={page === currentPage ? "default" : "outline"}
             size="icon"
             className="size-8"
-            onClick={() => onPageChange(page)}
             aria-current={page === currentPage ? "page" : undefined}
-            aria-label={`Page ${page}`}
+            asChild
           >
-            {page}
+            {pageLink(page, page, `Page ${page}`)}
           </Button>
         )
       )}
@@ -98,10 +137,22 @@ export function Pagination({
         size="icon"
         className="size-8"
         disabled={currentPage === totalPages}
-        onClick={() => onPageChange(currentPage + 1)}
+        asChild={currentPage < totalPages}
       >
-        <ChevronRight className="size-4" aria-hidden="true" />
-        <span className="sr-only">Next page</span>
+        {currentPage < totalPages ? (
+          pageLink(
+            currentPage + 1,
+            <>
+              <ChevronRight className="size-4" aria-hidden="true" />
+              <span className="sr-only">Next page</span>
+            </>
+          )
+        ) : (
+          <>
+            <ChevronRight className="size-4" aria-hidden="true" />
+            <span className="sr-only">Next page</span>
+          </>
+        )}
       </Button>
     </div>
   );
