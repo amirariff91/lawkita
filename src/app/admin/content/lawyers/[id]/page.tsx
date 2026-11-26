@@ -236,6 +236,7 @@ export default function AdminLawyerEditPage({ params }: PageProps) {
                     <SelectItem value="inactive">Inactive</SelectItem>
                     <SelectItem value="suspended">Suspended</SelectItem>
                     <SelectItem value="deceased">Deceased</SelectItem>
+                    <SelectItem value="struck_off">Struck off</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

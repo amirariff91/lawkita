@@ -21,7 +21,7 @@ const updateSchema = z.object({
   phone: z.string().nullable().optional(),
   bio: z.string().nullable().optional(),
   barMembershipNumber: z.string().nullable().optional(),
-  barStatus: z.enum(["active", "inactive", "suspended", "deceased"]).nullable().optional(),
+  barStatus: z.enum(["active", "inactive", "suspended", "deceased", "struck_off"]).nullable().optional(),
   state: z.string().nullable().optional(),
   city: z.string().nullable().optional(),
   address: z.string().nullable().optional(),

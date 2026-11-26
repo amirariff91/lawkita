@@ -52,7 +52,7 @@ type LawyerCardRow = {
   reviewCount: number | null;
   averageRating: string | null;
   responseRate: string | null;
-  barStatus: "active" | "inactive" | "suspended" | "deceased" | null;
+  barStatus: "active" | "inactive" | "suspended" | "deceased" | "struck_off" | null;
   barMembershipNumber: string | null;
   lastScrapedAt: Date | null;
 };

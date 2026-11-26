@@ -10,6 +10,7 @@ import {
   primaryKey,
   index,
   uniqueIndex,
+  doublePrecision,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -60,7 +61,7 @@ export const lawyers = pgTable(
     barMembershipNumber: text("bar_membership_number").unique(),
     barAdmissionDate: timestamp("bar_admission_date", { mode: "date" }),
     barStatus: text("bar_status", {
-      enum: ["active", "inactive", "suspended", "deceased"],
+      enum: ["active", "inactive", "suspended", "deceased", "struck_off"],
     }).default("active"),
 
     // Location
@@ -102,6 +103,19 @@ export const lawyers = pgTable(
     // Data Source Tracking
     scrapedData: jsonb("scraped_data"), // Original scraped data for conflict resolution
     lastScrapedAt: timestamp("last_scraped_at", { mode: "date" }),
+
+    // Directory import (scripts/import-directory). scraped_data is never
+    // written by the importer; the imported source row lives in import_data.
+    designation: text("designation"),
+    qualification: text("qualification"),
+    linkedin: text("linkedin"),
+    languages: text("languages").array(),
+    credentials: text("credentials").array(), // panels and roles, e.g. "Commissioner for Oaths"
+    rankings: jsonb("rankings").$type<string[]>(),
+    standingNote: text("standing_note"), // e.g. struck off, certificate not practising
+    standingSourceUrl: text("standing_source_url"),
+    importData: jsonb("import_data"),
+    importedAt: timestamp("imported_at", { mode: "date" }),
 
     // Timestamps
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
@@ -201,6 +215,24 @@ export const firms = pgTable(
     }).default("free"),
     subscriptionExpiresAt: timestamp("subscription_expires_at", { mode: "date" }),
 
+    // Directory import (scripts/import-directory)
+    postcode: text("postcode"),
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
+    fax: text("fax"),
+    whatsapp: text("whatsapp"),
+    linkedin: text("linkedin"),
+    socialLinks: jsonb("social_links").$type<string[]>(),
+    foundedYear: integer("founded_year"),
+    openingHours: text("opening_hours"),
+    languages: text("languages").array(),
+    bankPanels: text("bank_panels").array(), // self-declared on the firm's website
+    legalNetworks: text("legal_networks").array(),
+    rankings: jsonb("rankings").$type<string[]>(),
+    logoIsLight: boolean("logo_is_light").default(false).notNull(),
+    importData: jsonb("import_data"),
+    importedAt: timestamp("imported_at", { mode: "date" }),
+
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -209,6 +241,23 @@ export const firms = pgTable(
     index("firms_state_idx").on(table.state),
     index("firms_city_idx").on(table.city),
     index("firms_owner_id_idx").on(table.ownerId),
+  ]
+);
+
+// Stable keys from external datasets, so a later release of the same dataset
+// can be re-imported without creating duplicates.
+export const externalIds = pgTable(
+  "external_ids",
+  {
+    entityType: text("entity_type", { enum: ["lawyer", "firm"] }).notNull(),
+    entityId: uuid("entity_id").notNull(),
+    namespace: text("namespace").notNull(),
+    value: text("value").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.entityType, table.namespace, table.value] }),
+    index("external_ids_entity_idx").on(table.entityType, table.entityId),
   ]
 );
 
