@@ -95,6 +95,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   );
 
+  // Law firm profiles come before lawyer profiles: searches for a firm's
+  // name are the largest source of directory traffic.
+  // Law firm profiles
+  // Newly added section: if the live firms table differs from schema.ts,
+  // skip firms rather than failing the whole sitemap.
+  const allFirms = await db
+    .select({
+      slug: firms.slug,
+      updatedAt: firms.updatedAt,
+    })
+    .from(firms)
+    .orderBy(desc(firms.updatedAt))
+    .limit(20000)
+    .catch((error: unknown) => {
+      console.error("sitemap: firms query failed", error);
+      return [] as { slug: string; updatedAt: Date }[];
+    });
+
+  for (const firm of allFirms) {
+    entries.push({
+      url: `${BASE_URL}/firms/${firm.slug}`,
+      lastModified: firm.updatedAt,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    });
+  }
   // Lawyer profiles: listable lawyers whose profile has enough substance to
   // index (see indexableLawyerProfile). Oldest first, so that if the cap is
   // ever reached the profiles already in the sitemap stay in it.
@@ -138,30 +164,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
 
-  // Law firm profiles
-  // Newly added section: if the live firms table differs from schema.ts,
-  // skip firms rather than failing the whole sitemap.
-  const allFirms = await db
-    .select({
-      slug: firms.slug,
-      updatedAt: firms.updatedAt,
-    })
-    .from(firms)
-    .orderBy(desc(firms.updatedAt))
-    .limit(20000)
-    .catch((error: unknown) => {
-      console.error("sitemap: firms query failed", error);
-      return [] as { slug: string; updatedAt: Date }[];
-    });
-
-  for (const firm of allFirms) {
-    entries.push({
-      url: `${BASE_URL}/firms/${firm.slug}`,
-      lastModified: firm.updatedAt,
-      changeFrequency: "weekly",
-      priority: 0.7,
-    });
-  }
   // Practice areas
   const allPracticeAreas = await db
     .select({
