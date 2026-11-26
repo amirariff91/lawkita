@@ -34,6 +34,14 @@ ALTER TABLE firms
   ADD COLUMN IF NOT EXISTS import_data jsonb,
   ADD COLUMN IF NOT EXISTS imported_at timestamp;
 
+-- Present in schema.ts and used by the enquiry form, but missing in production
+-- (found by diffing the live schema on 2026-11-26). Without them an enquiry
+-- insert fails.
+ALTER TABLE enquiries
+  ADD COLUMN IF NOT EXISTS budget_range text DEFAULT 'not_specified',
+  ADD COLUMN IF NOT EXISTS timeline text DEFAULT 'not_specified',
+  ADD COLUMN IF NOT EXISTS is_first_lawyer boolean;
+
 CREATE TABLE IF NOT EXISTS external_ids (
   entity_type text NOT NULL,
   entity_id uuid NOT NULL,

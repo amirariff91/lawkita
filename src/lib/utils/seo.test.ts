@@ -9,6 +9,7 @@ import {
   getLawyerCanonicalUrl,
   getLawyerMetaDescription,
   getLawyerMetaTitle,
+  MAX_LAWYER_TITLE_LENGTH,
   isHubPageIndexable,
 } from "./seo";
 import { formatFirmName, formatPersonName } from "./name-format";
@@ -41,7 +42,7 @@ describe("getLawyerMetaTitle", () => {
       "Aaron Ganapathy Naidu a/l Engitarraman – Lawyer"
     );
     expect(getLawyerMetaTitle("Siti binti Ali", "Amin Petra & Partners", "Batu Caves")).toBe(
-      "Siti binti Ali – Lawyer at Amin Petra & Partners"
+      "Siti binti Ali – Lawyer at Amin Petra & Partners, Batu Caves"
     );
   });
 
@@ -54,7 +55,13 @@ describe("getLawyerMetaTitle", () => {
 
   test("stays within the title limit whenever the name allows", () => {
     const title = getLawyerMetaTitle("Lee Chong Wei", "Skrine & Partners PLT", "Kuala Lumpur");
-    expect(withSuffix(title).length).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
+    expect(withSuffix(title).length).toBeLessThanOrEqual(MAX_LAWYER_TITLE_LENGTH);
+  });
+
+  test("keeps the firm for a long name, up to the lawyer title limit", () => {
+    expect(getLawyerMetaTitle("Haryanti binti Othman", "Abdul Rashid Rahman & Co", "Klang")).toBe(
+      "Haryanti binti Othman – Lawyer at Abdul Rashid Rahman & Co"
+    );
   });
 });
 

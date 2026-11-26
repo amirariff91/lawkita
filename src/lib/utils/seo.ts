@@ -79,6 +79,14 @@ export function truncateForDescription(text: string, maxLength = 155): string {
 export const TITLE_TEMPLATE_SUFFIX = " | LawKita";
 export const MAX_TITLE_LENGTH = 60;
 const TITLE_BUDGET = MAX_TITLE_LENGTH - TITLE_TEMPLATE_SUFFIX.length;
+/**
+ * Lawyer profiles are found by name, often with the firm ("majid & chen
+ * subang"). Keeping the firm in the title matters more than staying inside
+ * the width Google displays, so these titles may run to 70 characters: the
+ * name and firm still match the query when the tail is cut off on screen.
+ */
+export const MAX_LAWYER_TITLE_LENGTH = 70;
+const LAWYER_TITLE_BUDGET = MAX_LAWYER_TITLE_LENGTH - TITLE_TEMPLATE_SUFFIX.length;
 const DESCRIPTION_BUDGET = 155;
 
 /** First candidate that fits the title budget, else the shortest (last). */
@@ -141,7 +149,10 @@ export function getLawyerMetaTitle(
   if (firm) candidates.push(`${name} – Lawyer at ${firm}`);
   if (!firm && place) candidates.push(`${name} – Lawyer in ${place}`);
   candidates.push(`${name} – Lawyer`);
-  return firstFittingTitle(candidates);
+  return (
+    candidates.find((candidate) => candidate.length <= LAWYER_TITLE_BUDGET) ??
+    candidates[candidates.length - 1]
+  );
 }
 
 export interface LawyerMetaDescriptionInput {
