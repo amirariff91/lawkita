@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { getCredentialHubForValue } from "@/lib/constants/credentials";
+import { credentialHubPath } from "@/lib/utils/credential-hub-seo";
 
 interface DirectoryDetailsSectionProps {
   qualification: string | null;
@@ -42,11 +45,27 @@ export function DirectoryDetailsSection({
             Panels and appointments
           </h3>
           <div className="mt-2 flex flex-wrap gap-2">
-            {credentials!.map((credential) => (
-              <Badge key={credential} variant="secondary">
-                {credential}
-              </Badge>
-            ))}
+            {credentials!.map((credential) => {
+              const hub = getCredentialHubForValue(credential);
+              if (!hub) {
+                return (
+                  <Badge key={credential} variant="secondary">
+                    {credential}
+                  </Badge>
+                );
+              }
+              return (
+                <Link
+                  key={credential}
+                  href={credentialHubPath(hub.slug)}
+                  title={`Other ${hub.plural} (${hub.malayName}) on LawKita`}
+                >
+                  <Badge variant="secondary" className="hover:bg-secondary/70 hover:underline">
+                    {credential}
+                  </Badge>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

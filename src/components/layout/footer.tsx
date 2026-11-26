@@ -6,6 +6,7 @@ const footerLinks = {
   directory: [
     { name: "Find a Lawyer", href: "/lawyers" },
     { name: "Practice Areas", href: "/lawyers/practice-area" },
+    { name: "Services", href: "/lawyers/services" },
     { name: "Locations", href: "/lawyers/location" },
     { name: "Top Rated", href: "/lawyers?sort=rating" },
   ],

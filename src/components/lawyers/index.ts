@@ -1,6 +1,7 @@
 export { LawyerCard } from "./lawyer-card";
 export { LawyerCardSkeleton, LawyerGridSkeleton } from "./lawyer-card-skeleton";
 export { LawyerGrid } from "./lawyer-grid";
+export { CredentialLawyerGrid, type CredentialLawyerGridItem } from "./credential-lawyer-grid";
 export { ViewToggle } from "./view-toggle";
 export { Pagination } from "./pagination";
 export { PaginationLink } from "./pagination-link";

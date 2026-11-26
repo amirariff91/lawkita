@@ -37,7 +37,7 @@ const EXPERIENCE_THRESHOLDS: Record<ExperienceLevel, { min: number; max: number 
   senior: { min: 16, max: Infinity },
 };
 
-type LawyerCardRow = {
+export type LawyerCardRow = {
   id: string;
   slug: string;
   name: string;
@@ -58,7 +58,7 @@ type LawyerCardRow = {
   lastScrapedAt: Date | null;
 };
 
-const lawyerCardSelection = {
+export const lawyerCardSelection = {
   id: lawyers.id,
   slug: lawyers.slug,
   name: lawyers.name,
@@ -79,7 +79,7 @@ const lawyerCardSelection = {
   lastScrapedAt: lawyers.lastScrapedAt,
 };
 
-function toLawyerCard(
+export function toLawyerCard(
   lawyer: LawyerCardRow,
   practiceAreaMap: Map<string, string[]>
 ): LawyerCardData {
@@ -106,7 +106,7 @@ function toLawyerCard(
   };
 }
 
-async function getPracticeAreaMap(lawyerIds: string[]): Promise<Map<string, string[]>> {
+export async function getPracticeAreaMap(lawyerIds: string[]): Promise<Map<string, string[]>> {
   const map = new Map<string, string[]>();
   if (lawyerIds.length === 0) return map;
 

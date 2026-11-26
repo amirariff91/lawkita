@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { searchLawyers } from "@/lib/db/queries/lawyers";
 import { LawyersClient } from "./lawyers-client";
 import { LawyerGridSkeleton } from "@/components/lawyers";
@@ -90,6 +91,14 @@ export default async function LawyersPage({ searchParams }: LawyersPageProps) {
         <p className="text-muted-foreground mt-2">
           Search and connect with verified lawyers across Malaysia
         </p>
+        <nav aria-label="Browse lawyers" className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          <Link href="/lawyers/practice-area" className="text-primary hover:underline">
+            Browse by practice area
+          </Link>
+          <Link href="/lawyers/services" className="text-primary hover:underline">
+            Commissioners for oaths, notaries, legal aid and more
+          </Link>
+        </nav>
       </div>
 
       <ErrorBoundary>

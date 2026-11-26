@@ -12,6 +12,11 @@ import {
 import { and, asc, count, desc, eq, isNotNull } from "drizzle-orm";
 import { isHubPageIndexable } from "@/lib/utils/seo";
 import { indexableLawyerProfile, listableLawyer } from "@/lib/lawyers/listable";
+import { getCredentialHubCountsByPlace } from "@/lib/db/queries/credential-hubs";
+import {
+  credentialHubSitemapPaths,
+  summariseCredentialHubCounts,
+} from "@/lib/lawyers/credential-hubs";
 
 // One sitemap file may hold 50,000 URLs. Past this many, split the sitemap.
 const SITEMAP_WARN_URLS = 45_000;
@@ -121,6 +126,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     });
   }
+
+  // Services (credential hubs): the index, each national hub, and the
+  // state/city pages that pass the indexing rule (credentialHubSitemapPaths).
+  // One grouped count query. If it fails, list the index and national hubs
+  // only, rather than failing the whole sitemap.
+  const credentialHubCounts = await getCredentialHubCountsByPlace().catch(
+    (error: unknown) => {
+      console.error("sitemap: credential hub counts query failed", error);
+      return null;
+    }
+  );
+  const credentialHubPaths = credentialHubSitemapPaths(
+    credentialHubCounts === null
+      ? null
+      : summariseCredentialHubCounts(credentialHubCounts)
+  );
+  for (const hubPath of credentialHubPaths) {
+    entries.push({
+      url: `${BASE_URL}${hubPath.path}`,
+      changeFrequency: "weekly",
+      priority: hubPath.priority,
+    });
+  }
+
   // Lawyer profiles: listable lawyers whose profile has enough substance to
   // index (see indexableLawyerProfile). Oldest first, so that if the cap is
   // ever reached the profiles already in the sitemap stay in it.
