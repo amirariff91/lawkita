@@ -58,7 +58,6 @@ describe("format helpers", () => {
 });
 
 import { test as extraTest, expect as extraExpect } from "bun:test";
-import { parseAmountInput } from "./format";
 
 extraTest("an amount that rounds to nothing is not a valid amount", () => {
   extraExpect(parseAmountInput("0.001")).toBeNull();
