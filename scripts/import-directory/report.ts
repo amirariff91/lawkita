@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import type { ValidationIssue } from "./data";
+import { normalizeCity } from "./maps/cities";
 import type { Match } from "./match";
 import type { ImportPlan } from "./plan";
 import type { SlugRule } from "./slug";
@@ -72,7 +73,7 @@ export function summarize(plan: ImportPlan, issues: readonly ValidationIssue[], 
 }) {
   const cities = new Map<string, { state: string; city: string; lawyers: number }>();
   for (const { row } of plan.lawyerPlans) {
-    const city = row.city?.trim();
+    const city = normalizeCity(row.city);
     if (!city) continue;
     const key = `${row.state}:${city.toLowerCase()}`;
     const cityCount = cities.get(key);

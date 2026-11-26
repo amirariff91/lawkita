@@ -5,6 +5,7 @@ import type { firms, lawyers } from "@/lib/db/schema";
 import { canFillLawyerField, hasScrapedValue } from "@/lib/lawyers/fill-rules";
 import type { FirmInput, LawyerInput } from "./data";
 import { WEAK_STANDING, hostMatches, keyId, primaryKey, type Entity, type ExternalId } from "./keys";
+import { normalizeCity } from "./maps/cities";
 import { practiceSlugs } from "./maps/practice-areas";
 import { matchFirms, matchLawyers, type Decision, type Match, type MatchFirm, type MatchLawyer } from "./match";
 import { completedYears, normalizeEmail, parseAdmissionDate, parseWebUrl, phoneDigits, text } from "./normalize";
@@ -91,7 +92,7 @@ function firmFields(row: FirmInput, release: string) {
   const website = parseWebUrl(row.website, true);
   return {
     name: row.name, description: text(row.description), address: text(row.address), state: row.state,
-    city: text(row.city), phone: phoneDigits(row.phone), email: normalizeEmail(row.email),
+    city: normalizeCity(row.city), phone: phoneDigits(row.phone), email: normalizeEmail(row.email),
     website: row.website_alive !== false && website?.hostname.includes(".") ? website.href : null,
     postcode: text(row.postcode), latitude: row.latitude ?? null, longitude: row.longitude ?? null,
     fax: phoneDigits(row.fax), whatsapp: phoneDigits(row.whatsapp), linkedin: parseWebUrl(row.linkedin, true)?.href ?? null,
@@ -227,7 +228,7 @@ export function planImport(input: { firms: readonly FirmInput[]; lawyers: readon
       }
       const id = match.action === "update" ? match.id : importUuid("lawyer", key);
       const current = lawyerById.get(id);
-      const contact = { name: row.full_name, address: text(row.address), state: row.state, city: text(row.city),
+      const contact = { name: row.full_name, address: text(row.address), state: row.state, city: normalizeCity(row.city),
         phone: phoneDigits(row.phone), email: normalizeEmail(row.email) };
       const publicImport = { designation: text(row.designation), qualification: text(row.qualification),
         linkedin: parseWebUrl(row.linkedin, true)?.href ?? null, languages: row.languages };

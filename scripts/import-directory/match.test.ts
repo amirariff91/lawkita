@@ -17,9 +17,16 @@ test("a cross-state namesake or uncorroborated exact name never inserts or merge
 test("corroboration plus unique name/state matches, but placeholders and inactive profiles do not", () => {
   expect(matchLawyers([row], [corroborated], []).get(row.id)?.match).toEqual({ action: "update", id: lawyer.id, tier: "B" });
   for (const protectedRow of [{ ...corroborated, barMembershipNumber: "BC12345" },
+    { ...corroborated, barMembershipNumber: "BC/2345/1998" }, { ...corroborated, barMembershipNumber: "bc2/1998" },
     { ...corroborated, barMembershipNumber: "1MDB-MARKER" }, { ...corroborated, isActive: false }]) {
     expect(matchLawyers([row], [protectedRow], []).get(row.id)?.match.action).toBe("review");
   }
+});
+
+test("an external key does not override placeholder review", () => {
+  const placeholder = { ...corroborated, barMembershipNumber: "BC/2345/1998" };
+  expect(matchLawyers([row], [placeholder], [primary]).get(row.id)?.match)
+    .toMatchObject({ action: "review", candidates: [lawyer.id] });
 });
 
 test("two Tier B contenders are quarantined, and an authoritative ID wins over Tier B", () => {

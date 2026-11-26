@@ -101,6 +101,25 @@ test("firm and lawyer replay leaves database fields, timestamps, external IDs an
   expect(replay.links).toEqual([]);
 });
 
+test("aliases city fields for new rows and gaps without recasing a lawyer's display name", () => {
+  const office = sourceFirm({ city: "Georgetown" });
+  const person = sourceLawyer({ full_name: "dR. rAFi B. Nadir", city: "Bandar Baru Bangi" });
+  const input = { firms: [office], lawyers: [person] };
+  const initial = planImport(input, empty, options);
+  expect(initial.firmPlans[0].write).toMatchObject({ insert: { city: "George Town", slug: "messrs-nadir-co-george-town" } });
+  expect(initial.lawyerPlans[0].write).toMatchObject({ insert: { city: "Bangi", name: "dR. rAFi B. Nadir" } });
+  const existing = {
+    ...empty,
+    firms: [firm],
+    lawyers: [{ ...lawyer, city: "Owner's City" }],
+    externalIds: [lawyerKey(person)],
+  };
+  const update = planImport(input, existing, options);
+  expect(update.firmPlans[0].write).toMatchObject({ update: { city: "George Town" } });
+  expect(update.lawyerPlans[0].write).not.toHaveProperty("update.city");
+  expect(update.lawyerPlans[0].write).not.toHaveProperty("update.name");
+});
+
 test("lawyers-only never uses a heuristic firm match; unresolved references go to review", () => {
   const input = { firms: [sourceOffice], lawyers: [source] };
   const state = { ...empty, firms: [firm] };

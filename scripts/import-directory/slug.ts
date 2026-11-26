@@ -1,7 +1,7 @@
 import { generateFirmSlug } from "@/lib/db/queries/firms";
 import { generateLawyerSlug } from "@/lib/lawyers/slug";
 import { primaryKey } from "./keys";
-import { text } from "./normalize";
+import { normalizeCity } from "./maps/cities";
 
 export type SlugRule = "base" | "city" | "state" | "number";
 export type SlugAllocation = { slug: string; rule: SlugRule };
@@ -34,11 +34,11 @@ function allocate(base: string, used: Set<string>, suffixes: ["city" | "state", 
 
 export function lawyerSlug(row: { full_name: string; city?: string | null; state: string }, used: Set<string>) {
   return allocate(generateLawyerSlug(row.full_name), used, [
-    ["city", generateLawyerSlug(text(row.city) ?? "")],
+    ["city", generateLawyerSlug(normalizeCity(row.city) ?? "")],
     ["state", generateLawyerSlug(row.state)],
   ]);
 }
 
 export function firmSlug(row: { name: string; city?: string | null; state: string }, used: Set<string>) {
-  return allocate(generateFirmSlug(row.name, text(row.city)), used, [["state", generateFirmSlug(row.state, null)]]);
+  return allocate(generateFirmSlug(row.name, normalizeCity(row.city)), used, [["state", generateFirmSlug(row.state, null)]]);
 }

@@ -102,19 +102,20 @@ export function matchLawyers(
   matchedFirmIds: ReadonlyMap<number, string> = new Map(),
 ): Map<number, Decision> {
   const byName = new Map<string, MatchLawyer[]>();
+  const placeholders = new Set<string>();
   for (const lawyer of existing) {
+    if (/^(?:BC[\/\d]|1MDB-)/i.test(lawyer.barMembershipNumber?.trim() ?? "")) placeholders.add(lawyer.id);
     const name = canonicalName(lawyer.name);
     if (name) add(byName, name, lawyer);
   }
-  return matchRows(rows, existing, external, "lawyer", lawyerKeys, (row) => {
+  const decisions = matchRows(rows, existing, external, "lawyer", lawyerKeys, (row) => {
     const sameName = byName.get(canonicalName(row.full_name)) ?? [];
     if (!sameName.length) return { action: "insert" };
     const sameState = sameName.filter((lawyer) => normalizeState(lawyer.state) === row.state);
     if (sameState.length !== 1) return review("no unique name and state match", sameName.map(({ id }) => id));
     const [candidate] = sameState;
-    if (!candidate.isActive || /^(?:BC\d+$|1MDB-)/i.test(candidate.barMembershipNumber?.trim() ?? "")) {
-      return review("name match to inactive or placeholder Bar profile", [candidate.id]);
-    }
+    if (placeholders.has(candidate.id)) return review("placeholder Bar profile", [candidate.id]);
+    if (!candidate.isActive) return review("name match to inactive profile", [candidate.id]);
     const date = parseAdmissionDate(row.admission_date)?.toISOString().slice(0, 10) ?? null;
     const existingDate = candidate.barAdmissionDate?.toISOString().slice(0, 10) ?? null;
     const matchedFirm = row.firm_id == null ? null : matchedFirmIds.get(row.firm_id) ?? null;
@@ -126,6 +127,13 @@ export function matchLawyers(
     }
     return review("name and state match lacks corroboration", [candidate.id]);
   });
+  for (const decision of decisions.values()) {
+    const { match } = decision;
+    if (match.action === "update" && placeholders.has(match.id)) {
+      decision.match = review("placeholder Bar profile", [match.id]);
+    }
+  }
+  return decisions;
 }
 
 function nameOverlap(a: string, b: string): number {

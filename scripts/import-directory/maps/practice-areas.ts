@@ -30,7 +30,7 @@ export const PRACTICE_AREA_MAP: Readonly<Record<string, readonly string[] | null
   "Projects & Energy": null,
   "General Practice": null,
   "Competition & Antitrust": null,
-  "Defamation & Media": null,
+  "Defamation & Media": ["defamation"],
   "Disciplinary & Regulatory": null,
   "Sports Law & Arbitration": null,
   "Consumer Protection": null,
