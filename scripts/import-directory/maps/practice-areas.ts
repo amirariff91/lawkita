@@ -9,7 +9,7 @@ export const PRACTICE_AREA_MAP: Readonly<Record<string, readonly string[] | null
   "Employment & Labour": ["employment-law"],
   "Corporate & M&A": ["corporate-commercial", "mergers-acquisitions"],
   "Wills, Probate & Estate": ["wills-estate"],
-  "Family & Divorce": ["family-law"],
+  "Family & Divorce": ["family-law", "divorce-separation"],
   "Construction Law": ["construction"],
   "Technology, Media & Telecoms": ["cyberlaw-technology"],
   "Islamic Finance": ["banking-finance", "islamic-finance"],
