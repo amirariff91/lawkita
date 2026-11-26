@@ -8,6 +8,7 @@ const garageEnvironment = {
   GARAGE_ACCESS_KEY_ID: process.env.GARAGE_ACCESS_KEY_ID,
   GARAGE_SECRET_ACCESS_KEY: process.env.GARAGE_SECRET_ACCESS_KEY,
   GARAGE_PUBLIC_BASE_URL: process.env.GARAGE_PUBLIC_BASE_URL,
+  GARAGE_PUBLIC_URL_INCLUDES_BUCKET: process.env.GARAGE_PUBLIC_URL_INCLUDES_BUCKET,
   STORAGE_BACKEND: process.env.STORAGE_BACKEND,
 };
 
@@ -59,5 +60,36 @@ describe("storage backend health probe", () => {
       new Response(null, { status: 403 })) as unknown as typeof fetch;
 
     expect(createStorageProvider().probe()).rejects.toThrow("status 403");
+  });
+});
+
+describe("public object URLs", () => {
+  function configure() {
+    process.env.STORAGE_BACKEND = "garage";
+    process.env.GARAGE_ENDPOINT = "https://garage.example.com";
+    process.env.GARAGE_ACCESS_KEY_ID = "garage-access-key";
+    process.env.GARAGE_SECRET_ACCESS_KEY = "garage-secret-key";
+    process.env.GARAGE_PUBLIC_BASE_URL = "https://files.example.com";
+  }
+
+  const upload = {
+    bucket: "images" as const,
+    key: "firms/abc/logo.webp",
+    contentType: "image/webp",
+    contentLength: 10,
+  };
+
+  test("include the bucket name by default", async () => {
+    configure();
+    delete process.env.GARAGE_PUBLIC_URL_INCLUDES_BUCKET;
+    const { publicUrl } = await createStorageProvider().createPresignedUpload(upload);
+    expect(publicUrl).toBe("https://files.example.com/images/firms/abc/logo.webp");
+  });
+
+  test("omit the bucket name when the public base URL is bound to one bucket", async () => {
+    configure();
+    process.env.GARAGE_PUBLIC_URL_INCLUDES_BUCKET = "false";
+    const { publicUrl } = await createStorageProvider().createPresignedUpload(upload);
+    expect(publicUrl).toBe("https://files.example.com/firms/abc/logo.webp");
   });
 });

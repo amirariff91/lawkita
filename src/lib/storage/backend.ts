@@ -171,6 +171,7 @@ function getGarageConfiguration(): {
   accessKeyId: string;
   secretAccessKey: string;
   publicBaseUrl: string;
+  publicUrlIncludesBucket: boolean;
   forcePathStyle: boolean;
 } {
   const endpoint = process.env.GARAGE_ENDPOINT;
@@ -189,6 +190,9 @@ function getGarageConfiguration(): {
     accessKeyId,
     secretAccessKey,
     publicBaseUrl: trimTrailingSlash(process.env.GARAGE_PUBLIC_BASE_URL || endpoint),
+    // A public base URL that is already bound to one bucket (for example a
+    // Cloudflare R2 custom domain) has no bucket segment in its paths.
+    publicUrlIncludesBucket: process.env.GARAGE_PUBLIC_URL_INCLUDES_BUCKET !== "false",
     forcePathStyle: process.env.GARAGE_FORCE_PATH_STYLE !== "false",
   };
 }
@@ -206,8 +210,14 @@ function getLegacyConfiguration(): { endpoint: string; token: string } {
   return { endpoint: trimTrailingSlash(endpoint), token };
 }
 
-function getGarageObjectUrl(publicBaseUrl: string, bucket: StorageBucket, key: string): string {
-  return `${publicBaseUrl}/${encodeURIComponent(getBucketName(bucket))}/${encodeObjectPath(key)}`;
+function getGarageObjectUrl(
+  publicBaseUrl: string,
+  bucket: StorageBucket,
+  key: string,
+  includeBucket = true
+): string {
+  const bucketSegment = includeBucket ? `/${encodeURIComponent(getBucketName(bucket))}` : "";
+  return `${publicBaseUrl}${bucketSegment}/${encodeObjectPath(key)}`;
 }
 
 class GarageStorage implements ObjectStorage {
@@ -218,6 +228,7 @@ class GarageStorage implements ObjectStorage {
   private readonly secretAccessKey: string;
   private readonly forcePathStyle: boolean;
   private readonly publicBaseUrl: string;
+  private readonly publicUrlIncludesBucket: boolean;
 
   constructor() {
     const config = getGarageConfiguration();
@@ -227,6 +238,7 @@ class GarageStorage implements ObjectStorage {
     this.secretAccessKey = config.secretAccessKey;
     this.forcePathStyle = config.forcePathStyle;
     this.publicBaseUrl = config.publicBaseUrl;
+    this.publicUrlIncludesBucket = config.publicUrlIncludesBucket;
   }
 
   async createPresignedUpload(input: {
@@ -252,7 +264,12 @@ class GarageStorage implements ObjectStorage {
       backend: this.backend,
       uploadUrl: signed.url,
       uploadHeaders: { "Content-Type": input.contentType },
-      publicUrl: getGarageObjectUrl(this.publicBaseUrl, input.bucket, input.key),
+      publicUrl: getGarageObjectUrl(
+        this.publicBaseUrl,
+        input.bucket,
+        input.key,
+        this.publicUrlIncludesBucket
+      ),
       expiresIn,
     };
   }
