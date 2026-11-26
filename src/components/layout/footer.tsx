@@ -9,6 +9,7 @@ const footerLinks = {
     { name: "Services", href: "/lawyers/services" },
     { name: "Locations", href: "/lawyers/location" },
     { name: "Top Rated", href: "/lawyers?sort=rating" },
+    { name: "Free Legal Calculators", href: "/tools" },
   ],
   cases: [
     { name: "Famous Cases", href: "/cases" },
