@@ -1,8 +1,10 @@
 import { safeHttpUrl, serializeJsonLd } from "@/lib/utils/json-ld";
 import type { FirmWithStats } from "@/lib/db/queries/firms";
-import { formatFirmName } from "@/lib/utils/name-format";
+import { formatFirmName, formatPersonName } from "@/lib/utils/name-format";
+import { directionsHref, mapOpeningHours } from "@/lib/utils/firm-contact";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com";
+const MAX_EMPLOYEES = 10;
 
 interface FirmJsonLdProps {
   firm: FirmWithStats;
@@ -78,6 +80,25 @@ export function FirmJsonLd({ firm }: FirmJsonLdProps) {
       "@type": "QuantitativeValue",
       value: firm.lawyerCount,
     };
+  }
+
+  // Opening hours only when the stored text maps without guessing.
+  const openingHours = mapOpeningHours(firm.openingHours);
+  if (openingHours) {
+    jsonLd.openingHours = openingHours.length === 1 ? openingHours[0] : openingHours;
+  }
+
+  // The same directions link the page shows.
+  const hasMap = directionsHref(firm.latitude, firm.longitude);
+  if (hasMap) jsonLd.hasMap = hasMap;
+
+  // A short list of the lawyers shown on the page, each with its profile URL.
+  if (firm.lawyers.length > 0) {
+    jsonLd.employee = firm.lawyers.slice(0, MAX_EMPLOYEES).map((lawyer) => ({
+      "@type": "Person",
+      name: formatPersonName(lawyer.name),
+      url: `${APP_URL}/lawyers/${lawyer.slug}`,
+    }));
   }
 
   // Area served (based on state/city)

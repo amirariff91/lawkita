@@ -18,6 +18,7 @@ import {
   lawyerPracticeAreas,
   lawyers,
   practiceAreas,
+  reviews,
 } from "@/lib/db/schema";
 import type { LawyerCardData } from "@/types/lawyer";
 
@@ -52,6 +53,14 @@ export interface FirmWithStats {
   rankings?: string[] | null;
   linkedin?: string | null;
   socialLinks?: string[] | null;
+  fax?: string | null;
+  whatsapp?: string | null;
+  /** Practice areas with the slug stored in practice_areas, most common first. */
+  practiceAreaLinks: { name: string; slug: string }[];
+  /** Each listed lawyer's non-empty `credentials`, for the About paragraph. */
+  lawyerCredentials: string[][];
+  /** Earliest Bar admission year among the listed lawyers, if any is recorded. */
+  earliestAdmissionYear: number | null;
 }
 
 export interface FirmCardData {
@@ -117,6 +126,9 @@ function toLawyerCard(
 async function getFirmLawyers(firmId: string): Promise<{
   lawyers: LawyerCardData[];
   practiceAreas: string[];
+  practiceAreaLinks: { name: string; slug: string }[];
+  lawyerCredentials: string[][];
+  earliestAdmissionYear: number | null;
 }> {
   const lawyerRows = await db
     .select()
@@ -124,11 +136,16 @@ async function getFirmLawyers(firmId: string): Promise<{
     .where(and(eq(lawyers.primaryFirmId, firmId), listableLawyer))
     .orderBy(sql`${lawyers.yearsAtBar} DESC NULLS LAST`);
   const practiceAreaMap = new Map<string, string[]>();
-  const allPracticeAreas = new Set<string>();
+  // name -> stored slug, and how many of the firm's lawyers list the area
+  const areaStats = new Map<string, { slug: string; count: number }>();
 
   if (lawyerRows.length > 0) {
     const areaRows = await db
-      .select({ lawyerId: lawyerPracticeAreas.lawyerId, name: practiceAreas.name })
+      .select({
+        lawyerId: lawyerPracticeAreas.lawyerId,
+        name: practiceAreas.name,
+        slug: practiceAreas.slug,
+      })
       .from(lawyerPracticeAreas)
       .innerJoin(
         practiceAreas,
@@ -140,13 +157,28 @@ async function getFirmLawyers(firmId: string): Promise<{
       const names = practiceAreaMap.get(row.lawyerId) ?? [];
       names.push(row.name);
       practiceAreaMap.set(row.lawyerId, names);
-      allPracticeAreas.add(row.name);
+      const stats = areaStats.get(row.name) ?? { slug: row.slug, count: 0 };
+      stats.count += 1;
+      areaStats.set(row.name, stats);
     }
   }
 
+  const practiceAreaLinks = [...areaStats.entries()]
+    .sort(([nameA, a], [nameB, b]) => b.count - a.count || nameA.localeCompare(nameB))
+    .map(([name, { slug }]) => ({ name, slug }));
+
+  const admissionYears = lawyerRows
+    .map((row) => row.barAdmissionDate?.getFullYear())
+    .filter((year): year is number => typeof year === "number" && Number.isFinite(year));
+
   return {
     lawyers: lawyerRows.map((row) => toLawyerCard(row, practiceAreaMap)),
-    practiceAreas: [...allPracticeAreas],
+    practiceAreas: practiceAreaLinks.map((area) => area.name),
+    practiceAreaLinks,
+    lawyerCredentials: lawyerRows
+      .map((row) => (row.credentials ?? []).filter(Boolean))
+      .filter((values) => values.length > 0),
+    earliestAdmissionYear: admissionYears.length ? Math.min(...admissionYears) : null,
   };
 }
 
@@ -195,7 +227,110 @@ export async function getFirmBySlug(slug: string): Promise<FirmWithStats | null>
     rankings: firm.rankings,
     linkedin: firm.linkedin,
     socialLinks: firm.socialLinks,
+    fax: firm.fax,
+    whatsapp: firm.whatsapp,
+    practiceAreaLinks: firmLawyers.practiceAreaLinks,
+    lawyerCredentials: firmLawyers.lawyerCredentials,
+    earliestAdmissionYear: firmLawyers.earliestAdmissionYear,
   };
+}
+
+export interface NearbyFirm {
+  id: string;
+  name: string;
+  slug: string;
+  lawyerCount: number;
+}
+
+/**
+ * Up to `limit` other firms near a firm, for "Other law firms in <place>".
+ *
+ * One query: firms in the same state (or, when the firm has no state, the
+ * same city), same-city firms first, then by listed lawyers and id. Lawyers
+ * are counted live with `listableLawyer`, not from the cached lawyer_count.
+ * When any same-city firm exists only those are returned (scope "city");
+ * otherwise the state's firms are (scope "state").
+ */
+export async function getNearbyFirms(
+  firm: { id: string; city: string | null; state: string | null },
+  limit = 8
+): Promise<{ scope: "city" | "state"; firms: NearbyFirm[] }> {
+  const city = firm.city?.trim() || null;
+  const state = firm.state?.trim() || null;
+  if (!city && !state) return { scope: "state", firms: [] };
+
+  const sameCity = city
+    ? sql<boolean>`coalesce(lower(${firms.city}) = lower(${city}), false)`
+    : sql<boolean>`false`;
+  const lawyerCount = sql<number>`count(${lawyers.id})::int`;
+  const placeFilter = state
+    ? eq(firms.state, state)
+    : sql`lower(${firms.city}) = lower(${city})`;
+
+  const rows = await db
+    .select({
+      id: firms.id,
+      name: firms.name,
+      slug: firms.slug,
+      sameCity,
+      lawyerCount,
+    })
+    .from(firms)
+    .leftJoin(lawyers, and(eq(lawyers.primaryFirmId, firms.id), listableLawyer))
+    .where(and(placeFilter, sql`${firms.id} <> ${firm.id}`))
+    .groupBy(firms.id)
+    .orderBy(desc(sameCity), desc(lawyerCount), asc(firms.id))
+    .limit(limit);
+
+  const cityRows = state ? rows.filter((row) => row.sameCity) : rows;
+  const scope = city && cityRows.length > 0 ? "city" : "state";
+  return {
+    scope,
+    firms: (scope === "city" ? cityRows : rows).map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      lawyerCount: Number(row.lawyerCount) || 0,
+    })),
+  };
+}
+
+export interface FirmLawyerReview {
+  id: string;
+  rating: number;
+  title: string | null;
+  content: string | null;
+  createdAt: Date;
+  lawyerName: string;
+  lawyerSlug: string;
+}
+
+/**
+ * Published reviews of listable lawyers whose primary firm is this firm,
+ * newest first. Reads the reviews table, never the cached review_count
+ * (which holds seed values).
+ */
+export async function getFirmLawyerReviews(
+  firmId: string,
+  limit = 5
+): Promise<FirmLawyerReview[]> {
+  return db
+    .select({
+      id: reviews.id,
+      rating: reviews.overallRating,
+      title: reviews.title,
+      content: reviews.content,
+      createdAt: reviews.createdAt,
+      lawyerName: lawyers.name,
+      lawyerSlug: lawyers.slug,
+    })
+    .from(reviews)
+    .innerJoin(lawyers, eq(reviews.lawyerId, lawyers.id))
+    .where(
+      and(eq(lawyers.primaryFirmId, firmId), eq(reviews.isPublished, true), listableLawyer)
+    )
+    .orderBy(desc(reviews.createdAt), asc(reviews.id))
+    .limit(limit);
 }
 
 export async function getOrCreateFirm(
