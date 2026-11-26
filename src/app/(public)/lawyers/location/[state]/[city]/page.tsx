@@ -8,6 +8,8 @@ import { Breadcrumbs } from "@/components/seo";
 import { getLocationPageSchema, isHubPageIndexable } from "@/lib/utils/seo";
 import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsInteger } from "nuqs/server";
+import { areaPlaceLabel } from "@/lib/utils/practice-area-location-seo";
+import { areaLinksForPlace, LinkList, loadAreaPlaceSummary } from "../../../practice-area/area-place-view";
 
 const searchParamsCache = createSearchParamsCache({
   page: parseAsInteger.withDefault(1),
@@ -75,12 +77,15 @@ async function CityContent({
   const city = getCityBySlug(stateSlug, citySlug);
 
   // Use city name for matching since we store city names, not slugs
-  const result = await getLawyersByLocation(
-    state?.name || stateSlug,
-    city?.name,
-    20,
-    page
-  );
+  const [result, areaLinks] = await Promise.all([
+    getLawyersByLocation(state?.name || stateSlug, city?.name, 20, page),
+    // Practice areas with results here, linking to /practice-area/[area]/[state]/[city].
+    state && city
+      ? loadAreaPlaceSummary({ stateName: state.name, cityName: city.name }).then((summary) =>
+          areaLinksForPlace(summary, { state, city })
+        )
+      : Promise.resolve([]),
+  ]);
 
   const getPageUrl = (pageNum: number) => {
     if (pageNum === 1) {
@@ -106,6 +111,15 @@ async function CityContent({
             currentPage={result.page}
             totalPages={result.totalPages}
             getPageUrl={getPageUrl}
+          />
+        </div>
+      )}
+
+      {state && city && (
+        <div className="mt-10">
+          <LinkList
+            title={`Practice areas in ${areaPlaceLabel({ state, city })}`}
+            items={areaLinks}
           />
         </div>
       )}

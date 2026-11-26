@@ -9,6 +9,8 @@ import { getPracticeAreaPageSchema, isHubPageIndexable } from "@/lib/utils/seo";
 import { Badge } from "@/components/ui/badge";
 import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsInteger } from "nuqs/server";
+import { isLocationPageArea } from "@/lib/utils/practice-area-location-seo";
+import { LinkList, loadAreaPlaceSummary, stateLinksForArea } from "../area-place-view";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +77,16 @@ async function PracticeAreaContent({
 }) {
   const { page } = await searchParamsCache.parse(searchParams);
 
-  const result = await getLawyersByPracticeArea(areaSlug, 20, page);
+  const practiceArea = getPracticeAreaBySlug(areaSlug);
+  const [result, stateLinks] = await Promise.all([
+    getLawyersByPracticeArea(areaSlug, 20, page),
+    // States with results for this area, linking to /[area]/[state].
+    isLocationPageArea(practiceArea)
+      ? loadAreaPlaceSummary({ areaSlug }).then((summary) =>
+          stateLinksForArea(summary, areaSlug)
+        )
+      : Promise.resolve([]),
+  ]);
 
   const getPageUrl = (pageNum: number) => {
     if (pageNum === 1) {
@@ -104,6 +115,13 @@ async function PracticeAreaContent({
           />
         </div>
       )}
+
+      <div className="mt-10">
+        <LinkList
+          title="Browse by state"
+          items={stateLinks}
+        />
+      </div>
     </>
   );
 }

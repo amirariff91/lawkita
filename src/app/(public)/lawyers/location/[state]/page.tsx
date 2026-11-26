@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsInteger } from "nuqs/server";
+import { areaLinksForPlace, LinkList, loadAreaPlaceSummary } from "../../practice-area/area-place-view";
 
 const searchParamsCache = createSearchParamsCache({
   page: parseAsInteger.withDefault(1),
@@ -76,7 +77,15 @@ async function StateContent({
   const cities = getCitiesForState(stateSlug);
 
   // lawyers.state stores the state NAME ("Selangor"), not the slug.
-  const result = await getLawyersByLocation(state?.name ?? stateSlug, undefined, 20, page);
+  const [result, areaLinks] = await Promise.all([
+    getLawyersByLocation(state?.name ?? stateSlug, undefined, 20, page),
+    // Practice areas with results here, linking to /practice-area/[area]/[state].
+    state
+      ? loadAreaPlaceSummary({ stateName: state.name }).then((summary) =>
+          areaLinksForPlace(summary, { state })
+        )
+      : Promise.resolve([]),
+  ]);
 
   const getPageUrl = (pageNum: number) => {
     if (pageNum === 1) {
@@ -107,6 +116,10 @@ async function StateContent({
             ))}
           </div>
         </div>
+      )}
+
+      {state && (
+        <LinkList title={`Practice areas in ${state.name}`} items={areaLinks} />
       )}
 
       {/* Lawyers list */}

@@ -17,6 +17,12 @@ import {
   credentialHubSitemapPaths,
   summariseCredentialHubCounts,
 } from "@/lib/lawyers/credential-hubs";
+import { getAreaPlaceCounts } from "@/lib/db/queries/practice-area-locations";
+import {
+  areaPlaceSitemapPaths,
+  PRACTICE_AREA_LOCATION_SITEMAP_CAP,
+  summariseAreaPlaceCounts,
+} from "@/lib/utils/practice-area-location-seo";
 
 // One sitemap file may hold 50,000 URLs. Past this many, split the sitemap.
 const SITEMAP_WARN_URLS = 45_000;
@@ -171,6 +177,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${BASE_URL}${hubPath.path}`,
       changeFrequency: "weekly",
       priority: hubPath.priority,
+    });
+  }
+
+  // Practice area x location pages (/lawyers/practice-area/[area]/[state]
+  // and /[state]/[city]): only combinations that pass the indexing rule,
+  // most lawyers first, at most PRACTICE_AREA_LOCATION_SITEMAP_CAP. One
+  // grouped count query. If it fails, add none rather than failing the
+  // whole sitemap.
+  const areaPlaceCounts = await getAreaPlaceCounts().catch((error: unknown) => {
+    console.error("sitemap: practice area x location counts query failed", error);
+    return null;
+  });
+  const areaPlacePaths =
+    areaPlaceCounts === null
+      ? []
+      : areaPlaceSitemapPaths(
+          summariseAreaPlaceCounts(areaPlaceCounts),
+          PRACTICE_AREA_LOCATION_SITEMAP_CAP
+        );
+  for (const areaPlacePath of areaPlacePaths) {
+    entries.push({
+      url: `${BASE_URL}${areaPlacePath.path}`,
+      changeFrequency: "weekly",
+      priority: areaPlacePath.priority,
     });
   }
 
