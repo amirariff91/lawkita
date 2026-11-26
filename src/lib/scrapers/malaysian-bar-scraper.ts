@@ -15,6 +15,8 @@ import {
   scrapingLogs,
 } from "@/lib/db/schema";
 import { getOrCreateFirm as getOrCreateFirmRepository } from "@/lib/db/queries/firms";
+import { canFillLawyerField, hasScrapedValue } from "@/lib/lawyers/fill-rules";
+import { generateLawyerSlug as generateSlug } from "@/lib/lawyers/slug";
 import { and, eq, ilike, inArray, or } from "drizzle-orm";
 import { chromium, type Browser, type Page } from "playwright";
 import * as cheerio from "cheerio";
@@ -143,16 +145,6 @@ export interface ScrapingResult {
   skipped: number;
   errors: Array<{ lawyer?: string; error: string }>;
   duration: number;
-}
-
-// Generate a URL-friendly slug
-function generateSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim();
 }
 
 // Parse admission date from various formats
@@ -284,18 +276,6 @@ async function trackFirmHistory(
       isCurrent: true,
     });
   }
-}
-// Scraper-owned Bar-registry facts are authoritative on existing rows.
-// Contact fields are fill-gap only so claimed or manually edited profiles are
-// not overwritten by a later directory scrape.
-function hasScrapedValue(value: unknown): boolean {
-  if (value === null || value === undefined) return false;
-  return typeof value !== "string" || value.trim().length > 0;
-}
-
-function canFillLawyerField(value: unknown, isClaimed: boolean): boolean {
-  if (value === null) return true;
-  return !isClaimed && typeof value === "string" && value.trim().length === 0;
 }
 
 /**

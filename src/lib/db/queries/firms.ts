@@ -254,7 +254,7 @@ export async function getOrCreateFirm(
   }
 }
 
-function generateFirmSlug(name: string, city: string | null): string {
+export function generateFirmSlug(name: string, city: string | null): string {
   const baseSlug = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
