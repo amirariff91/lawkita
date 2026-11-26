@@ -41,7 +41,10 @@ export function canonicalFirmName(value: string | null | undefined): string {
 // same line always compares equal and renders once with +60.
 export function phoneDigits(value: string | null | undefined): string | null {
   const digits = value?.replace(/\D/g, "") || null;
-  if (digits && /^60[1-9]\d{7,9}$/.test(digits)) return `0${digits.slice(2)}`;
+  if (!digits) return null;
+  // Longer than any Malaysian number: two numbers run together. Not usable.
+  if (digits.length > 12) return null;
+  if (/^60[1-9]\d{7,9}$/.test(digits)) return `0${digits.slice(2)}`;
   return digits;
 }
 

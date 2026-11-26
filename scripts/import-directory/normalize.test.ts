@@ -33,6 +33,7 @@ test("phones given with the country code are stored in national form", () => {
   expect(phoneDigits("60123456789")).toBe("0123456789");
   expect(phoneDigits("03-2273 1919")).toBe("0322731919");
   expect(phoneDigits("")).toBeNull();
+  expect(phoneDigits("60111228464 / 60111149466 8")).toBeNull();
 });
 
 test("placeholders are not email addresses and office mailboxes are not personal", () => {
