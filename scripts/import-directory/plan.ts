@@ -34,8 +34,20 @@ type Entry<T extends { id?: string }, R> = {
 export type StatusReview = {
   key: string; name: string; state: string; firm: string | null; status: string;
   note: string | null; sourceUrl: string | null; tier: "A" | "B" | null;
+  /** Binds an approval to exactly this status, note, source and target. */
+  fingerprint: string;
+  /** Slug of the existing profile a write would land on; null for a new profile. */
+  targetSlug: string | null;
+  problem: string | null;
 };
-export type PlanOptions = { now: Date; release: string; approvals: ReadonlySet<string>; only?: "firms" | "lawyers"; limit?: number };
+/** approvals: primary key -> fingerprint the approver saw in status_review.csv. */
+export type PlanOptions = { now: Date; release: string; approvals: ReadonlyMap<string, string>; only?: "firms" | "lawyers"; limit?: number };
+
+export function standingFingerprint(input: { key: string; status: string; note: string | null; sourceUrl: string | null; targetId: string | null }): string {
+  return createHash("sha256")
+    .update(JSON.stringify([input.key, input.status, input.note, input.sourceUrl, input.targetId]))
+    .digest("hex").slice(0, 16);
+}
 export type ImportPlan = {
   now: Date;
   firmPlans: Entry<typeof firms.$inferInsert, FirmInput>[];
@@ -82,10 +94,11 @@ const standingHosts: Readonly<Record<string, string>> = {
 function standingSource(row: LawyerInput): string | null {
   const hosts = row.sources.filter((key) => Object.hasOwn(standingHosts, key)).map((key) => standingHosts[key]);
   if (new Set(hosts).size !== 1) return null;
-  return row.source_urls.find((value) => {
+  for (const value of row.source_urls) {
     const url = parseWebUrl(value);
-    return url && hostMatches(url.hostname, hosts[0]);
-  }) ?? null;
+    if (url && hostMatches(url.hostname, hosts[0])) return url.href;
+  }
+  return null;
 }
 
 function firmFields(row: FirmInput, release: string) {
@@ -96,7 +109,9 @@ function firmFields(row: FirmInput, release: string) {
     website: row.website_alive !== false && website?.hostname.includes(".") ? website.href : null,
     postcode: text(row.postcode), latitude: row.latitude ?? null, longitude: row.longitude ?? null,
     fax: phoneDigits(row.fax), whatsapp: phoneDigits(row.whatsapp), linkedin: parseWebUrl(row.linkedin, true)?.href ?? null,
-    socialLinks: row.social_links, foundedYear: row.founded_year ?? null, openingHours: text(row.opening_hours),
+    // Only absolute http(s) links are stored; anything else is dropped.
+    socialLinks: [...new Set(row.social_links.flatMap((link) => parseWebUrl(link, true)?.href ?? []))],
+    foundedYear: row.founded_year ?? null, openingHours: text(row.opening_hours),
     languages: row.languages, bankPanels: row.bank_panels, legalNetworks: row.legal_networks, rankings: row.rankings,
     importData: { ...row.raw, release },
   };
@@ -217,10 +232,17 @@ export function planImport(input: { firms: readonly FirmInput[]; lawyers: readon
       const sourceUrl = hasStanding ? standingSource(row) : null;
       const tier = decision.match.action === "update" ? decision.match.tier : null;
       const standingTier = decision.match.action === "update" && weakStanding.has(decision.match.id) ? "B" : tier;
-      const standingAllowed = options.approvals.has(key) && (match.action === "insert" ||
+      const targetId = match.action === "update" ? match.id : null;
+      const fingerprint = standingFingerprint({ key, status: row.status, note, sourceUrl, targetId });
+      const approvedFingerprint = options.approvals.get(key);
+      const standingAllowed = approvedFingerprint === fingerprint && (match.action === "insert" ||
         (match.action === "update" && standingTier === "A"));
       if (hasStanding && !standingAllowed) {
-        statusReview.push({ key, name: row.full_name, state: row.state, firm: text(row.firm_name), status: row.status, note, sourceUrl, tier: standingTier });
+        statusReview.push({ key, name: row.full_name, state: row.state, firm: text(row.firm_name), status: row.status, note, sourceUrl,
+          tier: standingTier, fingerprint, targetSlug: targetId ? lawyerById.get(targetId)?.slug ?? null : null,
+          problem: approvedFingerprint === undefined ? null
+            : approvedFingerprint !== fingerprint ? "stale approval: status, note, source or target changed since it was approved"
+            : "approved, but an existing profile needs an exact (Tier A) match" });
       }
       if (match.action !== "update" && match.action !== "insert") {
         mapPractice(row.practice_areas);
@@ -249,8 +271,10 @@ export function planImport(input: { firms: readonly FirmInput[]; lawyers: readon
       } else if (current) {
         entry.slug = current.slug;
         const patch: Partial<LawyerState> = { ...sharedImport, ...(current.isClaimed ? {} : publicImport) };
-        fill(current, patch, contact, current.isClaimed, lawyerGapFields);
-        if (firmId && firmName && (!current.isClaimed || current.firmName === null)) {
+        // A claimed profile belongs to its owner: no contact or firm field is
+        // written, not even an empty one (a cleared field is stored as NULL).
+        if (!current.isClaimed) fill(current, patch, contact, false, lawyerGapFields);
+        if (firmId && firmName && !current.isClaimed) {
           patch.firmName = firmName;
           patch.primaryFirmId = firmId;
         }
@@ -261,10 +285,8 @@ export function planImport(input: { firms: readonly FirmInput[]; lawyers: readon
         }
         if (standingAllowed && hasStanding) {
           if (barStatus === "struck_off") patch.barStatus = barStatus;
-          if (note !== null) {
-            patch.standingNote = note;
-            patch.standingSourceUrl = sourceUrl;
-          }
+          if (note !== null) patch.standingNote = note;
+          if (sourceUrl !== null) patch.standingSourceUrl = sourceUrl;
         }
         const update = changed(current, patch, now);
         if (update) entry.write = { update: { ...update, updatedAt: now } };

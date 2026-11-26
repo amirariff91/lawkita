@@ -26,7 +26,10 @@ import {
 
 // One sitemap file may hold 50,000 URLs. Past this many, split the sitemap.
 const SITEMAP_WARN_URLS = 45_000;
+const MAX_SITEMAP_URLS = 50_000;
 const MAX_LAWYER_URLS = 40_000;
+// Room kept for the sections that come after lawyer profiles (cases, hubs).
+const RESERVED_AFTER_LAWYERS = 3_000;
 
 // Generate sitemap at runtime, not build time (requires DB connection)
 export const dynamic = "force-dynamic";
@@ -141,7 +144,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       updatedAt: firms.updatedAt,
     })
     .from(firms)
-    .orderBy(desc(firms.updatedAt))
+    // A fixed order: a bulk import gives thousands of firms the same
+    // updatedAt, and a cap must always cut the same rows.
+    .orderBy(asc(firms.createdAt), asc(firms.id))
     .limit(20000)
     .catch((error: unknown) => {
       console.error("sitemap: firms query failed", error);
@@ -216,7 +221,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .from(lawyers)
     .where(indexableLawyerProfile)
     .orderBy(asc(lawyers.createdAt), asc(lawyers.id))
-    .limit(MAX_LAWYER_URLS);
+    .limit(
+      Math.max(
+        0,
+        Math.min(MAX_LAWYER_URLS, MAX_SITEMAP_URLS - RESERVED_AFTER_LAWYERS - entries.length)
+      )
+    );
 
   for (const lawyer of allLawyers) {
     entries.push({
@@ -393,6 +403,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.warn(
       `sitemap: ${entries.length} URLs, close to the 50,000 per-file limit; split it`
     );
+  }
+
+  // A file over the protocol limit can be rejected whole. Never emit one.
+  if (entries.length > MAX_SITEMAP_URLS) {
+    console.error(`sitemap: ${entries.length} URLs exceeds ${MAX_SITEMAP_URLS}; truncating`);
+    return entries.slice(0, MAX_SITEMAP_URLS);
   }
 
   return entries;

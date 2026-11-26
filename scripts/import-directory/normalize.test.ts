@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { canonicalFirmName, canonicalName, completedYears, normalizeEmail, normalizeState, parseAdmissionDate, phoneDigits, websiteDomain } from "./normalize";
+import { canonicalFirmName, canonicalName, completedYears, isPersonalEmail, normalizeEmail, normalizeState, parseAdmissionDate, phoneDigits, websiteDomain } from "./normalize";
 
 test("normalizes Malay titles and patronymic spellings without erasing name tokens", () => {
   expect(canonicalName("YBhg. Tan Sri Dato’ Seri Dr. Hj. Rafi B. Nadir & Amir")).toBe("rafi bin nadir and amir");
@@ -26,4 +26,20 @@ test("rejects impossible admission dates and counts completed years", () => {
   const admission = parseAdmissionDate("2005-03-20");
   expect(completedYears(admission, new Date("2026-03-19"))).toBe(20);
   expect(completedYears(admission, new Date("2026-03-20"))).toBe(21);
+});
+
+test("phones given with the country code are stored in national form", () => {
+  expect(phoneDigits("+60 3-2273 1919")).toBe("0322731919");
+  expect(phoneDigits("60123456789")).toBe("0123456789");
+  expect(phoneDigits("03-2273 1919")).toBe("0322731919");
+  expect(phoneDigits("")).toBeNull();
+});
+
+test("placeholders are not email addresses and office mailboxes are not personal", () => {
+  expect(normalizeEmail("n/a")).toBeNull();
+  expect(normalizeEmail("-")).toBeNull();
+  expect(normalizeEmail(" Person@Example.com ")).toBe("person@example.com");
+  expect(isPersonalEmail("info@example.com")).toBe(false);
+  expect(isPersonalEmail("aisyah@example.com")).toBe(true);
+  expect(isPersonalEmail(null)).toBe(false);
 });

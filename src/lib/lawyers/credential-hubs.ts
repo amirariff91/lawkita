@@ -63,18 +63,14 @@ export interface CredentialHubSitemapPath {
 /**
  * Services pages for the sitemap. Only pages that are indexable under
  * isCredentialHubIndexable are listed, so the sitemap never contains a
- * `noindex` page. With no summary (the count query failed), list the index
- * and the national hubs only, never the state/city fan-out.
+ * `noindex` page. With no summary (the count query failed), list nothing: the
+ * pages fail closed to noindex in that case.
  */
 export function credentialHubSitemapPaths(
   summary: CredentialHubSummary | null
 ): CredentialHubSitemapPath[] {
-  if (summary === null) {
-    return [
-      { path: credentialHubPath(), priority: 0.7 },
-      ...CREDENTIAL_HUBS.map((hub) => ({ path: credentialHubPath(hub.slug), priority: 0.7 })),
-    ];
-  }
+  // The pages themselves go noindex when the count fails, so list none.
+  if (summary === null) return [];
 
   const paths: CredentialHubSitemapPath[] = [];
   const nationalTotal = Object.values(summary.national).reduce((sum, n) => sum + n, 0);

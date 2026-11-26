@@ -1,3 +1,4 @@
+import { serializeJsonLd } from "@/lib/utils/json-ld";
 // Shared view and metadata for the practice area x location pages:
 // /lawyers/practice-area/[area]/[state] and /[area]/[state]/[city].
 // Not a route (no page.tsx here). Also exports the link list and the count
@@ -82,7 +83,11 @@ export async function buildAreaPlaceMetadata(
   return {
     title,
     description,
-    robots: areaPlaceRobots(total),
+    // A page number past the last page is an empty page: keep it out of the index.
+    robots:
+      page > 1 && (page - 1) * PAGE_SIZE >= total
+        ? { index: false, follow: true }
+        : areaPlaceRobots(total),
     alternates: { canonical: pathFor(area.slug, place, page) },
     openGraph: { title, description },
     twitter: { card: "summary_large_image", title, description },
@@ -210,7 +215,7 @@ async function AreaPlaceContent({ resolved, page }: { resolved: ResolvedAreaPlac
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
       />
       <div className="space-y-8">
         <div>

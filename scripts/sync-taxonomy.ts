@@ -3,18 +3,33 @@
  * constants the public hub pages read (src/lib/constants). Insert-only:
  * existing rows are never changed or removed, so no public URL disappears.
  *
- *   bun run scripts/sync-taxonomy.ts            # dry run, prints what is missing
- *   bun run scripts/sync-taxonomy.ts --apply    # inserts the missing rows
+ *   bun --no-env-file run scripts/sync-taxonomy.ts
+ *       dry run: prints the connection and what is missing
+ *   bun --no-env-file run scripts/sync-taxonomy.ts --apply --confirm-db <host:port>/<dbname>
+ *       inserts the missing rows in one transaction
+ *
+ * DATABASE_URL must be exported; --no-env-file stops a local .env supplying it.
  */
-import { and, eq, isNull } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { and, eq, isNull, sql } from "drizzle-orm";
+import { db as rootDb } from "@/lib/db";
 import { cities, practiceAreas, states } from "@/lib/db/schema";
 import { MALAYSIAN_STATES } from "@/lib/constants/locations";
 import { flattenPracticeAreas } from "@/lib/constants/practice-areas";
 
 const apply = process.argv.includes("--apply");
+const confirmIndex = process.argv.indexOf("--confirm-db");
+const confirmDb = confirmIndex >= 0 ? process.argv[confirmIndex + 1] : undefined;
 
 async function main() {
+  const url = new URL(process.env.DATABASE_URL ?? "");
+  await rootDb.transaction(async (db) => {
+  const [{ name }] = await db.execute<{ name: string }>(sql`SELECT current_database() AS name`);
+  const target = `${url.host}/${name}`;
+  console.log(`Connected database: ${target}`);
+  if (apply && confirmDb !== target) {
+    throw new Error(`--apply requires --confirm-db ${target}`);
+  }
+
   const summary = { states: 0, cities: 0, practiceAreas: 0, parentsLinked: 0 };
 
   const stateIdBySlug = new Map(
@@ -99,6 +114,7 @@ async function main() {
   }
 
   console.log(apply ? "Applied:" : "Dry run, nothing written. Missing:", summary);
+  });
   process.exit(0);
 }
 

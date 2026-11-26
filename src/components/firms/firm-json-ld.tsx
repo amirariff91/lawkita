@@ -1,3 +1,4 @@
+import { safeHttpUrl, serializeJsonLd } from "@/lib/utils/json-ld";
 import type { FirmWithStats } from "@/lib/db/queries/firms";
 import { formatFirmName } from "@/lib/utils/name-format";
 
@@ -37,7 +38,7 @@ export function FirmJsonLd({ firm }: FirmJsonLdProps) {
   if (firm.phone) {
     const formattedPhone = firm.phone.startsWith("+")
       ? firm.phone
-      : `+60-${firm.phone.replace(/^0/, "")}`;
+      : `+60-${firm.phone.replace(/^(?:60|0)/, "")}`;
     jsonLd.telephone = formattedPhone;
   }
 
@@ -45,12 +46,13 @@ export function FirmJsonLd({ firm }: FirmJsonLdProps) {
     jsonLd.email = firm.email;
   }
 
-  const sameAs = [firm.website, firm.linkedin, ...(firm.socialLinks ?? [])].filter(
-    (link): link is string => Boolean(link)
-  );
+  const sameAs = [firm.website, firm.linkedin, ...(firm.socialLinks ?? [])]
+    .map((link) => safeHttpUrl(link))
+    .filter((link): link is string => link !== null);
   if (sameAs.length > 0) jsonLd.sameAs = sameAs;
 
-  if (firm.logo) jsonLd.logo = firm.logo;
+  const logo = safeHttpUrl(firm.logo);
+  if (logo) jsonLd.logo = logo;
 
   if (typeof firm.latitude === "number" && typeof firm.longitude === "number") {
     jsonLd.geo = {
@@ -93,7 +95,7 @@ export function FirmJsonLd({ firm }: FirmJsonLdProps) {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
     />
   );
 }

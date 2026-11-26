@@ -27,6 +27,10 @@ export default async function ProfileEditPage() {
 
   if (!lawyer) return null;
 
+  // The form is a client component, so everything passed to it is sent to the
+  // browser. Raw source rows (import and scrape) stay on the server.
+  const formLawyer = { ...lawyer, importData: undefined, scrapedData: undefined };
+
   // Get all practice areas for the form
   const allPracticeAreas = await db.query.practiceAreas.findMany({
     where: eq(practiceAreas.isUserFacing, true),
@@ -43,7 +47,7 @@ export default async function ProfileEditPage() {
       </div>
 
       <ProfileEditForm
-        lawyer={lawyer}
+        lawyer={formLawyer}
         allPracticeAreas={allPracticeAreas}
       />
     </div>

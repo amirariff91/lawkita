@@ -16,6 +16,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { formatFreshness } from "@/lib/utils";
+import { safeHttpUrl } from "@/lib/utils/json-ld";
 import { formatFirmName, formatPersonName } from "@/lib/utils/name-format";
 import type { LawyerWithRelations } from "@/types/lawyer";
 
@@ -50,9 +51,10 @@ export function ProfileHeader({ lawyer }: ProfileHeaderProps) {
           ? "This lawyer is currently recorded as suspended"
           : "This lawyer is currently recorded as inactive";
 
-  const standingSource = lawyer.standingSourceUrl ? (
+  const standingSourceUrl = safeHttpUrl(lawyer.standingSourceUrl);
+  const standingSource = standingSourceUrl ? (
     <a
-      href={lawyer.standingSourceUrl}
+      href={standingSourceUrl}
       target="_blank"
       rel="noopener noreferrer nofollow"
       className="underline"

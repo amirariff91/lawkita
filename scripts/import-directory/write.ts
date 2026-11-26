@@ -100,13 +100,16 @@ async function applyPlan(tx: Transaction, plan: ImportPlan): Promise<number> {
   if (plan.touchedFirms.size > 0) {
     const updated = await tx.execute(sql`
       WITH counts AS (
-        SELECT ${firms.id} AS id, count(${lawyers.id})::int AS lawyer_count
+        SELECT ${firms.id} AS id, count(${lawyers.id})::int AS lawyer_count,
+          round(avg(${lawyers.yearsAtBar}), 1) AS avg_years
         FROM ${firms} LEFT JOIN ${lawyers} ON ${lawyers.primaryFirmId} = ${firms.id}
           AND ${lawyers.isActive} AND coalesce(${lawyers.barStatus}, 'active') = 'active'
         GROUP BY ${firms.id}
       )
-      UPDATE ${firms} AS target SET lawyer_count = counts.lawyer_count, updated_at = ${plan.now.toISOString()}::timestamp
-      FROM counts WHERE target.id = counts.id AND target.lawyer_count IS DISTINCT FROM counts.lawyer_count
+      UPDATE ${firms} AS target SET lawyer_count = counts.lawyer_count, avg_years_experience = counts.avg_years,
+        updated_at = ${plan.now.toISOString()}::timestamp
+      FROM counts WHERE target.id = counts.id AND (target.lawyer_count IS DISTINCT FROM counts.lawyer_count
+        OR target.avg_years_experience IS DISTINCT FROM counts.avg_years)
       RETURNING target.id
     `);
     countUpdates += updated.length;

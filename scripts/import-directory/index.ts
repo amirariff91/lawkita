@@ -11,9 +11,11 @@ const usage = `bun --no-env-file run scripts/import-directory/index.ts --data <d
   --report-dir <dir>       Default: ~/data/lawkita-directory/reports/<release>/
   --only=firms|lawyers     Default: both; lawyers require existing firm external IDs
   --limit <n>              Select the first n stable keys per entity
-  --status-approvals <csv> CSV with key,approved; only approved=yes permits standing writes
-  --apply --confirm-db <dbname>
-                           Default: read-only dry run; uses exported DATABASE_URL
+  --status-approvals <csv> An edited status_review.csv; a row permits a standing write only with
+                           approved=yes and the fingerprint that report printed for it
+  --apply --confirm-db <host:port>/<dbname>
+                           Default: read-only dry run; uses exported DATABASE_URL.
+                           The value must match the connection exactly, host included.
 `;
 
 async function main() {
@@ -35,7 +37,7 @@ async function main() {
   if (limit !== undefined && (!/^[1-9]\d*$/.test(values.limit!) || !Number.isSafeInteger(limit))) {
     throw new Error("--limit must be a positive integer");
   }
-  if (apply && !values["confirm-db"]) throw new Error("--apply requires --confirm-db <dbname>");
+  if (apply && !values["confirm-db"]) throw new Error("--apply requires --confirm-db <host:port>/<dbname>");
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL must be exported in the environment");
   let databaseUrl: URL;
@@ -48,7 +50,7 @@ async function main() {
   console.log(`Database host: ${databaseUrl.host}`);
   const input = await loadData(data, only);
   const approvalsPath = values["status-approvals"];
-  const approvals = approvalsPath ? parseApprovals(await Bun.file(approvalsPath).text()) : new Set<string>();
+  const approvals = approvalsPath ? parseApprovals(await Bun.file(approvalsPath).text()) : new Map<string, string>();
   const requestedDir = values["report-dir"] ?? join(homedir(), "data/lawkita-directory/reports", release);
   const reportDir = await prepareReportDir(requestedDir, data, approvalsPath);
   // Invalid source rows can hide contenders, so do not use a partially valid release for writes.
@@ -56,8 +58,10 @@ async function main() {
   const result = await runWithDatabase({
     apply: runApply, includeLawyers: only !== "firms",
     confirmDatabase(name) {
-      console.log(`Connected database: ${name}`);
-      if (apply && values["confirm-db"] !== name) throw new Error("--confirm-db does not match the connected database name");
+      const target = `${databaseUrl.host}/${name}`;
+      console.log(`Connected database: ${target}`);
+      // Two servers often share a database name; the host is part of the confirmation.
+      if (apply && values["confirm-db"] !== target) throw new Error(`--confirm-db does not match the connection (${target})`);
     },
     plan: (existing) => planImport(input, existing, { now: new Date(), release, approvals, only, limit }),
     permitApply: (plan) => only !== "lawyers" || plan.unresolvedFirmReferences === 0,

@@ -57,11 +57,8 @@ describe("credentialHubSitemapPaths", () => {
     ]);
   });
 
-  test("count query failed: index and national hubs only", () => {
-    const paths = credentialHubSitemapPaths(null).map((p) => p.path);
-    expect(paths[0]).toBe("/lawyers/services");
-    expect(paths).toHaveLength(6);
-    expect(paths.every((p) => p.split("/").length <= 4)).toBe(true);
+  test("count query failed: nothing is listed", () => {
+    expect(credentialHubSitemapPaths(null)).toEqual([]);
   });
 });
 

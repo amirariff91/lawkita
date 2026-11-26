@@ -1,3 +1,4 @@
+import { serializeJsonLd } from "@/lib/utils/json-ld";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -168,7 +169,7 @@ export default async function StatePage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(locationSchema) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(locationSchema) }}
       />
       <div className="container mx-auto py-8 px-4">
         <Breadcrumbs

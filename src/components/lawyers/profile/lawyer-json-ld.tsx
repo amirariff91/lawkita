@@ -1,3 +1,4 @@
+import { safeHttpUrl, serializeJsonLd } from "@/lib/utils/json-ld";
 import type { LawyerWithRelations } from "@/types/lawyer";
 import { formatFirmName, formatPersonName } from "@/lib/utils/name-format";
 
@@ -39,7 +40,7 @@ export function LawyerJsonLd({ lawyer, url }: LawyerJsonLdProps) {
     // Format phone number with country code
     const formattedPhone = lawyer.phone.startsWith("+")
       ? lawyer.phone
-      : `+60-${lawyer.phone.replace(/^0/, "")}`;
+      : `+60-${lawyer.phone.replace(/^(?:60|0)/, "")}`;
     jsonLd.telephone = formattedPhone;
   }
 
@@ -81,7 +82,8 @@ export function LawyerJsonLd({ lawyer, url }: LawyerJsonLdProps) {
   }
 
   if (lawyer.designation) jsonLd.jobTitle = lawyer.designation;
-  if (lawyer.linkedin) jsonLd.sameAs = [lawyer.linkedin];
+  const linkedin = safeHttpUrl(lawyer.linkedin);
+  if (linkedin) jsonLd.sameAs = [linkedin];
   if (lawyer.rankings && lawyer.rankings.length > 0) jsonLd.award = lawyer.rankings;
 
   // Area served (based on state)
@@ -181,7 +183,7 @@ export function LawyerJsonLd({ lawyer, url }: LawyerJsonLdProps) {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
     />
   );
 }

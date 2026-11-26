@@ -1,7 +1,7 @@
 import { normalizeAddress } from "@/lib/db/queries/firms";
 import type { FirmInput, LawyerInput } from "./data";
 import { DOMAIN, PRIMARY, firmKeys, keyId, lawyerKeys, nameStateKey, type Entity, type ExternalId, type ExternalKey } from "./keys";
-import { canonicalFirmName, canonicalName, normalizeEmail, normalizeState, parseAdmissionDate, phoneDigits } from "./normalize";
+import { canonicalFirmName, canonicalName, isPersonalEmail, normalizeEmail, normalizeState, parseAdmissionDate, phoneDigits } from "./normalize";
 
 export type Match = { action: "update"; id: string; tier: "A" | "B" }
   | { action: "insert" }
@@ -119,12 +119,14 @@ export function matchLawyers(
     const date = parseAdmissionDate(row.admission_date)?.toISOString().slice(0, 10) ?? null;
     const existingDate = candidate.barAdmissionDate?.toISOString().slice(0, 10) ?? null;
     const matchedFirm = row.firm_id == null ? null : matchedFirmIds.get(row.firm_id) ?? null;
-    if (same(canonicalFirmName(row.firm_name), canonicalFirmName(candidate.firmName)) ||
-        same(matchedFirm, candidate.primaryFirmId) || same(date, existingDate) ||
-        same(phoneDigits(row.phone), phoneDigits(candidate.phone)) ||
-        same(normalizeEmail(row.email), normalizeEmail(candidate.email))) {
-      return { action: "update", tier: "B", id: candidate.id };
-    }
+    // Admission date and a personal mailbox identify a person. Firm and
+    // switchboard phone only say where someone works, so they count together.
+    const email = normalizeEmail(row.email);
+    const strong = same(date, existingDate) || (isPersonalEmail(email) && same(email, normalizeEmail(candidate.email)));
+    const sameFirm = same(canonicalFirmName(row.firm_name), canonicalFirmName(candidate.firmName)) ||
+      same(matchedFirm, candidate.primaryFirmId);
+    const samePhone = same(phoneDigits(row.phone), phoneDigits(candidate.phone));
+    if (strong || (sameFirm && samePhone)) return { action: "update", tier: "B", id: candidate.id };
     return review("name and state match lacks corroboration", [candidate.id]);
   });
   for (const decision of decisions.values()) {

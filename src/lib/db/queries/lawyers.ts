@@ -1,5 +1,6 @@
 import {
   and,
+  asc,
   count,
   desc,
   eq,
@@ -195,17 +196,23 @@ export async function searchLawyers(
 
   switch (params.sort ?? "relevance") {
     case "experience":
-      query.orderBy(sql`${lawyers.yearsAtBar} DESC NULLS LAST`);
+      query.orderBy(sql`${lawyers.yearsAtBar} DESC NULLS LAST`, asc(lawyers.id));
       break;
     case "rating":
-      query.orderBy(sql`${lawyers.averageRating} DESC NULLS LAST`);
+      query.orderBy(sql`${lawyers.averageRating} DESC NULLS LAST`, asc(lawyers.id));
       break;
     case "reviews":
-      query.orderBy(sql`${lawyers.reviewCount} DESC NULLS LAST`);
+      query.orderBy(sql`${lawyers.reviewCount} DESC NULLS LAST`, asc(lawyers.id));
       break;
     case "relevance":
     default:
-      query.orderBy(desc(lawyers.subscriptionTier), sql`${lawyers.reviewCount} DESC NULLS LAST`);
+      // Most rows tie on tier and review count; without a final unique key
+      // the database may order ties differently per page.
+      query.orderBy(
+        desc(lawyers.subscriptionTier),
+        sql`${lawyers.reviewCount} DESC NULLS LAST`,
+        asc(lawyers.id)
+      );
       break;
   }
 
@@ -309,6 +316,7 @@ export async function getLawyerBySlug(
     ...lawyerRow,
     // Raw source rows are for the importer and scrapers, not for pages.
     importData: null,
+    scrapedData: null,
     firmSlug: primaryFirm?.slug ?? null,
     practiceAreas: practiceAreasData.map((row) => ({
       practiceArea: row.practiceArea,
@@ -418,7 +426,7 @@ export async function getNewlyAdmittedLawyers(
     .select(lawyerCardSelection)
     .from(lawyers)
     .where(where)
-    .orderBy(sql`${lawyers.yearsAtBar} ASC NULLS LAST`)
+    .orderBy(sql`${lawyers.yearsAtBar} ASC NULLS LAST`, asc(lawyers.id))
     .limit(safeLimit)
     .offset(offset);
   const practiceAreaMap = await getPracticeAreaMap(rows.map((row) => row.id));

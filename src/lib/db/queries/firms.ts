@@ -1,5 +1,6 @@
 import {
   and,
+  asc,
   count,
   desc,
   eq,
@@ -320,24 +321,17 @@ export async function searchFirms(params: {
       .limit(1);
     if (!area) return { firms: [], total: 0, page, totalPages: 0 };
 
-    const firmIds = await db
-      .selectDistinct({ firmId: lawyers.primaryFirmId })
-      .from(lawyers)
-      .innerJoin(
-        lawyerPracticeAreas,
-        eq(lawyers.id, lawyerPracticeAreas.lawyerId)
-      )
-      .where(
-        and(
-          eq(lawyerPracticeAreas.practiceAreaId, area.id),
-          isNotNull(lawyers.primaryFirmId)
-        )
-      );
-    const ids = firmIds
-      .map((row) => row.firmId)
-      .filter((id): id is string => id !== null);
-    if (ids.length === 0) return { firms: [], total: 0, page, totalPages: 0 };
-    conditions.push(inArray(firms.id, ids));
+    // A subquery instead of a list of firm ids, and only lawyers who may be
+    // listed count towards a firm's practice areas.
+    conditions.push(
+      sql`EXISTS (
+        SELECT 1 FROM ${lawyers}
+        INNER JOIN ${lawyerPracticeAreas} ON ${lawyerPracticeAreas.lawyerId} = ${lawyers.id}
+        WHERE ${lawyers.primaryFirmId} = ${firms.id}
+          AND ${lawyerPracticeAreas.practiceAreaId} = ${area.id}
+          AND ${listableLawyer}
+      )`
+    );
   }
 
   if (params.query) {
@@ -356,14 +350,14 @@ export async function searchFirms(params: {
 
   switch (params.sort ?? "lawyers") {
     case "experience":
-      query.orderBy(sql`${firms.avgYearsExperience} DESC NULLS LAST`);
+      query.orderBy(sql`${firms.avgYearsExperience} DESC NULLS LAST`, asc(firms.id));
       break;
     case "name":
-      query.orderBy(firms.name);
+      query.orderBy(firms.name, asc(firms.id));
       break;
     case "lawyers":
     default:
-      query.orderBy(sql`${firms.lawyerCount} DESC NULLS LAST`);
+      query.orderBy(sql`${firms.lawyerCount} DESC NULLS LAST`, asc(firms.id));
       break;
   }
 

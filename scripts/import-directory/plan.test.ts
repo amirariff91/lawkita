@@ -4,7 +4,7 @@ import { PRIMARY, WEAK_STANDING, primaryKey, type ExternalId } from "./keys";
 import { planImport, practiceLinkKey, type FirmState, type LawyerState } from "./plan";
 
 const now = new Date("2026-07-09T11:02:00.000Z");
-const options = { now, release: "fixture-2026", approvals: new Set<string>() };
+const options = { now, release: "fixture-2026", approvals: new Map<string, string>() };
 const source = sourceLawyer({ firm_name: "Nadir & Co.", firm_id: 301, email: "NEW@EXAMPLE.COM", phone: "+601234567",
   address: "4 Jalan Rekaan", city: "Rawang", designation: "Partner", qualification: "LL.B.", linkedin: "https://linkedin.com/in/nadir",
   languages: ["Malay"], lawyer_types: ["Advocate & Solicitor", "Notary Public"], rankings: ["Rekaan 2026"],
@@ -13,7 +13,7 @@ const sourceOffice = sourceFirm({ address: "4 Jalan Rekaan", website: "https://n
   logo_url: "https://media.example/logo.jpg", postcode: "48000", practice_areas: ["Sports Law & Arbitration"] });
 const lawyerKey = (row: typeof source): ExternalId => ({ entityType: "lawyer", entityId: lawyer.id, namespace: PRIMARY, value: primaryKey(row) });
 
-test("claimed profile protects populated and intentionally blank fields while permitting true gaps and import metadata", () => {
+test("claimed profile keeps every contact and firm field, blank or not, and takes only Bar facts and import metadata", () => {
   const claimed = { ...lawyer, isClaimed: true, isVerified: true, userId: "profile-owner", name: "Claimed Display Name",
     phone: "", isActive: false, address: "Claimed address", city: null, state: null, email: "owner@example.com",
     firmName: "Owner's Office", primaryFirmId: "original-firm", designation: "Owner's designation",
@@ -22,22 +22,26 @@ test("claimed profile protects populated and intentionally blank fields while pe
   const plan = planImport({ firms: [sourceOffice], lawyers: [source] }, { ...empty, lawyers: [claimed], externalIds: [lawyerKey(source)] }, options);
   expect(plan.lawyerPlans[0].slug).toBe(claimed.slug);
   expect(plan.lawyerPlans[0].write).toEqual({ update: {
-    state: "Selangor", city: "Rawang", barAdmissionDate: new Date("2010-08-10Z"), yearsAtBar: 15,
+    barAdmissionDate: new Date("2010-08-10Z"), yearsAtBar: 15,
     importData: { ...source.raw, release: options.release }, rankings: ["Rekaan 2026"], credentials: ["Notary Public"],
     importedAt: now, updatedAt: now,
   } });
 });
 
-const struck = sourceLawyer({ status: "Struck Off", disciplinary_note: "Invented disciplinary notice", email: "admin@example.com",
+const struck = sourceLawyer({ status: "Struck Off", disciplinary_note: "Invented disciplinary notice", email: "rafi@example.com",
   sources: ["sabah_law_society_disciplinary"], source_urls: ["https://unrelated.example/note", "https://sabahlawsociety.org/notice"] });
-const approved = { ...options, approvals: new Set([primaryKey(struck)]) };
+// Approve exactly what a dry run against this state printed in status_review.csv.
+type PlanInput = Parameters<typeof planImport>[0];
+type PlanState = Parameters<typeof planImport>[1];
+const approveAll = (input: PlanInput, state: PlanState) => ({ ...options,
+  approvals: new Map(planImport(input, state, options).statusReview.map((row) => [row.key, row.fingerprint])) });
 
 test("new row imports active without approval, and approved activation of standing uses the note's own source", () => {
   const input = { firms: [], lawyers: [struck] };
   const withheld = planImport(input, empty, options);
   expect(withheld.lawyerPlans[0].write).toMatchObject({ insert: { barStatus: "active", standingNote: null, standingSourceUrl: null, isActive: true } });
   expect(withheld.statusReview).toMatchObject([{ key: primaryKey(struck), status: "Struck Off", tier: null, sourceUrl: "https://sabahlawsociety.org/notice" }]);
-  const allowed = planImport(input, empty, approved);
+  const allowed = planImport(input, empty, approveAll(input, empty));
   expect(allowed.lawyerPlans[0].write).toMatchObject({ insert: { barStatus: "struck_off", standingNote: struck.disciplinary_note,
     standingSourceUrl: "https://sabahlawsociety.org/notice", isActive: true } });
   expect(allowed.statusReview).toEqual([]);
@@ -45,21 +49,23 @@ test("new row imports active without approval, and approved activation of standi
 
 test("existing negative standing requires approval and strong Tier A; recording a Tier B key cannot promote standing", () => {
   const input = { firms: [], lawyers: [struck] };
-  const current = { ...lawyer, email: "admin@example.com" };
+  const current = { ...lawyer, email: "rafi@example.com" };
   const tierA = { ...empty, lawyers: [current], externalIds: [lawyerKey(struck)] };
   const denied = planImport(input, tierA, options);
   expect(denied.lawyerPlans[0].write).not.toHaveProperty("update.barStatus");
   expect(denied.statusReview[0].tier).toBe("A");
-  const allowed = planImport(input, tierA, approved);
+  const allowed = planImport(input, tierA, approveAll(input, tierA));
   expect(allowed.lawyerPlans[0].write).toMatchObject({ update: { barStatus: "struck_off", standingNote: struck.disciplinary_note } });
-  const firstB = planImport(input, { ...empty, lawyers: [current] }, approved);
+  const stateB = { ...empty, lawyers: [current] };
+  const firstB = planImport(input, stateB, approveAll(input, stateB));
   const write = firstB.lawyerPlans[0].write!;
   expect(write).not.toHaveProperty("update.barStatus");
   expect(write).not.toHaveProperty("update.standingNote");
   expect(firstB.statusReview[0].tier).toBe("B");
   expect(firstB.externalIds).toContainEqual({ entityType: "lawyer", entityId: current.id, namespace: WEAK_STANDING, value: current.id });
   const persisted = { ...current, ...("update" in write ? write.update : {}) } as LawyerState;
-  const replay = planImport(input, { ...empty, lawyers: [persisted], externalIds: firstB.externalIds }, approved);
+  const replayState = { ...empty, lawyers: [persisted], externalIds: firstB.externalIds };
+  const replay = planImport(input, replayState, approveAll(input, replayState));
   expect(replay.lawyerPlans[0].match).toMatchObject({ action: "update", tier: "A" });
   expect(replay.lawyerPlans[0].write).toBeUndefined();
   expect(replay.statusReview[0].tier).toBe("B");
@@ -73,7 +79,7 @@ test("an active-status note needs its own approval and never reactivates an exis
   const withheld = planImport(input, state, options);
   expect(withheld.lawyerPlans[0].write).not.toHaveProperty("update.standingNote");
   expect(withheld.statusReview[0].sourceUrl).toBeNull();
-  const allowed = planImport(input, state, { ...options, approvals: new Set([primaryKey(row)]) });
+  const allowed = planImport(input, state, approveAll(input, state));
   expect(allowed.lawyerPlans[0].write).toMatchObject({ update: { standingNote: row.disciplinary_note } });
   expect(allowed.lawyerPlans[0].write).not.toHaveProperty("update.barStatus");
 });
@@ -133,4 +139,23 @@ test("lawyers-only never uses a heuristic firm match; unresolved references go t
   expect(resolved.firmPlans).toEqual([]);
   expect(resolved.lawyerPlans[0].write).toMatchObject({ insert: { primaryFirmId: firm.id } });
   expect(resolved.unresolvedFirmReferences).toBe(0);
+});
+
+test("an approval does not carry over when the status, note or source changes", () => {
+  const input = { firms: [], lawyers: [struck] };
+  const approval = approveAll(input, empty);
+  const changed = { firms: [], lawyers: [{ ...struck, disciplinary_note: "A different invented notice" }] };
+  const plan = planImport(changed, empty, approval);
+  expect(plan.lawyerPlans[0].write).toMatchObject({ insert: { barStatus: "active", standingNote: null } });
+  expect(plan.statusReview[0].problem).toContain("stale approval");
+});
+
+test("a claimed profile keeps cleared contact fields and its firm", () => {
+  const row = sourceLawyer({ email: "person@example.com", phone: "0312345678" });
+  const claimed = { ...lawyer, isClaimed: true, email: null, phone: null, firmName: null, primaryFirmId: null };
+  const plan = planImport({ firms: [], lawyers: [row] }, { ...empty, lawyers: [claimed], externalIds: [lawyerKey(row)] }, options);
+  const write = plan.lawyerPlans[0].write as { update?: Record<string, unknown> } | undefined;
+  for (const field of ["email", "phone", "address", "name", "firmName", "primaryFirmId"]) {
+    expect(write?.update ?? {}).not.toHaveProperty(field);
+  }
 });

@@ -3,8 +3,8 @@ import { firm, lawyer, sourceFirm, sourceLawyer } from "./fixtures";
 import { DOMAIN, PRIMARY, primaryKey, type ExternalId } from "./keys";
 import { matchFirms, matchLawyers } from "./match";
 
-const row = sourceLawyer({ city: "Rawang", firm_name: "Nadir & Co.", email: "admin@example.com", roll_no: "N-42" });
-const corroborated = { ...lawyer, email: "Admin@Example.com" };
+const row = sourceLawyer({ city: "Rawang", firm_name: "Nadir & Co.", email: "rafi@example.com", roll_no: "N-42" });
+const corroborated = { ...lawyer, email: "Rafi@Example.com" };
 const primary: ExternalId = { entityType: "lawyer", entityId: lawyer.id, namespace: PRIMARY, value: primaryKey(row) };
 
 test("a cross-state namesake or uncorroborated exact name never inserts or merges", () => {
@@ -70,4 +70,13 @@ test("shared firm domains cannot merge branches or get assigned based on input o
   ]);
   expect(preexisting.get(branchA.id)?.match.action).toBe("update");
   expect(preexisting.get(branchB.id)?.match.action).toBe("conflict");
+});
+
+test("a shared office mailbox or a switchboard number alone does not identify a person", () => {
+  const office = sourceLawyer({ email: "info@example.com", phone: "0312345678" });
+  expect(matchLawyers([office], [{ ...lawyer, email: "info@example.com" }], []).get(office.id)?.match.action).toBe("review");
+  expect(matchLawyers([office], [{ ...lawyer, phone: "0312345678" }], []).get(office.id)?.match.action).toBe("review");
+  const atFirm = sourceLawyer({ firm_name: "Nadir & Co.", phone: "0312345678" });
+  expect(matchLawyers([atFirm], [{ ...lawyer, firmName: "NADIR & CO", phone: "03-1234 5678" }], []).get(atFirm.id)?.match)
+    .toEqual({ action: "update", id: lawyer.id, tier: "B" });
 });

@@ -308,6 +308,7 @@ export async function saveLawyer(
       city: true,
       firmName: true,
       isClaimed: true,
+      barStatus: true,
     },
   });
 
@@ -359,11 +360,17 @@ export async function saveLawyer(
   if (existing) {
     // Existing rows keep ownership, verification, and source data intact.
     const isClaimed = existing.isClaimed;
+    // The directory listing only says active or not. It must not revive a
+    // lawyer recorded as struck off, suspended or deceased.
+    const keepStanding =
+      existing.barStatus === "struck_off" ||
+      existing.barStatus === "suspended" ||
+      existing.barStatus === "deceased";
     const updateData: Partial<typeof lawyers.$inferInsert> = {
       barAdmissionDate: scrapedLawyerData.barAdmissionDate ?? undefined,
-      barStatus: scrapedLawyerData.barStatus,
+      barStatus: keepStanding ? undefined : scrapedLawyerData.barStatus,
       yearsAtBar: scrapedLawyerData.yearsAtBar ?? undefined,
-      isActive: scrapedLawyerData.isActive,
+      isActive: keepStanding ? undefined : scrapedLawyerData.isActive,
       lastScrapedAt: scrapedLawyerData.lastScrapedAt,
       updatedAt: scrapedLawyerData.updatedAt,
     };

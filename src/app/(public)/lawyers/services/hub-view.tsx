@@ -1,3 +1,4 @@
+import { serializeJsonLd } from "@/lib/utils/json-ld";
 // Shared view and metadata for the credential hub pages:
 // /lawyers/services/[service], /[service]/[state], /[service]/[state]/[city].
 // Not a route (no page.tsx here).
@@ -120,7 +121,11 @@ export async function buildHubMetadata(
   return {
     title,
     description,
-    robots: credentialHubRobots(levelOf(place), total),
+    // A page number past the last page is an empty page: keep it out of the index.
+    robots:
+      page > 1 && (page - 1) * PAGE_SIZE >= total
+        ? { index: false, follow: true }
+        : credentialHubRobots(levelOf(place), total),
     alternates: { canonical: pathFor(hub, place, page) },
     openGraph: { title, description },
     twitter: { card: "summary_large_image", title, description },
@@ -252,7 +257,7 @@ async function HubContent({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
       />
       <div className="space-y-8">
         <div>

@@ -6,6 +6,9 @@ import {
   updateFirmProfile,
 } from "@/lib/db/queries/firms";
 import { z } from "zod";
+import { safeHttpUrl } from "@/lib/utils/json-ld";
+
+const isHttpUrl = (value: string) => safeHttpUrl(value) !== null;
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -50,8 +53,8 @@ const updateSchema = z.object({
   city: z.string().max(100).optional(),
   phone: z.string().max(50).optional(),
   email: z.string().email().max(200).optional(),
-  website: z.string().url().max(500).optional(),
-  logo: z.string().url().max(500).optional(),
+  website: z.string().url().max(500).refine(isHttpUrl, "Must be an http(s) URL").optional(),
+  logo: z.string().url().max(500).refine(isHttpUrl, "Must be an http(s) URL").optional(),
 });
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {

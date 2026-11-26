@@ -1,3 +1,4 @@
+import { serializeJsonLd } from "@/lib/utils/json-ld";
 import type { CaseWithRelations, LawyerRole } from "@/types/case";
 
 interface CaseJsonLdProps {
@@ -87,7 +88,7 @@ export function CaseJsonLd({ caseData, url }: CaseJsonLdProps) {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(combinedSchema) }}
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(combinedSchema) }}
     />
   );
 }

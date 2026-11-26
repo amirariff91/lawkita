@@ -36,12 +36,27 @@ export function canonicalFirmName(value: string | null | undefined): string {
     .replace(/\s+/g, " ").trim();
 }
 
+// Stored in national format ("0322731919"). A number given with the country
+// code ("+60 3-2273 1919", "60322731919") is brought to the same form so the
+// same line always compares equal and renders once with +60.
 export function phoneDigits(value: string | null | undefined): string | null {
-  return value?.replace(/\D/g, "") || null;
+  const digits = value?.replace(/\D/g, "") || null;
+  if (digits && /^60[1-9]\d{7,9}$/.test(digits)) return `0${digits.slice(2)}`;
+  return digits;
 }
 
+// Placeholders such as "n/a" or "-" are not addresses: they must not be
+// stored, linked with mailto:, or count as evidence that two rows match.
 export function normalizeEmail(value: string | null | undefined): string | null {
-  return text(value)?.toLowerCase() ?? null;
+  const email = text(value)?.toLowerCase() ?? null;
+  return email && /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(email) ? email : null;
+}
+
+const genericMailboxes = new Set(["info", "admin", "general", "contact", "enquiry", "enquiries", "office", "mail", "hello", "legal", "law", "reception", "support"]);
+
+/** A shared office mailbox says which firm someone is at, not who they are. */
+export function isPersonalEmail(email: string | null): boolean {
+  return email !== null && !genericMailboxes.has(email.split("@")[0]);
 }
 
 export function parseWebUrl(value: string | null | undefined, allowBare = false): URL | null {

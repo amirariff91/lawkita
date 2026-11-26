@@ -17,7 +17,12 @@ function csv(rows: readonly (readonly (string | number | null | undefined)[])[])
   }).join(",")).join("\r\n") + "\r\n";
 }
 
-export function parseApprovals(contents: string): Set<string> {
+/**
+ * Reads an edited status_review.csv. A row is an approval only with
+ * approved=yes and the fingerprint the report printed for it, so an approval
+ * cannot carry over to a different status, note, source or target.
+ */
+export function parseApprovals(contents: string): Map<string, string> {
   const input = contents.replace(/^\uFEFF/, "");
   const field = /(?:"((?:[^"]|"")*)"|([^",\r\n]*))(,|\r\n|\r|\n|$)/y;
   const rows: string[][] = [];
@@ -36,10 +41,11 @@ export function parseApprovals(contents: string): Set<string> {
   const header = rows.shift() ?? [];
   const keyColumn = header.indexOf("key");
   const approvalColumn = header.indexOf("approved");
-  if (keyColumn < 0 || approvalColumn < 0 || new Set(header).size !== header.length) {
-    throw new Error("Status approvals CSV must have unique key and approved columns");
+  const fingerprintColumn = header.indexOf("fingerprint");
+  if (keyColumn < 0 || approvalColumn < 0 || fingerprintColumn < 0 || new Set(header).size !== header.length) {
+    throw new Error("Status approvals CSV must have unique key, fingerprint and approved columns");
   }
-  const approved = new Set<string>();
+  const approved = new Map<string, string>();
   const seen = new Set<string>();
   for (const row of rows) {
     let key = row[keyColumn];
@@ -49,7 +55,10 @@ export function parseApprovals(contents: string): Set<string> {
       throw new Error("Status approvals CSV has an invalid or duplicate entry (approved must be yes, no, or blank)");
     }
     seen.add(key);
-    if (decision === "yes") approved.add(key);
+    if (decision === "yes") {
+      if (!/^[0-9a-f]{16}$/.test(row[fingerprintColumn])) throw new Error("Status approvals CSV has an approval without a valid fingerprint");
+      approved.set(key, row[fingerprintColumn]);
+    }
   }
   return approved;
 }
@@ -139,8 +148,9 @@ export async function writeReports(dir: string, plan: ImportPlan, issues: readon
   for (const entry of plan.firmPlans) record("firm", entry.row.name, entry);
   for (const entry of plan.lawyerPlans) record("lawyer", entry.row.full_name, entry);
   for (const { entity, row, reason } of issues) conflicts.push([entity, "", "", "", `JSON row ${row}: ${reason}`]);
-  const status = [["key", "name", "state", "firm", "status", "note", "source_url", "match_tier", "approved"],
-    ...plan.statusReview.map((row) => [row.key, row.name, row.state, row.firm, row.status, row.note, row.sourceUrl, row.tier, ""])];
+  const status = [["key", "name", "state", "firm", "status", "note", "source_url", "match_tier", "target_slug", "problem", "fingerprint", "approved"],
+    ...plan.statusReview.map((row) => [row.key, row.name, row.state, row.firm, row.status, row.note, row.sourceUrl, row.tier,
+      row.targetSlug, row.problem, row.fingerprint, ""])];
   const payloads = [JSON.stringify(summary, null, 2) + "\n", csv(review), csv(conflicts), csv(status), csv(slugs)];
   // Replace files, never follow destination symlinks or truncate external hard links.
   for (const [index, name] of reportNames.entries()) {

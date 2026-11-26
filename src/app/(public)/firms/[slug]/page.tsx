@@ -1,3 +1,4 @@
+import { safeHttpUrl } from "@/lib/utils/json-ld";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -69,7 +70,9 @@ export async function generateMetadata({
       url: canonicalUrl,
       siteName: "LawKita",
       locale: "en_MY",
-      ...(firm.logo && { images: [{ url: firm.logo, alt: `${displayName} logo` }] }),
+      ...(safeHttpUrl(firm.logo) && {
+        images: [{ url: safeHttpUrl(firm.logo)!, alt: `${displayName} logo` }],
+      }),
     },
     twitter: {
       card: "summary_large_image",
@@ -90,6 +93,9 @@ export default async function FirmProfilePage({
   }
 
   const isClaimed = firm.isClaimed ?? false;
+  // Only absolute http(s) URLs are ever rendered as a link or image source.
+  const logoUrl = safeHttpUrl(firm.logo);
+  const websiteUrl = safeHttpUrl(firm.website);
   const isPremium = firm.subscriptionTier === "firm_premium";
   const location = [firm.city, firm.state].filter(Boolean).join(", ");
   const displayName = formatFirmName(firm.name);
@@ -109,14 +115,14 @@ export default async function FirmProfilePage({
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-4">
-              {firm.logo ? (
+              {logoUrl ? (
                 // A light or white logo needs a dark backdrop to stay visible.
                 <div
                   className={`flex h-16 w-24 shrink-0 items-center justify-center rounded-lg border p-2 ${firm.logoIsLight ? "bg-[#112238]" : "bg-white"}`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={firm.logo}
+                    src={logoUrl}
                     alt={`${displayName} logo`}
                     className="max-h-full max-w-full object-contain"
                     loading="eager"
@@ -175,9 +181,9 @@ export default async function FirmProfilePage({
                 {firm.email}
               </a>
             )}
-            {firm.website && (
+            {websiteUrl && (
               <a
-                href={firm.website}
+                href={websiteUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"

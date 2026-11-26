@@ -100,7 +100,11 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
                   {isInactive && (
                     <Badge variant="destructive" className="shrink-0 gap-1 text-xs">
                       <AlertTriangle className="size-3" aria-hidden="true" />
-                      {lawyer.barStatus === "suspended" ? "Suspended" : "Inactive"}
+                      {lawyer.barStatus === "suspended"
+                        ? "Suspended"
+                        : lawyer.barStatus === "struck_off"
+                          ? "Struck off"
+                          : "Inactive"}
                     </Badge>
                   )}
 

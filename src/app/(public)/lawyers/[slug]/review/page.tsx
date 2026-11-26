@@ -25,6 +25,8 @@ export async function generateMetadata({
   return {
     title: `Write a Review for ${lawyer.name}`,
     description: `Share your experience working with ${lawyer.name}. Your review helps others make informed decisions.`,
+    // A form page: nothing here is worth indexing.
+    robots: { index: false, follow: true },
   };
 }
 
