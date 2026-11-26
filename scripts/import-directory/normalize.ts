@@ -59,7 +59,8 @@ const genericMailboxes = new Set(["info", "admin", "general", "contact", "enquir
 
 /**
  * A mailbox counts as the person's own only when its local part carries part
- * of their name ("aisyah.rahman@", "arahman@" does not). A shared office or
+ * of their own name as a whole segment ("aisyah.rahman@" does; "arahman@" and
+ * "rahman@" for "Aisyah binti Rahman" do not). A shared office or
  * branch mailbox ("info@", "kl.office@", "skrine@skrine.com") says which firm
  * someone is at, not who they are.
  */
@@ -67,10 +68,15 @@ export function isPersonalEmail(email: string | null, personName: string | null 
   if (email === null || !personName) return false;
   const local = email.split("@")[0];
   if (local.split(/[._+-]/).some((part) => genericMailboxes.has(part))) return false;
-  const letters = local.replace(/[^a-z]/g, "");
-  const tokens = canonicalName(personName).split(" ")
-    .filter((token) => token.length >= 4 && !["binti", "bin", "abdul", "mohd", "muhammad", "mohamad", "mohamed", "nurul", "siti"].includes(token));
-  return tokens.some((token) => letters.includes(token));
+  const segments = new Set(local.split(/[._+\-0-9]+/).filter(Boolean));
+  // Only the person's own names count, and only as a whole segment: the part
+  // after bin/binti/a-l/a-p is a parent's name, which a relative or a firm
+  // principal's mailbox can share.
+  const words = canonicalName(personName).split(" ");
+  const particle = words.findIndex((word) => ["bin", "binti", "binte", "bt", "bte", "al", "ap", "so", "do", "anak"].includes(word));
+  const own = (particle > 0 ? words.slice(0, particle) : words)
+    .filter((token) => token.length >= 4 && !["abdul", "mohd", "muhammad", "mohamad", "mohamed", "nurul", "siti", "noor"].includes(token));
+  return own.some((token) => segments.has(token));
 }
 
 export function parseWebUrl(value: string | null | undefined, allowBare = false): URL | null {

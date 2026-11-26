@@ -159,3 +159,11 @@ test("a claimed profile keeps cleared contact fields and its firm", () => {
     expect(write?.update ?? {}).not.toHaveProperty(field);
   }
 });
+
+test("an approved standing replaces an older note and its source together", () => {
+  const row = sourceLawyer({ status: "Struck Off", sources: ["sabah_law_society_disciplinary"], source_urls: ["https://sabahlawsociety.org/order"] });
+  const current = { ...lawyer, barStatus: "suspended" as const, standingNote: "Older suspension note", standingSourceUrl: "https://example.org/old" };
+  const state = { ...empty, lawyers: [current], externalIds: [lawyerKey(row)] };
+  const plan = planImport({ firms: [], lawyers: [row] }, state, approveAll({ firms: [], lawyers: [row] }, state));
+  expect(plan.lawyerPlans[0].write).toMatchObject({ update: { barStatus: "struck_off", standingNote: null, standingSourceUrl: "https://sabahlawsociety.org/order" } });
+});

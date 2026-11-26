@@ -22,10 +22,12 @@ describe("whatsappHref", () => {
     expect(whatsappHref("01155833109")).toBe("https://wa.me/601155833109");
   });
 
-  test("anything but plain national digits gets no link", () => {
-    expect(whatsappHref("013-902 1388")).toBeNull();
+  test("a mobile number in any written form gets a link; anything else does not", () => {
+    expect(whatsappHref("013-902 1388")).toBe("https://wa.me/60139021388");
+    expect(whatsappHref("+60 13 902 1388")).toBe("https://wa.me/60139021388");
+    expect(whatsappHref("60139021388")).toBe("https://wa.me/60139021388");
     expect(whatsappHref("https://wa.me/60139021388")).toBeNull();
-    expect(whatsappHref("60139021388")).toBeNull();
+    expect(whatsappHref("0322731919")).toBeNull();
     expect(whatsappHref("")).toBeNull();
     expect(whatsappHref(undefined)).toBeNull();
   });

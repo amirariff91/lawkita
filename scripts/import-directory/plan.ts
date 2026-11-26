@@ -287,10 +287,9 @@ export function planImport(input: { firms: readonly FirmInput[]; lawyers: readon
           if (barStatus === "struck_off") patch.barStatus = barStatus;
           // Note and source are approved as a pair and written as a pair, so a
           // new note can never sit beside the source of an older one.
-          if (note !== null || barStatus === "struck_off") {
-            if (note !== null) patch.standingNote = note;
-            patch.standingSourceUrl = sourceUrl;
-          }
+          // (including clearing a note that the approved release no longer has).
+          patch.standingNote = note;
+          patch.standingSourceUrl = sourceUrl;
         }
         const update = changed(current, patch, now);
         if (update) entry.write = { update: { ...update, updatedAt: now } };

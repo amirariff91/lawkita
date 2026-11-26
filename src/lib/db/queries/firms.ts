@@ -10,6 +10,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
+import { cache } from "react";
 import { db } from "@/lib/db";
 import { listableLawyer } from "@/lib/lawyers/listable";
 import {
@@ -168,7 +169,12 @@ async function getFirmLawyers(firmId: string): Promise<{
     .map(([name, { slug }]) => ({ name, slug }));
 
   const admissionYears = lawyerRows
-    .map((row) => row.barAdmissionDate?.getFullYear())
+    // Stored dates are midnight in Malaysia; read the year in Malaysia time.
+    .map((row) =>
+      row.barAdmissionDate
+        ? new Date(row.barAdmissionDate.getTime() + 8 * 3_600_000).getUTCFullYear()
+        : undefined
+    )
     .filter((year): year is number => typeof year === "number" && Number.isFinite(year));
 
   return {
@@ -182,7 +188,10 @@ async function getFirmLawyers(firmId: string): Promise<{
   };
 }
 
-export async function getFirmBySlug(slug: string): Promise<FirmWithStats | null> {
+// Metadata and the page both need the firm; cache() makes that one fetch per request.
+export const getFirmBySlug = cache(async function getFirmBySlug(
+  slug: string
+): Promise<FirmWithStats | null> {
   const [firm] = await db
     .select()
     .from(firms)
@@ -210,9 +219,11 @@ export async function getFirmBySlug(slug: string): Promise<FirmWithStats | null>
     isClaimed: firm.isClaimed,
     subscriptionTier: firm.subscriptionTier ?? "free",
     lawyerCount: firmLawyers.lawyers.length,
-    avgYearsExperience: years.length
-      ? years.reduce((total, year) => total + year, 0) / years.length
-      : null,
+    // An average is only stated when it covers every listed lawyer.
+    avgYearsExperience:
+      years.length > 0 && years.length === firmLawyers.lawyers.length
+        ? years.reduce((total, year) => total + year, 0) / years.length
+        : null,
     practiceAreas: firmLawyers.practiceAreas,
     lawyers: firmLawyers.lawyers,
     logoIsLight: firm.logoIsLight,
@@ -233,7 +244,7 @@ export async function getFirmBySlug(slug: string): Promise<FirmWithStats | null>
     lawyerCredentials: firmLawyers.lawyerCredentials,
     earliestAdmissionYear: firmLawyers.earliestAdmissionYear,
   };
-}
+});
 
 export interface NearbyFirm {
   id: string;
@@ -247,7 +258,7 @@ export interface NearbyFirm {
  *
  * One query: firms in the same state (or, when the firm has no state, the
  * same city), same-city firms first, then by listed lawyers and id. Lawyers
- * are counted live with `listableLawyer`, not from the cached lawyer_count.
+ * come from the cached lawyer_count, which the directory import recomputes.
  * When any same-city firm exists only those are returned (scope "city");
  * otherwise the state's firms are (scope "state").
  */
@@ -262,7 +273,8 @@ export async function getNearbyFirms(
   const sameCity = city
     ? sql<boolean>`coalesce(lower(${firms.city}) = lower(${city}), false)`
     : sql<boolean>`false`;
-  const lawyerCount = sql<number>`count(${lawyers.id})::int`;
+  // The cached count the importer keeps current: no join over lawyers here.
+  const lawyerCount = sql<number>`coalesce(${firms.lawyerCount}, 0)`;
   const placeFilter = state
     ? eq(firms.state, state)
     : sql`lower(${firms.city}) = lower(${city})`;
@@ -276,9 +288,7 @@ export async function getNearbyFirms(
       lawyerCount,
     })
     .from(firms)
-    .leftJoin(lawyers, and(eq(lawyers.primaryFirmId, firms.id), listableLawyer))
     .where(and(placeFilter, sql`${firms.id} <> ${firm.id}`))
-    .groupBy(firms.id)
     .orderBy(desc(sameCity), desc(lawyerCount), asc(firms.id))
     .limit(limit);
 

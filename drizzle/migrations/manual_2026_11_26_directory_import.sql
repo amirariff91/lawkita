@@ -44,6 +44,9 @@ CREATE TABLE IF NOT EXISTS external_ids (
 );
 CREATE INDEX IF NOT EXISTS external_ids_entity_idx ON external_ids (entity_type, entity_id);
 
+-- Firm pages list a firm's lawyers on every view; with ~30k lawyers this was a full scan.
+CREATE INDEX IF NOT EXISTS lawyers_primary_firm_id_idx ON lawyers (primary_firm_id);
+
 -- bar_status is plain text in schema.ts and gains the value 'struck_off'.
 -- If production carries a CHECK constraint on it, this fails loudly here
 -- instead of at import time.

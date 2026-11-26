@@ -126,6 +126,7 @@ export const lawyers = pgTable(
     index("lawyers_city_idx").on(table.city),
     index("lawyers_subscription_tier_idx").on(table.subscriptionTier),
     index("lawyers_is_verified_idx").on(table.isVerified),
+    index("lawyers_primary_firm_id_idx").on(table.primaryFirmId),
   ]
 );
 

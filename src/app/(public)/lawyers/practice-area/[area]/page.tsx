@@ -6,7 +6,7 @@ import { getLawyersByPracticeArea } from "@/lib/db/queries/lawyers";
 import { getPracticeAreaBySlug } from "@/lib/constants/practice-areas";
 import { LawyerGrid, LawyerGridSkeleton, PaginationLink } from "@/components/lawyers";
 import { Breadcrumbs } from "@/components/seo";
-import { getPracticeAreaPageSchema, isHubPageIndexable, DEFAULT_OG_IMAGES } from "@/lib/utils/seo";
+import { getPracticeAreaPageSchema, isHubPageIndexable, DEFAULT_OG_IMAGES, truncateForDescription } from "@/lib/utils/seo";
 import { Badge } from "@/components/ui/badge";
 import type { SearchParams } from "nuqs/server";
 import { createSearchParamsCache, parseAsInteger } from "nuqs/server";
@@ -44,7 +44,9 @@ export async function generateMetadata({
     .then((result) => result.total)
     .catch(() => Number.POSITIVE_INFINITY);
   const counted = Number.isFinite(total) && total > 0;
-  const description = `${counted ? `${total.toLocaleString("en-MY")} ` : "Find "}${practiceArea.name.toLowerCase()} lawyers in Malaysia, by state and city, with firm and years at the Bar.${practiceArea.description ? ` ${practiceArea.description}.` : ""}`.slice(0, 160);
+  const description = truncateForDescription(
+    `${counted ? `${total.toLocaleString("en-MY")} ` : "Find "}${practiceArea.name.toLowerCase()} lawyers in Malaysia, by state and city, with firm and years at the Bar.${practiceArea.description ? ` ${practiceArea.description}.` : ""}`
+  );
   const robots = isHubPageIndexable(total)
     ? undefined
     : { index: false, follow: true };

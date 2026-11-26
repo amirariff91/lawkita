@@ -38,6 +38,10 @@ async function main() {
     throw new Error("--limit must be a positive integer");
   }
   if (apply && !values["confirm-db"]) throw new Error("--apply requires --confirm-db <host:port>/<dbname>");
+  // Dates are read from and written to a timestamp-without-time-zone column
+  // through the host's local time. The day arithmetic in the matcher is only
+  // right when that is UTC.
+  if (new Date().getTimezoneOffset() !== 0) throw new Error("Run the importer with TZ=UTC");
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL must be exported in the environment");
   let databaseUrl: URL;

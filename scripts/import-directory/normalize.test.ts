@@ -45,5 +45,10 @@ test("placeholders are not email addresses and office mailboxes are not personal
   expect(isPersonalEmail("skrine@skrine.com", "Aisyah binti Rahman")).toBe(false);
   expect(isPersonalEmail("aisyah.rahman@example.com", "Aisyah binti Rahman")).toBe(true);
   expect(isPersonalEmail("aisyah@example.com", null)).toBe(false);
+  expect(isPersonalEmail("arahman@example.com", "Aisyah binti Rahman")).toBe(false);
+  expect(isPersonalEmail("rahman@example.com", "Aisyah binti Rahman")).toBe(false);
+  expect(isPersonalEmail("ahmad@example.com", "Farid bin Ahmad")).toBe(false);
+  expect(isPersonalEmail("azizah.kl@example.com", "Aziz Rahman")).toBe(false);
+  expect(isPersonalEmail("farid88@example.com", "Farid bin Ahmad")).toBe(true);
   expect(isPersonalEmail(null, "Aisyah binti Rahman")).toBe(false);
 });

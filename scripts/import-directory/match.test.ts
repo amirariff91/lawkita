@@ -85,6 +85,9 @@ test("an admission date stored as midnight in Malaysia equals the same calendar 
   const dated = sourceLawyer({ admission_date: "2024-03-01" });
   const stored = { ...lawyer, barAdmissionDate: new Date("2024-02-29T16:00:00Z") };
   expect(matchLawyers([dated], [stored], []).get(dated.id)?.match).toEqual({ action: "update", id: lawyer.id, tier: "B" });
+  // A date this importer stored itself (midnight UTC) is the same day too.
+  const utcMidnight = { ...lawyer, barAdmissionDate: new Date("2024-03-01T00:00:00Z") };
+  expect(matchLawyers([dated], [utcMidnight], []).get(dated.id)?.match.action).toBe("update");
   const dayBefore = { ...lawyer, barAdmissionDate: new Date("2024-02-28T16:00:00Z") };
   expect(matchLawyers([dated], [dayBefore], []).get(dated.id)?.match.action).toBe("review");
 });

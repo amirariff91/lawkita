@@ -19,8 +19,13 @@ export function telHref(phone: string | null | undefined): string | null {
  */
 export function whatsappHref(value: string | null | undefined): string | null {
   const stored = value?.trim();
-  if (!stored || !/^0\d{8,10}$/.test(stored)) return null;
-  return `https://wa.me/6${stored}`;
+  // Mobile numbers only (01x): a landline has no WhatsApp account to open.
+  // A phone number as written ("013-902 1388", "+60 13 902 1388"), nothing else.
+  if (!stored || !/^\+?[\d\s-]+$/.test(stored)) return null;
+  const digits = stored.replace(/\D/g, "");
+  const national = /^60/.test(digits) ? `0${digits.slice(2)}` : digits;
+  if (!/^01\d{7,9}$/.test(national)) return null;
+  return `https://wa.me/6${national}`;
 }
 
 function hasWord(haystack: string, needle: string): boolean {
