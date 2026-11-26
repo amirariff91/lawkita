@@ -128,7 +128,8 @@ describe("ItemList JSON-LD", () => {
     expect(schema.itemListElement[0]).toEqual({
       "@type": "ListItem",
       position: 21,
-      url: "https://lawkita.com/lawyers/a-lawyer",
+      // The origin comes from NEXT_PUBLIC_APP_URL, which differs per machine.
+      url: expect.stringMatching(/\/lawyers\/a-lawyer$/),
       name: "A Lawyer",
     });
     expect(schema.itemListElement[1].position).toBe(22);

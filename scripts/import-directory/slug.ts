@@ -33,7 +33,10 @@ function allocate(base: string, used: Set<string>, suffixes: ["city" | "state", 
 }
 
 export function lawyerSlug(row: { full_name: string; city?: string | null; state: string }, used: Set<string>) {
-  return allocate(generateLawyerSlug(row.full_name), used, [
+  // The shared rule can leave a hyphen at either end ("' Awatif", "Bangau (").
+  // New profiles get clean slugs; existing slugs are never regenerated.
+  const base = generateLawyerSlug(row.full_name).replace(/^-+|-+$/g, "") || "lawyer";
+  return allocate(base, used, [
     ["city", generateLawyerSlug(normalizeCity(row.city) ?? "")],
     ["state", generateLawyerSlug(row.state)],
   ]);

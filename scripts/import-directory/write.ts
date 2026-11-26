@@ -95,14 +95,15 @@ async function applyPlan(tx: Transaction, plan: ImportPlan): Promise<number> {
   }
   for (const batch of batches(plan.links)) await tx.insert(lawyerPracticeAreas).values(batch).onConflictDoNothing();
   let countUpdates = 0;
-  for (const batch of batches([...plan.touchedFirms])) {
+  // Every firm, not only the ones this run touched: a lawyer who moved leaves
+  // a stale count on the old firm, and counts from before the import are stale.
+  if (plan.touchedFirms.size > 0) {
     const updated = await tx.execute(sql`
-      WITH requested(id) AS (VALUES ${sql.join(batch.map((id) => sql`(${id}::uuid)`), sql`, `)}),
-      counts AS (
-        SELECT requested.id, count(${lawyers.id})::int AS lawyer_count
-        FROM requested LEFT JOIN ${lawyers} ON ${lawyers.primaryFirmId} = requested.id
-          AND ${lawyers.isActive} AND ${lawyers.barStatus} = 'active'
-        GROUP BY requested.id
+      WITH counts AS (
+        SELECT ${firms.id} AS id, count(${lawyers.id})::int AS lawyer_count
+        FROM ${firms} LEFT JOIN ${lawyers} ON ${lawyers.primaryFirmId} = ${firms.id}
+          AND ${lawyers.isActive} AND coalesce(${lawyers.barStatus}, 'active') = 'active'
+        GROUP BY ${firms.id}
       )
       UPDATE ${firms} AS target SET lawyer_count = counts.lawyer_count, updated_at = ${plan.now.toISOString()}::timestamp
       FROM counts WHERE target.id = counts.id AND target.lawyer_count IS DISTINCT FROM counts.lawyer_count
