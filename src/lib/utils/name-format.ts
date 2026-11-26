@@ -23,6 +23,15 @@ const PATRONYMIC_PARTICLES = new Set([
   "d/o",
 ]);
 
+/** Honorific abbreviations with a fixed spelling. */
+const PERSON_FIXED_FORMS = new Map([
+  ["yb", "YB"],
+  ["yab", "YAB"],
+  ["ybhg", "YBhg"],
+  ["yam", "YAM"],
+  ["ybm", "YBM"],
+]);
+
 /** Short particles that are also lower-case in a person's name, but not in a firm name. */
 const PERSON_ONLY_PARTICLES = new Set(["al", "ap"]);
 
@@ -66,6 +75,8 @@ function isInitials(token: string): boolean {
 function titleCaseWord(token: string): string {
   return token
     .toLowerCase()
+    // "MCDONALD" -> "McDonald"
+    .replace(/^mc(\p{L})/u, (_, letter: string) => `mc${letter.toUpperCase()}`)
     .replace(/(^|[-/("])(\p{L})/gu, (_, before: string, letter: string) => before + letter.toUpperCase())
     .replace(
       /(^|[-/("])(\p{L})['’](\p{L})/gu,
@@ -94,11 +105,17 @@ export function formatPersonName(name: string | null | undefined): string {
   if (!name) return "";
   if (hasLowerCase(name)) return name;
 
-  return splitWords(name)
+  const words = splitWords(name);
+  return words
     .map((token, index) => {
       const lower = token.toLowerCase();
+      const fixed = PERSON_FIXED_FORMS.get(lower.replace(/\.$/, ""));
+      if (fixed) return fixed;
+      // A particle sits between two names. In last place "BIN" is a given
+      // name ("LIM WEI BIN"), not a patronymic.
       if (
         index > 0 &&
+        index < words.length - 1 &&
         (PATRONYMIC_PARTICLES.has(lower) || PERSON_ONLY_PARTICLES.has(lower))
       ) {
         return lower;

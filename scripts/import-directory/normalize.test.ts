@@ -40,7 +40,10 @@ test("placeholders are not email addresses and office mailboxes are not personal
   expect(normalizeEmail("n/a")).toBeNull();
   expect(normalizeEmail("-")).toBeNull();
   expect(normalizeEmail(" Person@Example.com ")).toBe("person@example.com");
-  expect(isPersonalEmail("info@example.com")).toBe(false);
-  expect(isPersonalEmail("aisyah@example.com")).toBe(true);
-  expect(isPersonalEmail(null)).toBe(false);
+  expect(isPersonalEmail("info@example.com", "Aisyah binti Rahman")).toBe(false);
+  expect(isPersonalEmail("info.kl@example.com", "Aisyah binti Rahman")).toBe(false);
+  expect(isPersonalEmail("skrine@skrine.com", "Aisyah binti Rahman")).toBe(false);
+  expect(isPersonalEmail("aisyah.rahman@example.com", "Aisyah binti Rahman")).toBe(true);
+  expect(isPersonalEmail("aisyah@example.com", null)).toBe(false);
+  expect(isPersonalEmail(null, "Aisyah binti Rahman")).toBe(false);
 });

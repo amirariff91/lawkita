@@ -1,3 +1,4 @@
+import { safeHttpUrl } from "@/lib/utils/json-ld";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExternalLink, Newspaper, Calendar } from "lucide-react";
 import { format } from "date-fns";
@@ -25,7 +26,7 @@ export function CaseMediaReferences({ references }: CaseMediaReferencesProps) {
           {references.map((ref) => (
             <a
               key={ref.id}
-              href={ref.url}
+              href={safeHttpUrl(ref.url) ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-start justify-between gap-4 p-3 rounded-lg border hover:border-primary/20 hover:bg-muted/50 transition-all group"

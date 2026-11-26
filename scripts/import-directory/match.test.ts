@@ -80,3 +80,11 @@ test("a shared office mailbox or a switchboard number alone does not identify a 
   expect(matchLawyers([atFirm], [{ ...lawyer, firmName: "NADIR & CO", phone: "03-1234 5678" }], []).get(atFirm.id)?.match)
     .toEqual({ action: "update", id: lawyer.id, tier: "B" });
 });
+
+test("an admission date stored as midnight in Malaysia equals the same calendar day in the dataset", () => {
+  const dated = sourceLawyer({ admission_date: "2024-03-01" });
+  const stored = { ...lawyer, barAdmissionDate: new Date("2024-02-29T16:00:00Z") };
+  expect(matchLawyers([dated], [stored], []).get(dated.id)?.match).toEqual({ action: "update", id: lawyer.id, tier: "B" });
+  const dayBefore = { ...lawyer, barAdmissionDate: new Date("2024-02-28T16:00:00Z") };
+  expect(matchLawyers([dated], [dayBefore], []).get(dated.id)?.match.action).toBe("review");
+});

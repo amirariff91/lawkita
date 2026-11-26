@@ -117,12 +117,17 @@ export function matchLawyers(
     if (placeholders.has(candidate.id)) return review("placeholder Bar profile", [candidate.id]);
     if (!candidate.isActive) return review("name match to inactive profile", [candidate.id]);
     const date = parseAdmissionDate(row.admission_date)?.toISOString().slice(0, 10) ?? null;
-    const existingDate = candidate.barAdmissionDate?.toISOString().slice(0, 10) ?? null;
+    // Stored admission dates are midnight in Malaysia (UTC+8), i.e. 16:00 UTC
+    // on the previous day. Compare calendar days in Malaysia time, or no
+    // stored date would ever equal the dataset's.
+    const existingDate = candidate.barAdmissionDate
+      ? new Date(candidate.barAdmissionDate.getTime() + 8 * 3_600_000).toISOString().slice(0, 10)
+      : null;
     const matchedFirm = row.firm_id == null ? null : matchedFirmIds.get(row.firm_id) ?? null;
     // Admission date and a personal mailbox identify a person. Firm and
     // switchboard phone only say where someone works, so they count together.
     const email = normalizeEmail(row.email);
-    const strong = same(date, existingDate) || (isPersonalEmail(email) && same(email, normalizeEmail(candidate.email)));
+    const strong = same(date, existingDate) || (isPersonalEmail(email, row.full_name) && same(email, normalizeEmail(candidate.email)));
     const sameFirm = same(canonicalFirmName(row.firm_name), canonicalFirmName(candidate.firmName)) ||
       same(matchedFirm, candidate.primaryFirmId);
     const samePhone = same(phoneDigits(row.phone), phoneDigits(candidate.phone));

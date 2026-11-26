@@ -19,6 +19,8 @@ interface LawyerCtaProps {
   hideStateSelect?: boolean;
   heading?: string;
   practiceAreaLabel?: string;
+  /** Practice-area hub the button links to. */
+  practiceAreaSlug?: string;
 }
 
 /** Contextual link into the directory below a calculator result. */
@@ -28,6 +30,7 @@ export function LawyerCta({
   hideStateSelect,
   heading = "Need a lawyer to handle it?",
   practiceAreaLabel = "conveyancing lawyer",
+  practiceAreaSlug = "conveyancing",
 }: LawyerCtaProps) {
   const [ownState, setOwnState] = useState(ANY_STATE);
   const selected = stateSlug ?? ownState;
@@ -68,7 +71,7 @@ export function LawyerCta({
         )}
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button asChild>
-            <Link href="/lawyers/practice-area/conveyancing">
+            <Link href={`/lawyers/practice-area/${practiceAreaSlug}`}>
               Find a {practiceAreaLabel}
               <ArrowRight className="size-4" aria-hidden="true" />
             </Link>

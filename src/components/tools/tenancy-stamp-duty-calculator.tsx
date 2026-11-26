@@ -114,7 +114,11 @@ export function TenancyStampDutyCalculator() {
                 <RuleSources tables={result.tables} />
               </CardContent>
             </Card>
-            <LawyerCta heading="Need help with a tenancy agreement?" />
+            <LawyerCta
+              heading="Need help with a tenancy agreement?"
+              practiceAreaLabel="tenancy lawyer"
+              practiceAreaSlug="tenancy-law"
+            />
           </>
         ) : (
           <Card>

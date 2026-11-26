@@ -58,6 +58,7 @@ export function computeScaleFee(table: PercentScaleTable, value: number): ScaleF
     lines,
     subtotal,
     minimumApplied,
+    minimumAmount: table.minimumFee,
     total: minimumApplied ? table.minimumFee : subtotal,
     tables: [table],
     includesNegotiable,

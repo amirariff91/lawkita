@@ -27,7 +27,7 @@ export function Breakdown({ result, caption }: { result: CalcResult; caption: st
           {result.minimumApplied && (
             <tr className="border-b align-top">
               <td className="py-2 pr-3" colSpan={2}>
-                Raised to the minimum of {formatRM(MINIMUM_DUTY.amount)}
+                Raised to the minimum of {formatRM(result.minimumAmount ?? MINIMUM_DUTY.amount)}
               </td>
               <td className="py-2 text-right tabular-nums">{formatRM(result.total)}</td>
             </tr>

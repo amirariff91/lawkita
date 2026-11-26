@@ -1,3 +1,4 @@
+import { serializeJsonLd } from "@/lib/utils/json-ld";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Breadcrumbs } from "@/components/seo";
@@ -5,10 +6,6 @@ import { TOOLS, type ToolDefinition } from "@/lib/tools/registry";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://lawkita.com";
 
-/** Serialise JSON-LD safely inside a <script> tag. */
-function jsonLd(data: object): string {
-  return JSON.stringify(data).replace(/</g, "\\u003c");
-}
 
 export function getWebApplicationSchema(tool: ToolDefinition): object {
   return {
@@ -45,7 +42,7 @@ export function ToolPage({ tool, intro, calculator, howItWorks, faqs }: ToolPage
   const others = TOOLS.filter((t) => t.slug !== tool.slug);
   return (
     <div className="container mx-auto max-w-4xl px-4 py-6 md:py-10">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(getWebApplicationSchema(tool)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(getWebApplicationSchema(tool)) }} />
       <Breadcrumbs
         items={[
           { label: "Tools", href: "/tools" },

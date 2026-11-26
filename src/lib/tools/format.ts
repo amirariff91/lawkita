@@ -32,7 +32,9 @@ export function parseAmountInput(raw: string): number | null {
   const multiplier = match[2] === "m" ? 1_000_000 : match[2] === "k" ? 1_000 : 1;
   const value = Number(match[1]) * multiplier;
   if (!Number.isFinite(value) || value <= 0) return null;
-  return Math.round(value * 100) / 100;
+  // Round to sen, then check again: "0.001" rounds to nothing.
+  const rounded = Math.round(value * 100) / 100;
+  return rounded > 0 ? rounded : null;
 }
 
 const MONTHS = [

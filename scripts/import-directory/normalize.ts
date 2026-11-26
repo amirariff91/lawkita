@@ -57,9 +57,20 @@ export function normalizeEmail(value: string | null | undefined): string | null 
 
 const genericMailboxes = new Set(["info", "admin", "general", "contact", "enquiry", "enquiries", "office", "mail", "hello", "legal", "law", "reception", "support"]);
 
-/** A shared office mailbox says which firm someone is at, not who they are. */
-export function isPersonalEmail(email: string | null): boolean {
-  return email !== null && !genericMailboxes.has(email.split("@")[0]);
+/**
+ * A mailbox counts as the person's own only when its local part carries part
+ * of their name ("aisyah.rahman@", "arahman@" does not). A shared office or
+ * branch mailbox ("info@", "kl.office@", "skrine@skrine.com") says which firm
+ * someone is at, not who they are.
+ */
+export function isPersonalEmail(email: string | null, personName: string | null | undefined): boolean {
+  if (email === null || !personName) return false;
+  const local = email.split("@")[0];
+  if (local.split(/[._+-]/).some((part) => genericMailboxes.has(part))) return false;
+  const letters = local.replace(/[^a-z]/g, "");
+  const tokens = canonicalName(personName).split(" ")
+    .filter((token) => token.length >= 4 && !["binti", "bin", "abdul", "mohd", "muhammad", "mohamad", "mohamed", "nurul", "siti"].includes(token));
+  return tokens.some((token) => letters.includes(token));
 }
 
 export function parseWebUrl(value: string | null | undefined, allowBare = false): URL | null {

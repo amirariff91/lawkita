@@ -96,3 +96,13 @@ describe("formatFirmName", () => {
     expect(formatFirmName(null)).toBe("");
   });
 });
+
+import { test as extraTest, expect as extraExpect } from "bun:test";
+
+extraTest("particles only sit between names; fixed honorifics and Mc names keep their form", () => {
+  extraExpect(formatPersonName("LIM WEI BIN")).toBe("Lim Wei Bin");
+  extraExpect(formatPersonName("AHMAD BIN ALI")).toBe("Ahmad bin Ali");
+  extraExpect(formatPersonName("YB DATO' AHMAD BIN ALI")).toBe("YB Dato' Ahmad bin Ali");
+  extraExpect(formatPersonName("YBHG DATUK LEE")).toBe("YBhg Datuk Lee");
+  extraExpect(formatPersonName("JOHN MCDONALD")).toBe("John McDonald");
+});

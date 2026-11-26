@@ -29,6 +29,8 @@ export interface CalcResult {
   subtotal: number;
   /** True when a statutory minimum raised the total. */
   minimumApplied: boolean;
+  /** The minimum that was applied, so the breakdown names the right rule. */
+  minimumAmount?: number;
   total: number;
   /** Tables used, for citing sources next to the result. */
   tables: RateTableMeta[];
@@ -101,6 +103,7 @@ function finish(lines: BreakdownLine[], tables: RateTableMeta[], applyMinimum: b
     lines,
     subtotal,
     minimumApplied,
+    minimumAmount: MINIMUM_DUTY.amount,
     total: minimumApplied ? MINIMUM_DUTY.amount : subtotal,
     tables: minimumApplied ? [...tables, MINIMUM_DUTY] : tables,
   };
